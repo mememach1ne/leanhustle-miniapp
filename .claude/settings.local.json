@@ -29,7 +29,8 @@
       "Bash(mkdir -p \"C:\\\\lh miniapp\\\\apps\\\\web\\\\app\\\\\\(tabs\\)\\\\admin\\\\orders\\\\[id]\" && mkdir -p \"C:\\\\lh miniapp\\\\apps\\\\web\\\\components\\\\admin\")",
       "Bash(curl -s http://localhost:3001/api/health)",
       "Bash(node -e ' *)",
-      "Bash(node dist/apps/api/src/main.js)"
+      "Bash(node dist/apps/api/src/main.js)",
+      "Bash(pnpm --filter @lean-poizon/web build)"
     ]
   }
 }

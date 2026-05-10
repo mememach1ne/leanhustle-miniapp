@@ -1,14 +1,13 @@
 'use client';
 
-import { ORDER_STATUS_LABELS, OrderStatus } from '@lean-poizon/shared';
 import type {
   AdminOrdersResponse,
   AdminUsersResponse,
   BusinessSettingsDto,
   SettingsAuditLogItemDto,
-  StaffOrderDetailsDto,
   StaffOrderListItemDto,
 } from '@lean-poizon/shared';
+import { ORDER_STATUS_LABELS, OrderStatus } from '@lean-poizon/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -31,14 +30,6 @@ const STATUS_COLORS: Record<string, string> = {
   TRACK_CODE_RECEIVED: 'bg-emerald-400/15 text-emerald-300 border-emerald-300/30',
 };
 
-// Next valid statuses for transition buttons
-const NEXT_STATUS: Record<string, { status: OrderStatus; label: string }[]> = {
-  CREATED: [{ status: OrderStatus.PAYMENT_PENDING, label: 'Реквизиты отправлены' }],
-  PAYMENT_PENDING: [{ status: OrderStatus.PAID_AWAITING_PURCHASE, label: 'Оплата получена' }],
-  PAID_AWAITING_PURCHASE: [{ status: OrderStatus.PURCHASED, label: 'Товар выкуплен' }],
-  PURCHASED: [],
-  TRACK_CODE_RECEIVED: [],
-};
 
 export default function AdminPage() {
   const user = useAuthStore((state) => state.user);

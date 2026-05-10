@@ -1,7 +1,7 @@
 'use client';
 
-import { ORDER_STATUS_LABELS, OrderStatus } from '@lean-poizon/shared';
 import type { StaffOrderDetailsDto } from '@lean-poizon/shared';
+import { ORDER_STATUS_LABELS, OrderStatus } from '@lean-poizon/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';

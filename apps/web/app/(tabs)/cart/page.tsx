@@ -9,7 +9,6 @@ import { FeedbackMessage } from '../../../components/ui/feedback-message';
 import { InfoRow } from '../../../components/ui/info-row';
 import { PageSection } from '../../../components/ui/page-section';
 import { PriceSummaryCard } from '../../../components/ui/price-summary-card';
-import { ProductMiniCard } from '../../../components/ui/product-mini-card';
 import { SectionCard } from '../../../components/ui/section-card';
 import { CartItemSkeleton } from '../../../components/ui/skeleton';
 import { cartApi, deliveryAddressesApi, ordersApi } from '../../../lib/api-client';
