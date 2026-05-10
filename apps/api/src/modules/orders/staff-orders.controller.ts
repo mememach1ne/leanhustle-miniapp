@@ -1,0 +1,76 @@
+import type { StaffOrderDetailsDto, StaffOrderListItemDto } from '@lean-poizon/shared';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import type { StaffAccount } from '@prisma/client';
+
+import { CurrentStaff } from '../staff/decorators/current-staff.decorator';
+import { StaffBotAuthGuard } from '../staff/guards/staff-bot-auth.guard';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { UpdateOrderTrackCodeDto } from './dto/update-order-track-code.dto';
+import { OrdersService } from './orders.service';
+
+@Controller('staff/orders')
+@UseGuards(StaffBotAuthGuard)
+export class StaffOrdersController {
+  private readonly ordersService: OrdersService;
+
+  constructor(@Inject(OrdersService) ordersService: OrdersService) {
+    this.ordersService = ordersService;
+  }
+
+  @Get('new')
+  async getNewOrders(): Promise<StaffOrderListItemDto[]> {
+    return this.ordersService.getNewOrdersForStaff();
+  }
+
+  @Get('active')
+  async getActiveOrders(): Promise<StaffOrderListItemDto[]> {
+    return this.ordersService.getActiveOrdersForStaff();
+  }
+
+  @Get('search')
+  async searchByOrderNumber(
+    @Query('orderNumber') orderNumber: string,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.findOrderForStaffByNumber(orderNumber);
+  }
+
+  @Get('search-by-user')
+  async searchByUser(
+    @Query('query') query: string,
+  ): Promise<StaffOrderListItemDto[]> {
+    return this.ordersService.findOrdersForStaffByUser(query);
+  }
+
+  @Get(':id')
+  async getOrderById(@Param('id', ParseUUIDPipe) id: string): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.getOrderForStaff(id);
+  }
+
+  @Post(':id/status')
+  async updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOrderStatusDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.updateStatusByStaff(id, dto.status, staff);
+  }
+
+  @Post(':id/track-code')
+  async updateTrackCode(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOrderTrackCodeDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.setTrackCodeByStaff(id, dto.trackCode, staff);
+  }
+}

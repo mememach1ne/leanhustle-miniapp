@@ -1,0 +1,35 @@
+export enum DeliveryCategory {
+  // Footwear
+  SNEAKERS = 'SNEAKERS',
+  SLIDES = 'SLIDES',
+  BOOTS = 'BOOTS',
+  LOAFERS = 'LOAFERS',
+
+  // Apparel
+  TSHIRT = 'TSHIRT',
+  SHORTS = 'SHORTS',
+  PANTS = 'PANTS',
+  HOODIE = 'HOODIE',
+  SWEATSHIRT = 'SWEATSHIRT',
+  JACKET = 'JACKET',
+  VEST = 'VEST',
+  DRESS = 'DRESS',
+  SKIRT = 'SKIRT',
+  UNDERWEAR = 'UNDERWEAR',
+  GENERIC_APPAREL = 'GENERIC_APPAREL',
+
+  // Accessories
+  WATCH = 'WATCH',
+  GLASSES = 'GLASSES',
+  BAG = 'BAG',
+  SMALL_ACCESSORY = 'SMALL_ACCESSORY',
+  JEWELRY = 'JEWELRY',
+  PHONE_CASE = 'PHONE_CASE',
+  HEADWEAR = 'HEADWEAR',
+  SCARF = 'SCARF',
+  PERFUME = 'PERFUME',
+  TECH_ACCESSORY = 'TECH_ACCESSORY',
+
+  // Other — delivery cost will be clarified by manager
+  OTHER = 'OTHER',
+}

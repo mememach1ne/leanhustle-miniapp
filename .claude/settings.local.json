@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\lh miniapp\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(npx tsc *)",
+      "Bash(dir \"C:\\\\lh miniapp\\\\apps\\\\api\\\\src\" /b)",
+      "Bash(pnpm add *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\lh miniapp\" -Recurse -Directory)",
+      "Bash(Select-Object -First 30)",
+      "Bash(Format-Table FullName)",
+      "PowerShell(New-Item -ItemType Directory -Path \"C:\\\\lh miniapp\\\\apps\\\\web\\\\public\" -Force)",
+      "Bash(pnpm --filter @lean-poizon/api add helmet)",
+      "Bash(npx prisma *)",
+      "Bash(tasklist)",
+      "Bash(npm run *)",
+      "WebFetch(domain:www.cbr.ru)",
+      "WebFetch(domain:www.cbr-xml-daily.ru)",
+      "Bash(npm install *)",
+      "Bash(npx eslint *)",
+      "Bash(ESLINT_USE_FLAT_CONFIG=false npx eslint apps/api/src --ext .ts --max-warnings=100)",
+      "Bash(ESLINT_USE_FLAT_CONFIG=false npx eslint apps/web --ext .ts,.tsx --max-warnings=100)",
+      "Bash(npx next *)",
+      "Bash(ESLINT_USE_FLAT_CONFIG=false npx eslint apps/api/src apps/web --ext .ts,.tsx --fix)",
+      "Bash(node -e \"require\\('@nestjs/schedule'\\)\")",
+      "Bash(npx nest *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\lh miniapp\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(mkdir -p \"C:\\\\lh miniapp\\\\apps\\\\web\\\\app\\\\\\(tabs\\)\\\\admin\\\\orders\\\\[id]\" && mkdir -p \"C:\\\\lh miniapp\\\\apps\\\\web\\\\components\\\\admin\")",
+      "Bash(curl -s http://localhost:3001/api/health)",
+      "Bash(node -e ' *)",
+      "Bash(node dist/apps/api/src/main.js)"
+    ]
+  }
+}

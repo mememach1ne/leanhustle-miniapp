@@ -1,0 +1,285 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  CREATED
+  PAYMENT_PENDING
+  PAID_AWAITING_PURCHASE
+  PURCHASED
+  TRACK_CODE_RECEIVED
+}
+
+enum StaffRole {
+  ADMIN
+  MANAGER
+}
+
+enum SettingsScope {
+  DEFAULT
+}
+
+model User {
+  id                        String   @id @default(uuid()) @db.Uuid
+  telegramId                String   @unique @map("telegram_id") @db.VarChar(32)
+  username                  String?  @map("username") @db.VarChar(64)
+  firstName                 String   @map("first_name") @db.VarChar(128)
+  lastName                  String?  @map("last_name") @db.VarChar(128)
+  photoUrl                  String?  @map("photo_url") @db.Text
+  languageCode              String?  @map("language_code") @db.VarChar(16)
+  isChannelSubscriber       Boolean  @default(false) @map("is_channel_subscriber")
+  hasUsedSubscriberBenefit  Boolean  @default(false) @map("has_used_subscriber_benefit")
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lastActiveAt              DateTime @default(now()) @map("last_active_at") @db.Timestamptz(6)
+
+  cart               Cart?
+  orders             Order[]
+  deliveryAddresses  DeliveryAddress[]
+
+  @@index([lastActiveAt], map: "users_last_active_at_idx")
+  @@map("users")
+}
+
+model DeliveryAddress {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  fullName    String   @map("full_name") @db.VarChar(256)
+  cdekAddress String   @map("cdek_address") @db.VarChar(512)
+  phone       String   @db.VarChar(20)
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([userId], map: "delivery_addresses_user_id_idx")
+  @@map("delivery_addresses")
+}
+
+model Cart {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id                String   @id @default(uuid()) @db.Uuid
+  cartId            String   @map("cart_id") @db.Uuid
+  dewuLink          String   @map("dewu_link") @db.Text
+  dwSpuId           String   @map("dw_spu_id") @db.VarChar(64)
+  dwSkuId           String   @map("dw_sku_id") @db.VarChar(64)
+  productTitle      String   @map("product_title") @db.VarChar(512)
+  productImage      String?  @map("product_image") @db.Text
+  categoryL1        String?  @map("category_l1") @db.VarChar(128)
+  categoryL2        String?  @map("category_l2") @db.VarChar(128)
+  categoryL3        String?  @map("category_l3") @db.VarChar(128)
+  sizeLabel         String   @map("size_label") @db.VarChar(128)
+  versionLabel      String?  @map("version_label") @db.VarChar(128)
+  quantity          Int      @default(1)
+  priceYuan         Decimal  @map("price_yuan") @db.Decimal(12, 2)
+  totalUsd          Decimal  @map("total_usd") @db.Decimal(12, 2)
+  deliveryRub       Decimal  @map("delivery_rub") @db.Decimal(12, 0)
+  dutyRub           Decimal  @map("duty_rub") @db.Decimal(12, 0)
+  categoryGroup     String   @map("category_group") @db.VarChar(32)
+  deliveryCategory  String?  @map("delivery_category") @db.VarChar(32)
+  estimatedWeightKg Decimal  @map("estimated_weight_kg") @db.Decimal(6, 2)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@index([cartId], map: "cart_items_cart_id_idx")
+  @@index([dwSpuId], map: "cart_items_dw_spu_id_idx")
+  @@unique([cartId, dwSkuId], map: "cart_items_cart_id_dw_sku_id_key")
+  @@map("cart_items")
+}
+
+model Order {
+  id                           String       @id @default(uuid()) @db.Uuid
+  orderNumber                  String       @unique @map("order_number") @db.VarChar(32)
+  userId                       String       @map("user_id") @db.Uuid
+  assignedStaffId              String?      @map("assigned_staff_id") @db.Uuid
+  status                       OrderStatus  @default(CREATED)
+  isChannelSubscriberAtCheckout Boolean     @default(false) @map("is_channel_subscriber_at_checkout")
+  subscriberBenefitApplied     Boolean      @default(false) @map("subscriber_benefit_applied")
+  subscriberBenefitAmountRub   Decimal      @default(0) @map("subscriber_benefit_amount_rub") @db.Decimal(12, 2)
+  itemsCount                   Int          @default(0) @map("items_count")
+  originalTotalUsd             Decimal      @default(0) @map("original_total_usd") @db.Decimal(12, 2)
+  benefitDiscountUsd           Decimal      @default(0) @map("benefit_discount_usd") @db.Decimal(12, 2)
+  totalUsd                     Decimal      @default(0) @map("total_usd") @db.Decimal(12, 2)
+  deliveryRub                  Decimal      @default(0) @map("delivery_rub") @db.Decimal(12, 0)
+  dutyRub                      Decimal      @default(0) @map("duty_rub") @db.Decimal(12, 0)
+  pricingCnyToUsd              Decimal      @map("pricing_cny_to_usd") @db.Decimal(12, 6)
+  pricingCnyToRub              Decimal      @map("pricing_cny_to_rub") @db.Decimal(12, 4)
+  pricingCommissionPercent     Decimal      @map("pricing_commission_percent") @db.Decimal(5, 2)
+  deliveryAddressId            String?      @map("delivery_address_id") @db.Uuid
+  deliveryFullName             String?      @map("delivery_full_name") @db.VarChar(256)
+  deliveryCdekAddress          String?      @map("delivery_cdek_address") @db.VarChar(512)
+  deliveryPhone                String?      @map("delivery_phone") @db.VarChar(20)
+  customerComment              String?      @map("customer_comment") @db.Text
+  trackCode                    String?      @map("track_code") @db.VarChar(128)
+  paidAt                       DateTime?    @map("paid_at") @db.Timestamptz(6)
+  purchasedAt                  DateTime?    @map("purchased_at") @db.Timestamptz(6)
+  trackCodeReceivedAt          DateTime?    @map("track_code_received_at") @db.Timestamptz(6)
+  createdAt                    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user            User               @relation(fields: [userId], references: [id])
+  assignedStaff   StaffAccount?      @relation("AssignedOrders", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  deliveryAddress DeliveryAddress?   @relation(fields: [deliveryAddressId], references: [id], onDelete: SetNull)
+  items           OrderItem[]
+  notes         OrderNote[]
+  statusHistory OrderStatusHistory[]
+
+  @@index([userId, createdAt], map: "orders_user_id_created_at_idx")
+  @@index([status, createdAt], map: "orders_status_created_at_idx")
+  @@index([assignedStaffId, status], map: "orders_assigned_staff_status_idx")
+  @@index([paidAt], map: "orders_paid_at_idx")
+  @@map("orders")
+}
+
+model OrderItem {
+  id                String   @id @default(uuid()) @db.Uuid
+  orderId           String   @map("order_id") @db.Uuid
+  dewuLink          String   @map("dewu_link") @db.Text
+  dwSpuId           String   @map("dw_spu_id") @db.VarChar(64)
+  dwSkuId           String   @map("dw_sku_id") @db.VarChar(64)
+  productTitle      String   @map("product_title") @db.VarChar(512)
+  productImage      String?  @map("product_image") @db.Text
+  categoryL1        String?  @map("category_l1") @db.VarChar(128)
+  categoryL2        String?  @map("category_l2") @db.VarChar(128)
+  categoryL3        String?  @map("category_l3") @db.VarChar(128)
+  sizeLabel         String   @map("size_label") @db.VarChar(128)
+  versionLabel      String?  @map("version_label") @db.VarChar(128)
+  quantity          Int      @default(1)
+  priceYuan         Decimal  @map("price_yuan") @db.Decimal(12, 2)
+  originalTotalUsd  Decimal  @default(0) @map("original_total_usd") @db.Decimal(12, 2)
+  totalUsd          Decimal  @map("total_usd") @db.Decimal(12, 2)
+  deliveryRub       Decimal  @map("delivery_rub") @db.Decimal(12, 0)
+  dutyRub           Decimal  @map("duty_rub") @db.Decimal(12, 0)
+  categoryGroup     String   @map("category_group") @db.VarChar(32)
+  deliveryCategory  String?  @map("delivery_category") @db.VarChar(32)
+  estimatedWeightKg Decimal  @map("estimated_weight_kg") @db.Decimal(6, 2)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId], map: "order_items_order_id_idx")
+  @@index([dwSpuId], map: "order_items_dw_spu_id_idx")
+  @@map("order_items")
+}
+
+model OrderSequence {
+  prefix    String   @id @db.VarChar(8)
+  lastValue Int      @default(0) @map("last_value")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("order_sequences")
+}
+
+model OrderStatusHistory {
+  id               String       @id @default(uuid()) @db.Uuid
+  orderId          String       @map("order_id") @db.Uuid
+  fromStatus       OrderStatus? @map("from_status")
+  toStatus         OrderStatus  @map("to_status")
+  changedByStaffId String?      @map("changed_by_staff_id") @db.Uuid
+  comment          String?      @db.Text
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedByStaff StaffAccount? @relation("ChangedOrderStatuses", fields: [changedByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt], map: "order_status_history_order_id_created_at_idx")
+  @@index([changedByStaffId], map: "order_status_history_changed_by_staff_id_idx")
+  @@map("order_status_history")
+}
+
+model OrderNote {
+  id              String       @id @default(uuid()) @db.Uuid
+  orderId         String       @map("order_id") @db.Uuid
+  createdByStaffId String?     @map("created_by_staff_id") @db.Uuid
+  body            String       @db.Text
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdByStaff StaffAccount? @relation("CreatedOrderNotes", fields: [createdByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt], map: "order_notes_order_id_created_at_idx")
+  @@index([createdByStaffId], map: "order_notes_created_by_staff_id_idx")
+  @@map("order_notes")
+}
+
+model StaffAccount {
+  id          String     @id @default(uuid()) @db.Uuid
+  telegramId  String?    @unique @map("telegram_id") @db.VarChar(32)
+  username    String?    @unique @map("username") @db.VarChar(64)
+  firstName   String?    @map("first_name") @db.VarChar(128)
+  lastName    String?    @map("last_name") @db.VarChar(128)
+  role        StaffRole
+  isActive    Boolean    @default(true) @map("is_active")
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  assignedOrders        Order[]              @relation("AssignedOrders")
+  createdOrderNotes     OrderNote[]          @relation("CreatedOrderNotes")
+  changedOrderStatuses  OrderStatusHistory[] @relation("ChangedOrderStatuses")
+  settingsAuditLogs     SettingsAuditLog[]   @relation("SettingsAuditActor")
+  updatedSettings       BusinessSettings[]   @relation("SettingsUpdatedBy")
+
+  @@index([role, isActive], map: "staff_accounts_role_is_active_idx")
+  @@map("staff_accounts")
+}
+
+model BusinessSettings {
+  id                    String        @id @default(uuid()) @db.Uuid
+  scope                 SettingsScope @unique @default(DEFAULT)
+  cnyToUsd              Decimal       @map("cny_to_usd") @db.Decimal(12, 6)
+  cnyToRub              Decimal       @map("cny_to_rub") @db.Decimal(12, 4)
+  eurToRub              Decimal       @map("eur_to_rub") @db.Decimal(12, 4)
+  commissionPercent     Decimal       @map("commission_percent") @db.Decimal(5, 2)
+  deliveryPricePerKgRub Decimal       @map("delivery_price_per_kg_rub") @db.Decimal(12, 2)
+  dutyThresholdEur      Decimal       @map("duty_threshold_eur") @db.Decimal(12, 2)
+  dutyPercent           Decimal       @map("duty_percent") @db.Decimal(5, 2)
+  dutyProcessingFeeRub  Decimal       @map("duty_processing_fee_rub") @db.Decimal(12, 2)
+  updatedByStaffId      String?       @map("updated_by_staff_id") @db.Uuid
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  updatedByStaff StaffAccount?     @relation("SettingsUpdatedBy", fields: [updatedByStaffId], references: [id], onDelete: SetNull)
+  auditLogs      SettingsAuditLog[]
+
+  @@map("business_settings")
+}
+
+model SettingsAuditLog {
+  id              String      @id @default(uuid()) @db.Uuid
+  settingsId      String      @map("settings_id") @db.Uuid
+  changedByStaffId String?    @map("changed_by_staff_id") @db.Uuid
+  previousValues  Json?       @map("previous_values")
+  nextValues      Json        @map("next_values")
+  comment         String?     @db.Text
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  settings       BusinessSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  changedByStaff StaffAccount?    @relation("SettingsAuditActor", fields: [changedByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([settingsId, createdAt], map: "settings_audit_logs_settings_id_created_at_idx")
+  @@index([changedByStaffId], map: "settings_audit_logs_changed_by_staff_id_idx")
+  @@map("settings_audit_logs")
+}
