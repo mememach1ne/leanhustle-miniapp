@@ -355,14 +355,33 @@ export default function CalculatorPage() {
           </button>
 
           {isHelpOpen ? (
-            <div className="mt-2 space-y-2 rounded-[16px] border border-white/10 bg-white/5 px-4 py-3 text-xs leading-5 text-[var(--muted)]">
+            <div className="mt-2 space-y-3 rounded-[16px] border border-white/10 bg-white/5 px-4 py-3 text-xs leading-5 text-[var(--muted)]">
               <p className="font-medium text-white">Из приложения Dewu (Poizon):</p>
-              <ol className="list-inside list-decimal space-y-1">
-                <li>Откройте карточку товара в приложении</li>
-                <li>Нажмите кнопку «Поделиться» (иконка стрелки вверху справа)</li>
-                <li>Выберите «Скопировать ссылку»</li>
-                <li>Вставьте ссылку здесь</li>
-              </ol>
+
+              <div className="space-y-1">
+                <p>1. Откройте карточку товара и нажмите кнопку «Поделиться»:</p>
+                <img
+                  src="/help/dewu-step1.jpg"
+                  alt="Нажмите кнопку Поделиться"
+                  className="w-full rounded-xl border border-white/10"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <p>2. Выберите «Скопировать ссылку» (复制链接):</p>
+                <img
+                  src="/help/dewu-step2.jpg"
+                  alt="Нажмите Скопировать ссылку"
+                  className="w-full rounded-xl border border-white/10"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+
+              <p>3. Вставьте скопированную ссылку в поле выше.</p>
+
               <p className="pt-1">Поддерживаются короткие ссылки <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white">dw4.co</span> и прямые ссылки Dewu.</p>
             </div>
           ) : null}
