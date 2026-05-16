@@ -359,7 +359,7 @@ export default function CalculatorPage() {
               <p className="font-medium text-white">Из приложения Dewu (Poizon):</p>
 
               <div className="space-y-1">
-                <p>1. Откройте карточку товара и нажмите кнопку «Поделиться»:</p>
+                <p>1. Откройте карточку товара и нажмите кнопку:</p>
                 <img
                   src="/help/dewu-step1.jpg"
                   alt="Нажмите кнопку Поделиться"
@@ -370,7 +370,7 @@ export default function CalculatorPage() {
               </div>
 
               <div className="space-y-1">
-                <p>2. Выберите «Скопировать ссылку» (复制链接):</p>
+                <p>2. Выберите «Скопировать ссылку»:</p>
                 <img
                   src="/help/dewu-step2.jpg"
                   alt="Нажмите Скопировать ссылку"
@@ -379,10 +379,6 @@ export default function CalculatorPage() {
                   decoding="async"
                 />
               </div>
-
-              <p>3. Вставьте скопированную ссылку в поле выше.</p>
-
-              <p className="pt-1">Поддерживаются короткие ссылки <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white">dw4.co</span> и прямые ссылки Dewu.</p>
             </div>
           ) : null}
         </div>
