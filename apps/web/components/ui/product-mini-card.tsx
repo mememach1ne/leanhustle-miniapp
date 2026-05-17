@@ -38,7 +38,7 @@ export function ProductMiniCard({
               alt={title}
               loading="lazy"
               decoding="async"
-              className="h-20 w-20 shrink-0 rounded-[26px] bg-white/5 object-cover sm:h-24 sm:w-24"
+              className="h-20 w-20 shrink-0 rounded-[26px] bg-white object-contain sm:h-24 sm:w-24"
             />
           ) : !showGallery ? (
             <div className="h-20 w-20 shrink-0 rounded-[26px] bg-white/5 sm:h-24 sm:w-24" />
