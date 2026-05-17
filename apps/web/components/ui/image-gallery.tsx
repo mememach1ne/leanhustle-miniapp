@@ -9,16 +9,6 @@ export function ImageGallery({ images }: { images: ProductImage[] }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const handlePrev = useCallback(() => {
-    setSelectedIndex((i) => (i - 1 + images.length) % images.length);
-    hapticSelection();
-  }, [images.length]);
-
-  const handleNext = useCallback(() => {
-    setSelectedIndex((i) => (i + 1) % images.length);
-    hapticSelection();
-  }, [images.length]);
-
   if (images.length === 0) return null;
 
   const selected = images[selectedIndex];
