@@ -7,6 +7,16 @@ export interface PricingCalculationRequest {
   dwSkuId: string;
 }
 
+export interface DutyBreakdown {
+  priceEur: number;
+  thresholdEur: number;
+  excessEur: number;
+  dutyPercent: number;
+  dutyAmountRub: number;
+  processingFeeRub: number;
+  totalRub: number;
+}
+
 export interface PricingCalculationResult {
   dwSpuId: string;
   dwSkuId: string;
@@ -16,6 +26,7 @@ export interface PricingCalculationResult {
   totalUsd: number;
   deliveryRub: number;
   dutyRub: number;
+  dutyBreakdown?: DutyBreakdown;
   categoryGroup: ProductCategoryGroup;
   deliveryCategory: DeliveryCategory;
   estimatedWeightKg: number;
@@ -31,6 +42,7 @@ export interface ManualPricingResult {
   totalUsd: number;
   deliveryRub: number;
   dutyRub: number;
+  dutyBreakdown?: DutyBreakdown;
   categoryGroup: ProductCategoryGroup;
   deliveryCategory: DeliveryCategory;
   estimatedWeightKg: number;

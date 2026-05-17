@@ -52,7 +52,7 @@ export class PricingService {
       deliveryPricePerKgRub: settings.deliveryPricePerKgRub,
     });
 
-    const dutyRub = this.dutyCalculationService.calculateDutyRub({
+    const dutyResult = this.dutyCalculationService.calculate({
       priceYuan,
       cnyToRub: settings.cnyToRub,
       eurToRub: settings.eurToRub,
@@ -65,7 +65,8 @@ export class PricingService {
       priceYuan: Number(priceYuan.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toNumber()),
       totalUsd: totalUsd.toNumber(),
       deliveryRub,
-      dutyRub,
+      dutyRub: dutyResult.dutyRub,
+      dutyBreakdown: dutyResult.breakdown,
       categoryGroup,
       deliveryCategory: dto.deliveryCategory,
       estimatedWeightKg,
@@ -139,7 +140,7 @@ export class PricingService {
       deliveryPricePerKgRub: settings.deliveryPricePerKgRub,
     });
 
-    const dutyRub = this.dutyCalculationService.calculateDutyRub({
+    const dutyResult = this.dutyCalculationService.calculate({
       priceYuan,
       cnyToRub: settings.cnyToRub,
       eurToRub: settings.eurToRub,
@@ -156,7 +157,8 @@ export class PricingService {
       priceYuan: Number(priceYuan.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toNumber()),
       totalUsd: totalUsd.toNumber(),
       deliveryRub,
-      dutyRub,
+      dutyRub: dutyResult.dutyRub,
+      dutyBreakdown: dutyResult.breakdown,
       categoryGroup,
       deliveryCategory,
       estimatedWeightKg,
