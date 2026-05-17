@@ -40,6 +40,14 @@ export class DewuApiClientService {
   }
 
   async queryProductDetail(dwSpuId: string): Promise<DewuApiRawProductResponse> {
+    return this.request(`dwSpuId=${encodeURIComponent(dwSpuId)}`);
+  }
+
+  async queryByLink(productLink: string): Promise<DewuApiRawProductResponse> {
+    return this.request(`productLink=${encodeURIComponent(productLink)}`);
+  }
+
+  private async request(query: string): Promise<DewuApiRawProductResponse> {
     const host = this.configService.get<string>('integrations.rapidApiDewuHost');
     const apiKey = this.configService.get<string>('integrations.rapidApiDewuKey');
     const endpoint = this.configService.get<string>('integrations.rapidApiDewuProductEndpoint');
@@ -49,7 +57,7 @@ export class DewuApiClientService {
     }
 
     try {
-      const response = await fetch(`https://${host}${endpoint}?dwSpuId=${dwSpuId}`, {
+      const response = await fetch(`https://${host}${endpoint}?${query}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -59,7 +67,7 @@ export class DewuApiClientService {
       });
 
       if (!response.ok) {
-        this.logger.warn(`RapidAPI Dewu returned ${response.status} for dwSpuId=${dwSpuId}`);
+        this.logger.warn(`RapidAPI Dewu returned ${response.status} for ${query}`);
         throw new ServiceUnavailableException(
           'Не удалось получить товар через Dewu API. Попробуйте позже.',
         );
@@ -67,8 +75,9 @@ export class DewuApiClientService {
 
       return (await response.json()) as DewuApiRawProductResponse;
     } catch (error) {
+      if (error instanceof ServiceUnavailableException) throw error;
       this.logger.warn('Dewu API request failed', {
-        dwSpuId,
+        query,
         error: error instanceof Error ? error.message : String(error),
       });
       throw new ServiceUnavailableException(

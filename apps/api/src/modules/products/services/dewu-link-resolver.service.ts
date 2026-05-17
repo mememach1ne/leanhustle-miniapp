@@ -23,35 +23,13 @@ export class DewuLinkResolverService {
       );
     }
 
+    // Short links (dw4.co) are resolved directly by RapidAPI
+    // because dw4.co servers are unreachable from non-Chinese hosts
     if (this.isShortLink(parsedUrl.hostname)) {
-      const response = await fetch(normalizedLink, {
-        method: 'GET',
-        redirect: 'manual',
-      });
-
-      const location = response.headers.get('location');
-
-      if (!location) {
-        throw new BadRequestException('Короткая ссылка не содержит редирект.');
-      }
-
-      const redirectUrl = this.parseUrl(location);
-
-      if (!this.isSupportedHost(redirectUrl.hostname)) {
-        throw new BadRequestException('Редирект ведёт на неподдерживаемый домен.');
-      }
-
-      const finalUrl = location;
-      const dwSpuId = this.extractDwSpuId(finalUrl);
-
-      if (!dwSpuId) {
-        throw new BadRequestException('Не удалось извлечь dwSpuId из короткой ссылки Dewu.');
-      }
-
       return {
         originalLink: normalizedLink,
-        resolvedUrl: finalUrl,
-        dwSpuId,
+        resolvedUrl: normalizedLink,
+        dwSpuId: '__short_link__',
       };
     }
 
