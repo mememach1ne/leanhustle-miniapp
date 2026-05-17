@@ -36,31 +36,16 @@ export class ProductsService {
 
   async resolveProduct(dto: ResolveProductDto): Promise<DewuResolvedProduct> {
     const resolvedLink = await this.dewuLinkResolverService.resolve(dto.link);
+    const cacheKey = resolvedLink.dwSpuId;
 
-    // For short links (dw4.co), query RapidAPI by link directly
-    // because dw4.co is unreachable from non-Chinese servers
-    const isShortLink = resolvedLink.dwSpuId === '__short_link__';
-
-    // Try cache first (only works for resolved spuIds)
-    if (!isShortLink) {
-      const cached = this.cache.get(resolvedLink.dwSpuId);
-      if (cached && cached.expiresAt > Date.now()) {
-        this.logger.debug(`Cache hit for dwSpuId=${resolvedLink.dwSpuId}`);
-        return { ...cached.data, originalLink: dto.link };
-      }
+    const cached = this.cache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      this.logger.debug(`Cache hit for dwSpuId=${cacheKey}`);
+      return { ...cached.data, originalLink: dto.link };
     }
 
-    const rawProduct = isShortLink
-      ? await this.dewuApiClientService.queryByLink(dto.link)
-      : await this.dewuApiClientService.queryProductDetail(resolvedLink.dwSpuId);
-
-    const product = this.dewuProductMapperService.mapProduct(rawProduct, {
-      originalLink: dto.link,
-      resolvedUrl: resolvedLink.resolvedUrl,
-      dwSpuId: isShortLink ? String(rawProduct.data?.dwSpuId ?? '') : resolvedLink.dwSpuId,
-    });
-
-    const cacheKey = product.dwSpuId;
+    const rawProduct = await this.dewuApiClientService.queryProductDetail(cacheKey);
+    const product = this.dewuProductMapperService.mapProduct(rawProduct, resolvedLink);
 
     if (this.cache.size >= CACHE_MAX_SIZE) {
       const firstKey = this.cache.keys().next().value;

@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 interface ResolvedDewuLink {
   originalLink: string;
@@ -8,6 +9,13 @@ interface ResolvedDewuLink {
 
 @Injectable()
 export class DewuLinkResolverService {
+  private readonly logger = new Logger(DewuLinkResolverService.name);
+  private readonly configService: ConfigService;
+
+  constructor(@Inject(ConfigService) configService: ConfigService) {
+    this.configService = configService;
+  }
+
   async resolve(rawLink: string): Promise<ResolvedDewuLink> {
     const normalizedLink = rawLink.trim();
 
@@ -23,14 +31,40 @@ export class DewuLinkResolverService {
       );
     }
 
-    // Short links (dw4.co) are resolved directly by RapidAPI
+    // Short links (dw4.co) are resolved via Cloudflare Worker
     // because dw4.co servers are unreachable from non-Chinese hosts
     if (this.isShortLink(parsedUrl.hostname)) {
-      return {
-        originalLink: normalizedLink,
-        resolvedUrl: normalizedLink,
-        dwSpuId: '__short_link__',
-      };
+      const resolverUrl = this.configService.get<string>('integrations.dw4ResolverUrl');
+      if (!resolverUrl) {
+        throw new BadRequestException('Сервис разрешения коротких ссылок не настроен.');
+      }
+
+      try {
+        const response = await fetch(`${resolverUrl}?url=${encodeURIComponent(normalizedLink)}`);
+        const data = (await response.json()) as { location?: string; error?: string };
+
+        if (!data.location) {
+          throw new BadRequestException('Короткая ссылка не содержит редирект.');
+        }
+
+        const dwSpuId = this.extractDwSpuId(data.location);
+        if (!dwSpuId) {
+          throw new BadRequestException('Не удалось извлечь dwSpuId из короткой ссылки Dewu.');
+        }
+
+        return {
+          originalLink: normalizedLink,
+          resolvedUrl: data.location,
+          dwSpuId,
+        };
+      } catch (error) {
+        if (error instanceof BadRequestException) throw error;
+        this.logger.warn('Failed to resolve short link', {
+          link: normalizedLink,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw new BadRequestException('Не удалось разрешить короткую ссылку. Попробуйте позже.');
+      }
     }
 
     const dwSpuId = this.extractDwSpuId(normalizedLink);

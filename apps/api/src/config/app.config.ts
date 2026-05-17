@@ -30,6 +30,7 @@ export default () => ({
     rapidApiDewuKey: process.env.RAPIDAPI_DEWU_KEY ?? '',
     rapidApiDewuProductEndpoint:
       process.env.RAPIDAPI_DEWU_PRODUCT_ENDPOINT ?? '/poizon/product/queryDetail',
+    dw4ResolverUrl: process.env.DW4_RESOLVER_URL ?? '',
   },
   notifications: {
     managerTelegramIds: parseCsv(process.env.MANAGER_TELEGRAM_IDS),

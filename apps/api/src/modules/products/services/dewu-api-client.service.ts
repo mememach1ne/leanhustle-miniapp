@@ -43,10 +43,6 @@ export class DewuApiClientService {
     return this.request(`dwSpuId=${encodeURIComponent(dwSpuId)}`);
   }
 
-  async queryByLink(productLink: string): Promise<DewuApiRawProductResponse> {
-    return this.request(`productLink=${productLink}`);
-  }
-
   private async request(query: string): Promise<DewuApiRawProductResponse> {
     const host = this.configService.get<string>('integrations.rapidApiDewuHost');
     const apiKey = this.configService.get<string>('integrations.rapidApiDewuKey');
