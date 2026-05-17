@@ -9,6 +9,13 @@ const apiService = new ApiService();
 const isStartCommand = (ctx: BotContext) =>
   ctx.message && 'text' in ctx.message && ctx.message.text.trim().startsWith('/start');
 
+const isClientCallbackQuery = (ctx: BotContext) =>
+  Boolean(
+    ctx.callbackQuery &&
+      'data' in ctx.callbackQuery &&
+      ctx.callbackQuery.data.startsWith('client:'),
+  );
+
 export const accessMiddleware: MiddlewareFn<BotContext> = async (ctx, next) => {
   const from = ctx.from;
 
@@ -32,10 +39,15 @@ export const accessMiddleware: MiddlewareFn<BotContext> = async (ctx, next) => {
     ctx.access = undefined;
   }
 
-  if (ctx.access || isStartCommand(ctx)) {
+  // Staff bypass everything. Non-staff are allowed only:
+  //   - /start command (welcome screen)
+  //   - client:* callback queries (welcome screen buttons)
+  if (ctx.access || isStartCommand(ctx) || isClientCallbackQuery(ctx)) {
     await next();
     return;
   }
 
-  await ctx.reply(orderAdminService.getClientWelcomeText());
+  await ctx.reply(orderAdminService.getClientWelcomeText(), {
+    reply_markup: orderAdminService.buildClientWelcomeKeyboard(),
+  });
 };
