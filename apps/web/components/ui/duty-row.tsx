@@ -30,14 +30,14 @@ export function DutyRow({
           hapticSelection();
         }}
         disabled={!canExpand}
-        className="flex min-w-0 w-full items-center justify-between gap-3 rounded-2xl bg-white/5 px-4 py-3 text-left text-sm transition active:scale-[0.99] disabled:cursor-default"
+        className="flex min-w-0 w-full items-center justify-between gap-3 rounded-2xl bg-white/5 px-4 py-3 text-left font-[inherit] transition active:scale-[0.99] disabled:cursor-default"
       >
-        <span className="flex min-w-0 items-center gap-1.5 text-[var(--muted)]">
-          Примерная пошлина
+        <span className="flex min-w-0 items-center gap-1.5 text-sm text-[var(--muted)]">
+          <span>Примерная пошлина</span>
           {canExpand ? (
             <span
               className={[
-                'text-[10px] text-[var(--accent)] transition-transform',
+                'text-[10px] leading-none text-[var(--accent)] transition-transform',
                 isOpen ? 'rotate-180' : '',
               ].join(' ')}
             >
@@ -45,7 +45,7 @@ export function DutyRow({
             </span>
           ) : null}
         </span>
-        <span className="shrink-0 text-right font-medium text-white">{dutyRub} ₽</span>
+        <span className="shrink-0 text-right text-sm font-medium text-white">{dutyRub} ₽</span>
       </button>
 
       {isOpen && breakdown ? (
