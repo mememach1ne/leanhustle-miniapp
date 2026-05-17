@@ -6,7 +6,9 @@ import type { BotContext } from '../types/bot-context';
 export const registerStartCommand = (bot: Telegraf<BotContext>) => {
   bot.start(async (ctx) => {
     if (!ctx.access) {
-      await ctx.reply(orderAdminService.getClientWelcomeText());
+      await ctx.reply(orderAdminService.getClientWelcomeText(), {
+        reply_markup: orderAdminService.buildClientWelcomeKeyboard(),
+      });
       return;
     }
 
@@ -14,5 +16,19 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
     await ctx.reply(orderAdminService.getWelcomeText(roleLabel), {
       reply_markup: orderAdminService.buildAdminPanelKeyboard(ctx.access.role),
     });
+  });
+
+  bot.action(/^client:.+$/, async (ctx) => {
+    const data = ctx.match.input;
+
+    if (orderAdminService.isClientDownloadAppCallback(data)) {
+      await ctx.answerCbQuery();
+      await ctx.reply(orderAdminService.getDownloadAppText(), {
+        reply_markup: orderAdminService.buildDownloadAppKeyboard(),
+      });
+      return;
+    }
+
+    await ctx.answerCbQuery();
   });
 };

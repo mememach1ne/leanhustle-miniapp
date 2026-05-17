@@ -46,6 +46,13 @@ const OPEN_ORDER_PREFIX = 'open_order:';
 const SETTINGS_ACTION_PREFIX = 'settings_action:';
 const SETTINGS_RATE_PREFIX = 'settings_rate:';
 const ADMIN_PANEL_ACTION_PREFIX = 'admin_panel:';
+const CLIENT_ACTION_PREFIX = 'client:';
+
+export const POIZON_IOS_URL =
+  'https://apps.apple.com/us/app/poizon-authentic-collection/id1577673205';
+export const POIZON_ANDROID_URL =
+  'https://play.google.com/store/apps/details?id=com.shizhuang.poizon';
+export const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
 
 type AdminPanelAction =
   | 'new_orders'
@@ -76,11 +83,63 @@ export class OrderAdminService {
 
   getClientWelcomeText() {
     return [
-      'Добро пожаловать в LEAN HUSTLE POIZON!',
+      '🔥 LEAN HUSTLE POIZON',
       '',
-      'Здесь мы помогаем заказать товары с Poizon в Россию.',
-      'Если нужна помощь с заказом, напишите менеджеру: @zanyatij',
+      'Оригинальный Nike, Adidas, Jordan и др. с фабрики POIZON.',
+      'Цены в 2-4 раза ниже розницы. Легит-чек включён.',
+      '',
+      'Открой мини-приложение снизу ↓',
     ].join('\n');
+  }
+
+  buildClientWelcomeKeyboard(): InlineKeyboardMarkup {
+    return {
+      inline_keyboard: [
+        [
+          {
+            text: '📲 Скачать приложение POIZON',
+            callback_data: `${CLIENT_ACTION_PREFIX}download_app`,
+          },
+        ],
+        [
+          {
+            text: '💬 Связаться с менеджером',
+            url: MANAGER_TELEGRAM_URL,
+          },
+        ],
+      ],
+    };
+  }
+
+  getDownloadAppText() {
+    return [
+      '📲 Официальное приложение POIZON',
+      '',
+      'Выбери свою платформу:',
+    ].join('\n');
+  }
+
+  buildDownloadAppKeyboard(): InlineKeyboardMarkup {
+    return {
+      inline_keyboard: [
+        [
+          {
+            text: '🍎 Скачать для iOS',
+            url: POIZON_IOS_URL,
+          },
+        ],
+        [
+          {
+            text: '🤖 Скачать для Android',
+            url: POIZON_ANDROID_URL,
+          },
+        ],
+      ],
+    };
+  }
+
+  isClientDownloadAppCallback(data: string): boolean {
+    return data === `${CLIENT_ACTION_PREFIX}download_app`;
   }
 
   buildAdminPanelKeyboard(role: 'admin' | 'manager'): InlineKeyboardMarkup {
