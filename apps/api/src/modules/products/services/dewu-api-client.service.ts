@@ -44,7 +44,7 @@ export class DewuApiClientService {
   }
 
   async queryByLink(productLink: string): Promise<DewuApiRawProductResponse> {
-    return this.request(`productLink=${encodeURIComponent(productLink)}`);
+    return this.request(`productLink=${productLink}`);
   }
 
   private async request(query: string): Promise<DewuApiRawProductResponse> {
