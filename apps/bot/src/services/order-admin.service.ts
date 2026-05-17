@@ -99,13 +99,16 @@ export class OrderAdminService {
           {
             text: '📲 Скачать приложение POIZON',
             callback_data: `${CLIENT_ACTION_PREFIX}download_app`,
-          },
+            // Bot API 9.4: blue accent button. Ignored by older clients.
+            style: 'primary',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
         [
           {
             text: '💬 Связаться с менеджером',
             url: MANAGER_TELEGRAM_URL,
-          },
+            style: 'success',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
       ],
     };
@@ -126,13 +129,17 @@ export class OrderAdminService {
           {
             text: '🍎 Скачать для iOS',
             url: POIZON_IOS_URL,
-          },
+            // Bot API 9.4: blue (Apple-style). Ignored by older clients.
+            style: 'primary',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
         [
           {
             text: '🤖 Скачать для Android',
             url: POIZON_ANDROID_URL,
-          },
+            // Bot API 9.4: green (Android-style). Ignored by older clients.
+            style: 'success',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
       ],
     };
