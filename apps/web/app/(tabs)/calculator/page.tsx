@@ -118,7 +118,7 @@ export default function CalculatorPage() {
     setCartError(null);
 
     if (!link.trim()) {
-      setError('Вставьте ссылку на товар Dewu.');
+      setError('Вставьте ссылку на товар Poizon.');
       return;
     }
 
@@ -356,7 +356,7 @@ export default function CalculatorPage() {
 
           {isHelpOpen ? (
             <div className="mt-2 space-y-3 rounded-[16px] border border-white/10 bg-white/5 px-4 py-3 text-xs leading-5 text-[var(--muted)]">
-              <p className="font-medium text-white">Из приложения Dewu (Poizon):</p>
+              <p className="font-medium text-white">Из приложения Poizon:</p>
 
               <div className="space-y-1">
                 <p>1. Откройте карточку товара и нажмите кнопку:</p>
@@ -393,7 +393,7 @@ export default function CalculatorPage() {
       {isLoadingProduct ? (
         <LoadingBlock
           title="Загружаем карточку товара"
-          description="Проверяем ссылку, получаем карточку Dewu и готовим размеры."
+          description="Проверяем ссылку, получаем карточку Poizon и готовим размеры."
         />
       ) : null}
 
@@ -401,7 +401,7 @@ export default function CalculatorPage() {
       {!product && !isLoadingProduct && !manualMode ? (
         <EmptyState
           title="Начните с ссылки"
-          description="Вставьте ссылку Dewu, чтобы увидеть карточку товара, доступные размеры и предварительный расчёт."
+          description="Вставьте ссылку Poizon, чтобы увидеть карточку товара, доступные размеры и предварительный расчёт."
         />
       ) : null}
 
@@ -416,7 +416,7 @@ export default function CalculatorPage() {
                 Не удалось получить данные о товаре автоматически
               </p>
               <p className="mt-1 text-xs text-amber-200/70">
-                API Dewu временно недоступен. Вы можете указать данные вручную для расчёта или запросить помощь менеджера.
+                API Poizon временно недоступен. Вы можете указать данные вручную для расчёта или запросить помощь менеджера.
               </p>
             </div>
           </SectionCard>
@@ -626,7 +626,7 @@ export default function CalculatorPage() {
         <div className="space-y-4">
           <ProductMiniCard
             title={product.title}
-            subtitle={product.brand ?? 'Dewu'}
+            subtitle={product.brand ?? 'Poizon'}
             gallery={product.gallery.length > 0 ? product.gallery : undefined}
             mainImage={product.mainImage}
           />

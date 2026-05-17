@@ -7,8 +7,8 @@ import { AppShell } from '../components/layout/app-shell';
 import { AuthProvider } from '../components/providers/auth-provider';
 
 export const metadata: Metadata = {
-  title: 'LEAN POIZON',
-  description: 'Telegram Mini App для заказа товаров с Dewu (Poizon) в Россию',
+  title: 'LEAN HUSTLE POIZON',
+  description: 'Telegram Mini App для заказа товаров с Poizon в Россию',
 };
 
 export default function RootLayout({

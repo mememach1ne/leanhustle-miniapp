@@ -63,7 +63,7 @@ export class OrderAdminService {
 
   getWelcomeText(roleLabel: string) {
     return [
-      'LEAN POIZON Manager Bot',
+      'LEAN HUSTLE POIZON Manager Bot',
       '',
       'Доступ подтверждён.',
       `Роль: ${roleLabel}`,
@@ -76,9 +76,9 @@ export class OrderAdminService {
 
   getClientWelcomeText() {
     return [
-      'Добро пожаловать в LEAN POIZON!',
+      'Добро пожаловать в LEAN HUSTLE POIZON!',
       '',
-      'Здесь мы помогаем заказать товары с Dewu / Poizon в Россию.',
+      'Здесь мы помогаем заказать товары с Poizon в Россию.',
       'Если нужна помощь с заказом, напишите менеджеру: @zanyatij',
     ].join('\n');
   }

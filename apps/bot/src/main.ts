@@ -34,7 +34,7 @@ async function bootstrap() {
   });
 
   await bot.launch();
-  logger.info('LEAN POIZON bot started');
+  logger.info('LEAN HUSTLE POIZON bot started');
 
   process.once('SIGINT', () => bot.stop('SIGINT'));
   process.once('SIGTERM', () => bot.stop('SIGTERM'));

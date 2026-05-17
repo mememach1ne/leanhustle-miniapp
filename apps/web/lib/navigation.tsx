@@ -10,7 +10,7 @@ interface TabItem {
 }
 
 const BASE_TABS: TabItem[] = [
-  { href: TAB_ROUTES.CALCULATOR, label: 'Калькулятор', icon: <CalculatorIcon className="h-5 w-5" />, subtitle: 'Расчёт стоимости товара по ссылке Dewu' },
+  { href: TAB_ROUTES.CALCULATOR, label: 'Калькулятор', icon: <CalculatorIcon className="h-5 w-5" />, subtitle: 'Расчёт стоимости товара по ссылке Poizon' },
   { href: TAB_ROUTES.CART, label: 'Корзина', icon: <CartIcon className="h-5 w-5" />, subtitle: 'Выбранные товары и оформление заявки' },
   { href: TAB_ROUTES.PROFILE, label: 'Профиль', icon: <ProfileIcon className="h-5 w-5" />, subtitle: 'Аккаунт, подписка и история заказов' },
 ];

@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           authRequestMessage: 'Telegram WebApp object not found',
         });
         setFallback(
-          'Откройте LEAN POIZON внутри Telegram Mini App. В обычном браузере доступен только dev fallback режим.',
+          'Откройте LEAN HUSTLE POIZON внутри Telegram Mini App. В обычном браузере доступен только dev fallback режим.',
         );
         return;
       }
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!webApp) {
         setFallback(
-          'Откройте LEAN POIZON внутри Telegram Mini App. В обычном браузере доступен только dev fallback режим.',
+          'Откройте LEAN HUSTLE POIZON внутри Telegram Mini App. В обычном браузере доступен только dev fallback режим.',
         );
         return;
       }
