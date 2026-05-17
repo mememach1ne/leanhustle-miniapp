@@ -83,12 +83,9 @@ export class OrderAdminService {
 
   getClientWelcomeText() {
     return [
-      '🔥 LEAN HUSTLE POIZON',
+      'Добро пожаловать в LEAN HUSTLE POIZON!',
       '',
-      'Оригинальный Nike, Adidas, Jordan и др. с фабрики POIZON.',
-      'Цены в 2-4 раза ниже розницы. Легит-чек включён.',
-      '',
-      'Открой мини-приложение снизу ↓',
+      'Здесь мы помогаем заказать товары с Poizon в Россию.',
     ].join('\n');
   }
 
@@ -127,18 +124,21 @@ export class OrderAdminService {
       inline_keyboard: [
         [
           {
-            text: '🍎 Скачать для iOS',
+            text: 'Скачать для iOS',
             url: POIZON_IOS_URL,
-            // Bot API 9.4: blue (Apple-style). Ignored by older clients.
+            // Bot API 9.4: premium emoji icon + blue Apple-style.
+            // Old clients fall back to plain text and default color.
             style: 'primary',
+            icon_custom_emoji_id: '5332823031859389246',
           } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
         [
           {
-            text: '🤖 Скачать для Android',
+            text: 'Скачать для Android',
             url: POIZON_ANDROID_URL,
-            // Bot API 9.4: green (Android-style). Ignored by older clients.
+            // Bot API 9.4: premium emoji icon + green Android-style.
             style: 'success',
+            icon_custom_emoji_id: '6199417621100629765',
           } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
       ],
