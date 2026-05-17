@@ -10,19 +10,28 @@ export function AuthStateBanner() {
     return null;
   }
 
-  const isFallback = status === 'fallback';
+  const isWarning = status === 'loading' || status === 'fallback';
+
+  let title: string;
+  if (status === 'loading') {
+    title = 'Ожидание авторизации...';
+  } else if (status === 'fallback') {
+    title = 'Dev fallback режим';
+  } else {
+    title = 'Ошибка авторизации';
+  }
 
   return (
     <div
       className={[
         'mb-4 rounded-3xl border p-4 text-sm backdrop-blur-xl',
-        isFallback
+        isWarning
           ? 'border-amber-300/20 bg-amber-400/10 text-amber-100'
           : 'border-rose-300/20 bg-rose-400/10 text-rose-100',
       ].join(' ')}
     >
-      <p className="font-medium">{isFallback ? 'Dev fallback режим' : 'Ошибка авторизации'}</p>
-      <p className="mt-2 leading-6 text-white/80">{error}</p>
+      <p className="font-medium">{title}</p>
+      {error ? <p className="mt-2 leading-6 text-white/80">{error}</p> : null}
     </div>
   );
 }
