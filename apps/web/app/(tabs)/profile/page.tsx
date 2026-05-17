@@ -26,15 +26,15 @@ const FAQ_ITEMS = [
   },
   {
     question: 'Как проверить подлинность?',
-    answer: 'Все товары заказываются через Poizon, которая проводит проверку подлинности каждого товара перед отправкой.',
+    answer: 'Все товары заказываются через Poizon, которая проводит проверку подлинности (легит-чек) каждого товара перед отправкой. Если вещь окажется неоригинальной, платформа отменит заказ и вернёт деньги.',
   },
   {
     question: 'Как отслеживать заказ?',
-    answer: 'Менеджер введёт трек-код в заявку. Вы получите уведомление в Telegram и сможете отследить посылку.',
+    answer: 'Менеджер после получения трек-кода введет его в заказ. Вы получите уведомление в Telegram и сможете отследить посылку.',
   },
   {
     question: 'Можно ли вернуть товар?',
-    answer: 'Возврат возможен только если товар еще не прибыл на склад в Китае. Свяжитесь с менеджером.',
+    answer: 'Возврат возможен только в том случае, если товар еще не прибыл на склад в Китае. Свяжитесь с менеджером.',
   },
   {
     question: 'Как происходит оплата?',
@@ -216,7 +216,7 @@ export default function ProfilePage() {
         <details className="group">
           <summary className="flex cursor-pointer items-center gap-2 px-1 py-2 text-sm font-semibold text-[var(--muted)] transition hover:text-white [&::-webkit-details-marker]:hidden">
             <span className="flex-shrink-0 text-xs transition-transform group-open:rotate-90">▶</span>
-            Частые вопросы
+            Часто задаваемые вопросы
           </summary>
           <div className="mt-2">
             <FaqAccordion items={FAQ_ITEMS} />
