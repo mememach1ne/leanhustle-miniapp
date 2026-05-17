@@ -19,24 +19,6 @@ export function ImageGallery({ images }: { images: ProductImage[] }) {
     hapticSelection();
   }, [images.length]);
 
-  useEffect(() => {
-    if (!isFullscreen) return;
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsFullscreen(false);
-      else if (e.key === 'ArrowLeft') handlePrev();
-      else if (e.key === 'ArrowRight') handleNext();
-    };
-
-    document.body.style.overflow = 'hidden';
-    window.addEventListener('keydown', onKey);
-
-    return () => {
-      document.body.style.overflow = '';
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [isFullscreen, handlePrev, handleNext]);
-
   if (images.length === 0) return null;
 
   const selected = images[selectedIndex];
@@ -90,91 +72,117 @@ export function ImageGallery({ images }: { images: ProductImage[] }) {
       </div>
 
       {isFullscreen ? (
-        <div
-          className="fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setIsFullscreen(false)}
-        >
+        <ImageGalleryModal
+          images={images}
+          initialIndex={selectedIndex}
+          onClose={() => setIsFullscreen(false)}
+          onIndexChange={setSelectedIndex}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function ImageGalleryModal({
+  images,
+  initialIndex,
+  onClose,
+  onIndexChange,
+}: {
+  images: ProductImage[];
+  initialIndex: number;
+  onClose: () => void;
+  onIndexChange: (index: number) => void;
+}) {
+  const [index, setIndex] = useState(initialIndex);
+
+  const goPrev = useCallback(() => {
+    setIndex((i) => {
+      const next = (i - 1 + images.length) % images.length;
+      onIndexChange(next);
+      return next;
+    });
+    hapticSelection();
+  }, [images.length, onIndexChange]);
+
+  const goNext = useCallback(() => {
+    setIndex((i) => {
+      const next = (i + 1) % images.length;
+      onIndexChange(next);
+      return next;
+    });
+    hapticSelection();
+  }, [images.length, onIndexChange]);
+
+  useEffect(() => {
+    hapticImpact('light');
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowLeft') goPrev();
+      else if (e.key === 'ArrowRight') goNext();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, goPrev, goNext]);
+
+  const selected = images[index];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/10 text-lg text-white transition active:scale-90"
+        aria-label="Закрыть"
+      >
+        ✕
+      </button>
+
+      {images.length > 1 ? (
+        <span className="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-xs text-white">
+          {index + 1} / {images.length}
+        </span>
+      ) : null}
+
+      <img
+        src={selected?.url}
+        alt={selected?.alt ?? `Фото ${index + 1}`}
+        className="max-h-[85vh] max-w-[92vw] rounded-2xl bg-white object-contain"
+        onClick={(e) => e.stopPropagation()}
+      />
+
+      {images.length > 1 ? (
+        <>
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setIsFullscreen(false);
+              goPrev();
             }}
-            className="absolute right-4 top-[calc(env(safe-area-inset-top)+12px)] z-10 grid h-10 w-10 place-items-center rounded-full bg-white/10 text-xl text-white backdrop-blur-md transition active:scale-95"
-            aria-label="Закрыть"
+            className="absolute left-3 top-1/2 z-10 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-2xl text-white transition active:scale-90"
+            aria-label="Предыдущее фото"
           >
-            ✕
+            ‹
           </button>
-
-          <div className="absolute left-1/2 top-[calc(env(safe-area-inset-top)+18px)] -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-xs text-white backdrop-blur-md">
-            {selectedIndex + 1} / {images.length}
-          </div>
-
-          <div
-            className="flex flex-1 items-center justify-center p-4"
-            onClick={(e) => e.stopPropagation()}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              goNext();
+            }}
+            className="absolute right-3 top-1/2 z-10 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-2xl text-white transition active:scale-90"
+            aria-label="Следующее фото"
           >
-            <img
-              src={selected?.url}
-              alt={selected?.alt ?? `Фото ${selectedIndex + 1}`}
-              className="max-h-full max-w-full object-contain"
-            />
-          </div>
-
-          {images.length > 1 ? (
-            <>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePrev();
-                }}
-                className="absolute left-3 top-1/2 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-2xl text-white backdrop-blur-md transition active:scale-95"
-                aria-label="Предыдущее фото"
-              >
-                ‹
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNext();
-                }}
-                className="absolute right-3 top-1/2 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-2xl text-white backdrop-blur-md transition active:scale-95"
-                aria-label="Следующее фото"
-              >
-                ›
-              </button>
-
-              <div
-                className="flex gap-2 overflow-x-auto px-4 pb-[calc(env(safe-area-inset-bottom)+16px)]"
-                style={{ scrollbarWidth: 'none' }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {images.map((image, index) => (
-                  <button
-                    key={image.url}
-                    type="button"
-                    onClick={() => setSelectedIndex(index)}
-                    className={[
-                      'h-14 w-14 shrink-0 rounded-[14px] transition',
-                      index === selectedIndex ? 'ring-2 ring-[var(--accent)]' : 'opacity-50',
-                    ].join(' ')}
-                  >
-                    <img
-                      src={image.url}
-                      alt={image.alt ?? `Фото ${index + 1}`}
-                      className="h-full w-full rounded-[14px] bg-white object-contain"
-                    />
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : null}
-        </div>
+            ›
+          </button>
+        </>
       ) : null}
-    </>
+    </div>
   );
 }
