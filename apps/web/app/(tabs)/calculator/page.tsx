@@ -3,6 +3,7 @@
 import type { DeliveryCategory } from '@lean-poizon/shared';
 import { useEffect, useState } from 'react';
 
+import { DutyRow } from '../../../components/ui/duty-row';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../components/ui/feedback-message';
 import { InfoRow } from '../../../components/ui/info-row';
@@ -302,8 +303,12 @@ export default function CalculatorPage() {
   const inputClass =
     'w-full rounded-[16px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-[var(--accent)] focus:outline-none';
 
+  const hasStickyFooter = Boolean(
+    (product && selectedSku && pricing) || (manualMode && manualPricing),
+  );
+
   return (
-    <PageSection>
+    <PageSection hasStickyFooter={hasStickyFooter}>
       {/* --- Link input --- */}
       <SectionCard>
         <label className="block">
@@ -582,7 +587,7 @@ export default function CalculatorPage() {
                     />
                   </>
                 )}
-                <InfoRow label="Примерная пошлина" value={`${manualPricing.dutyRub} ₽`} />
+                <DutyRow dutyRub={manualPricing.dutyRub} breakdown={manualPricing.dutyBreakdown} />
               </div>
             </SectionCard>
           ) : null}
@@ -729,7 +734,7 @@ export default function CalculatorPage() {
                       label="Примерный вес"
                       value={`${pricing.estimatedWeightKg.toFixed(2)} кг`}
                     />
-                    <InfoRow label="Примерная пошлина" value={`${pricing.dutyRub} ₽`} />
+                    <DutyRow dutyRub={pricing.dutyRub} breakdown={pricing.dutyBreakdown} />
                   </div>
                 ) : null}
 
