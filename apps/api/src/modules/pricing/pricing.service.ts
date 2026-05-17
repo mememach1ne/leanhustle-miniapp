@@ -1,5 +1,5 @@
 import type { ManualPricingResult, PricingCalculationResult } from '@lean-poizon/shared';
-import { getCategoryGroupFromDeliveryCategory } from '@lean-poizon/shared';
+import { DeliveryCategory, getCategoryGroupFromDeliveryCategory } from '@lean-poizon/shared';
 import {
   BadRequestException,
   Inject,
@@ -70,6 +70,42 @@ export class PricingService {
       deliveryCategory: dto.deliveryCategory,
       estimatedWeightKg,
     };
+  }
+
+  recalculateFromYuan(
+    priceYuan: Prisma.Decimal,
+    deliveryCategory: string,
+    settings: {
+      cnyToUsd: Prisma.Decimal;
+      cnyToRub: Prisma.Decimal;
+      eurToRub: Prisma.Decimal;
+      commissionPercent: Prisma.Decimal;
+      deliveryPricePerKgRub: Prisma.Decimal;
+      dutyThresholdEur: Prisma.Decimal;
+      dutyPercent: Prisma.Decimal;
+      dutyProcessingFeeRub: Prisma.Decimal;
+    },
+  ): { totalUsd: Prisma.Decimal; deliveryRub: number; dutyRub: number } {
+    const subtotalUsd = priceYuan.mul(settings.cnyToUsd);
+    const totalUsd = subtotalUsd
+      .mul(new Prisma.Decimal(1).plus(settings.commissionPercent.div(100)))
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+
+    const { deliveryRub } = this.deliveryEstimationService.estimateDeliveryRub({
+      deliveryCategory: deliveryCategory as DeliveryCategory,
+      deliveryPricePerKgRub: settings.deliveryPricePerKgRub,
+    });
+
+    const dutyRub = this.dutyCalculationService.calculateDutyRub({
+      priceYuan,
+      cnyToRub: settings.cnyToRub,
+      eurToRub: settings.eurToRub,
+      dutyThresholdEur: settings.dutyThresholdEur,
+      dutyPercent: settings.dutyPercent,
+      dutyProcessingFeeRub: settings.dutyProcessingFeeRub,
+    });
+
+    return { totalUsd, deliveryRub, dutyRub };
   }
 
   async calculate(dto: CalculatePricingDto): Promise<PricingCalculationResult> {

@@ -16,8 +16,7 @@ export class HealthService {
       await this.prisma.$queryRaw`SELECT 1`;
 
       return {
-        app: 'ok',
-        db: 'ok',
+        status: 'ok',
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
@@ -27,9 +26,7 @@ export class HealthService {
       );
 
       throw new ServiceUnavailableException({
-        app: 'ok',
-        db: 'error',
-        message: 'Database health check failed',
+        status: 'unavailable',
         timestamp: new Date().toISOString(),
       });
     }

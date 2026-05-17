@@ -1,5 +1,6 @@
 import type { UserProfile } from '@lean-poizon/shared';
 import { Body, Controller, Get, Inject, Logger, Post, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { User } from '@prisma/client';
 
 import { mapUserToProfile } from '../users/mappers/user-profile.mapper';
@@ -18,6 +19,7 @@ export class AuthController {
   }
 
   @Post('telegram')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   async authenticateTelegram(@Body() dto: TelegramAuthDto) {
     this.logger.log('POST /auth/telegram request received');
     return this.authService.authenticateTelegram(dto);

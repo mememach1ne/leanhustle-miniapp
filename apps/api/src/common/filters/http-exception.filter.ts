@@ -30,6 +30,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const status =
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
+    const isProduction = process.env.NODE_ENV === 'production';
     let message: string = 'Internal server error';
 
     if (exception instanceof HttpException) {
@@ -42,7 +43,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
         'message' in exceptionResponse
       ) {
         const msg = (exceptionResponse as { message: unknown }).message;
-        message = Array.isArray(msg) ? msg.join(', ') : String(msg);
+        // In production, hide detailed validation errors for 400 responses
+        if (isProduction && status === HttpStatus.BAD_REQUEST && Array.isArray(msg)) {
+          message = 'Неверные данные запроса';
+        } else {
+          message = Array.isArray(msg) ? msg.join(', ') : String(msg);
+        }
       }
     }
 

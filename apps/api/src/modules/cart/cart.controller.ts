@@ -48,7 +48,7 @@ export class CartController {
   }
 
   @Delete('items/:id')
-  async removeItem(@CurrentUser() user: User, @Param('id') id: string): Promise<CartResponse> {
+  async removeItem(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string): Promise<CartResponse> {
     return this.cartService.removeItem(user.id, id);
   }
 }

@@ -5,7 +5,6 @@ const backendApiOrigin = process.env.BACKEND_API_ORIGIN ?? 'http://localhost:300
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@lean-poizon/shared'],
-  allowedDevOrigins: ['mounting-rehydrate-backwash.ngrok-free.dev'],
   async rewrites() {
     return [
       {

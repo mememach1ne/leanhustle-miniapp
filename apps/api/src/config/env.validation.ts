@@ -33,6 +33,10 @@ export function validateEnv(config: EnvShape) {
 
   if (!jwtSecret) {
     errors.push('JWT_SECRET is required');
+  } else if (jwtSecret.length < 32) {
+    errors.push('JWT_SECRET must be at least 32 characters long');
+  } else if (jwtSecret.includes('change-me')) {
+    errors.push('JWT_SECRET must not contain default placeholder value');
   }
 
   if (!rapidApiDewuKey) {

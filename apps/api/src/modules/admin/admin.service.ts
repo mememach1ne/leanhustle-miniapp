@@ -112,7 +112,7 @@ export class AdminService {
   }
 
   async searchOrders(query: string): Promise<StaffOrderListItemDto[]> {
-    const trimmed = query.trim();
+    const trimmed = query.trim().slice(0, 100);
     if (!trimmed) return [];
 
     // Try order number search first

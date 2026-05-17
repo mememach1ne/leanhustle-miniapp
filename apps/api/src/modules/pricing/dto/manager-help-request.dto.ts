@@ -4,6 +4,7 @@ import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-valid
 export class ManagerHelpRequestDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(2000)
   dewuLink!: string;
 
   @IsOptional()

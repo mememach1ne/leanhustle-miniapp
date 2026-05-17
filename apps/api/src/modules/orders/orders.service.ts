@@ -21,6 +21,7 @@ import {
 } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { PricingService } from '../pricing/pricing.service';
 import { SettingsService } from '../settings/settings.service';
 import { mapUserToProfile } from '../users/mappers/user-profile.mapper';
 import { UsersService } from '../users/users.service';
@@ -58,6 +59,7 @@ export class OrdersService {
   private readonly prisma: PrismaService;
   private readonly settingsService: SettingsService;
   private readonly usersService: UsersService;
+  private readonly pricingService: PricingService;
   private readonly orderNumberService: OrderNumberService;
   private readonly orderNotificationsService: OrderNotificationsService;
   private readonly subscriberBenefitService: SubscriberBenefitService;
@@ -66,6 +68,7 @@ export class OrdersService {
     @Inject(PrismaService) prisma: PrismaService,
     @Inject(SettingsService) settingsService: SettingsService,
     @Inject(UsersService) usersService: UsersService,
+    @Inject(PricingService) pricingService: PricingService,
     @Inject(OrderNumberService) orderNumberService: OrderNumberService,
     @Inject(OrderNotificationsService)
     orderNotificationsService: OrderNotificationsService,
@@ -75,6 +78,7 @@ export class OrdersService {
     this.prisma = prisma;
     this.settingsService = settingsService;
     this.usersService = usersService;
+    this.pricingService = pricingService;
     this.orderNumberService = orderNumberService;
     this.orderNotificationsService = orderNotificationsService;
     this.subscriberBenefitService = subscriberBenefitService;
@@ -115,17 +119,32 @@ export class OrdersService {
           user.isChannelSubscriber,
         );
 
-        const itemsCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
-        const totalUsd = cart.items.reduce(
+        // Recalculate prices server-side to prevent client-side price manipulation
+        const recalculatedItems = cart.items.map((item) => {
+          const result = this.pricingService.recalculateFromYuan(
+            item.priceYuan,
+            item.deliveryCategory ?? 'OTHER',
+            settings,
+          );
+          return {
+            ...item,
+            totalUsd: result.totalUsd,
+            deliveryRub: result.deliveryRub,
+            dutyRub: result.dutyRub,
+          };
+        });
+
+        const itemsCount = recalculatedItems.reduce((sum, item) => sum + item.quantity, 0);
+        const totalUsd = recalculatedItems.reduce(
           (sum, item) => sum.add(item.totalUsd.mul(item.quantity)),
           new Prisma.Decimal(0),
         );
-        const deliveryRub = cart.items.reduce(
-          (sum, item) => sum.add(item.deliveryRub.mul(item.quantity)),
+        const deliveryRub = recalculatedItems.reduce(
+          (sum, item) => sum.add(new Prisma.Decimal(item.deliveryRub).mul(item.quantity)),
           new Prisma.Decimal(0),
         );
-        const dutyRub = cart.items.reduce(
-          (sum, item) => sum.add(item.dutyRub.mul(item.quantity)),
+        const dutyRub = recalculatedItems.reduce(
+          (sum, item) => sum.add(new Prisma.Decimal(item.dutyRub).mul(item.quantity)),
           new Prisma.Decimal(0),
         );
 
@@ -154,7 +173,7 @@ export class OrdersService {
         });
 
         await tx.orderItem.createMany({
-          data: cart.items.map((item) => ({
+          data: recalculatedItems.map((item) => ({
             orderId: order.id,
             dewuLink: item.dewuLink,
             dwSpuId: item.dwSpuId,
@@ -170,8 +189,8 @@ export class OrdersService {
             priceYuan: item.priceYuan,
             originalTotalUsd: item.totalUsd,
             totalUsd: item.totalUsd,
-            deliveryRub: item.deliveryRub,
-            dutyRub: item.dutyRub,
+            deliveryRub: new Prisma.Decimal(item.deliveryRub),
+            dutyRub: new Prisma.Decimal(item.dutyRub),
             categoryGroup: item.categoryGroup,
             deliveryCategory: item.deliveryCategory,
             estimatedWeightKg: item.estimatedWeightKg,

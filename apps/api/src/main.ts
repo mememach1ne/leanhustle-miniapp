@@ -17,7 +17,13 @@ async function bootstrap() {
   const port = configService.get<number>('app.port', 3001);
   const corsOrigin = configService.get<string>('app.corsOrigin', 'http://localhost:3000');
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      hsts: { maxAge: 31536000, includeSubDomains: true },
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+      contentSecurityPolicy: false,
+    }),
+  );
   app.setGlobalPrefix('api');
   app.enableShutdownHooks();
   app.enableCors({
