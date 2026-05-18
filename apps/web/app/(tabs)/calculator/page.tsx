@@ -14,13 +14,46 @@ import { SectionCard } from '../../../components/ui/section-card';
 import { SizeChartModal } from '../../../components/ui/size-chart-modal';
 import { cartApi, pricingApi, productsApi } from '../../../lib/api-client';
 import { CATEGORY_GROUPS, getDeliveryCategoryLabel } from '../../../lib/delivery-categories';
-import { extractAxiosMessage } from '../../../lib/error-utils';
+import { extractAxiosMessage, isAxiosClientError } from '../../../lib/error-utils';
 import { hapticImpact, hapticNotification, hapticSelection } from '../../../lib/telegram-web-app';
 import { useCalculatorStore } from '../../../store/calculator-store';
 import { useCartStore } from '../../../store/cart-store';
 
 const formatYuan = (value: number | null) =>
   typeof value === 'number' ? `${value.toFixed(2)} CNY` : 'Недоступно';
+
+const SUPPORTED_HOST_SUFFIXES = ['dw4.co', 'dewu.com', 'poizon.com', 'poizonresell.com'];
+
+/**
+ * Lightweight client-side check. Returns null if the link is plausibly a
+ * Poizon/Dewu URL; otherwise returns a user-facing error message.
+ */
+const validatePoizonLink = (rawLink: string): string | null => {
+  const trimmed = rawLink.trim();
+  if (!trimmed) return 'Вставьте ссылку на товар Poizon.';
+
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    return 'Это не ссылка. Скопируй ссылку на товар из приложения Poizon.';
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return 'Ссылка должна начинаться с https://';
+  }
+
+  const host = url.hostname.toLowerCase();
+  const isSupported = SUPPORTED_HOST_SUFFIXES.some(
+    (suffix) => host === suffix || host.endsWith(`.${suffix}`),
+  );
+
+  if (!isSupported) {
+    return 'Ссылка не от Poizon. Поддерживаются dw4.co и dewu.com / poizon.com.';
+  }
+
+  return null;
+};
 
 export default function CalculatorPage() {
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -118,8 +151,11 @@ export default function CalculatorPage() {
     setCartMessage(null);
     setCartError(null);
 
-    if (!link.trim()) {
-      setError('Вставьте ссылку на товар Poizon.');
+    // Client-side validation first — never call API for obvious junk.
+    const validationError = validatePoizonLink(link);
+    if (validationError) {
+      setError(validationError);
+      hapticNotification('error');
       return;
     }
 
@@ -132,13 +168,20 @@ export default function CalculatorPage() {
 
       setResolvedProduct(resolvedProduct);
     } catch (requestError) {
-      const message = extractAxiosMessage(requestError);
-      // Activate manual mode on API error
-      activateManualMode();
+      // 4xx = bad input that passed our local check but server rejected
+      // (e.g. unknown spuId pattern). Show the server's reason — do NOT
+      // fall into manual mode, which is reserved for real API outages.
+      if (isAxiosClientError(requestError)) {
+        const message =
+          extractAxiosMessage(requestError) ?? 'Не удалось распознать ссылку.';
+        setError(message);
+        hapticNotification('error');
+        return;
+      }
+
+      // 5xx / network — actual API failure, offer manual mode.
       hapticNotification('warning');
-      // We don't call setError because activateManualMode clears error
-      // Instead show the context in the manual form
-      void message; // used implicitly by activating manual mode
+      activateManualMode();
     }
   };
 

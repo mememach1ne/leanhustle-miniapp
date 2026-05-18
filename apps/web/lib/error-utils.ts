@@ -17,3 +17,10 @@ export const extractAxiosMessage = (error: unknown): string | null => {
 
   return null;
 };
+
+/** True for client errors (4xx) — input validation, not real API outage. */
+export const isAxiosClientError = (error: unknown): boolean => {
+  if (!axios.isAxiosError(error)) return false;
+  const status = error.response?.status;
+  return typeof status === 'number' && status >= 400 && status < 500;
+};
