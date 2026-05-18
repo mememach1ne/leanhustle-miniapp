@@ -38,6 +38,47 @@ async function seedBusinessSettings() {
   });
 }
 
+async function upsertStaffEntry(
+  entry: { telegramId?: string; username?: string },
+  role: StaffRole,
+): Promise<string | null> {
+  if (!entry.telegramId && !entry.username) return null;
+
+  const existing =
+    (entry.telegramId
+      ? await prisma.staffAccount.findUnique({
+          where: { telegramId: entry.telegramId },
+        })
+      : null) ??
+    (entry.username
+      ? await prisma.staffAccount.findUnique({
+          where: { username: entry.username },
+        })
+      : null);
+
+  if (existing) {
+    await prisma.staffAccount.update({
+      where: { id: existing.id },
+      data: {
+        telegramId: entry.telegramId ?? existing.telegramId,
+        username: entry.username ?? existing.username,
+        role,
+        isActive: true,
+      },
+    });
+    return existing.id;
+  }
+
+  const created = await prisma.staffAccount.create({
+    data: {
+      telegramId: entry.telegramId,
+      username: entry.username,
+      role,
+    },
+  });
+  return created.id;
+}
+
 async function seedStaffAccounts() {
   const adminEntries = zipStaffSeed(
     parseCsv(process.env.SEED_ADMIN_TELEGRAM_IDS),
@@ -48,82 +89,30 @@ async function seedStaffAccounts() {
     parseCsv(process.env.SEED_MANAGER_USERNAMES),
   );
 
+  const allowedIds = new Set<string>();
+
   for (const entry of adminEntries) {
-    if (!entry.telegramId && !entry.username) {
-      continue;
-    }
-
-    const existing =
-      (entry.telegramId
-        ? await prisma.staffAccount.findUnique({
-            where: { telegramId: entry.telegramId },
-          })
-        : null) ??
-      (entry.username
-        ? await prisma.staffAccount.findUnique({
-            where: { username: entry.username },
-          })
-        : null);
-
-    if (existing) {
-      await prisma.staffAccount.update({
-        where: { id: existing.id },
-        data: {
-          telegramId: entry.telegramId ?? existing.telegramId,
-          username: entry.username ?? existing.username,
-          role: StaffRole.ADMIN,
-          isActive: true,
-        },
-      });
-      continue;
-    }
-
-    await prisma.staffAccount.create({
-      data: {
-        telegramId: entry.telegramId,
-        username: entry.username,
-        role: StaffRole.ADMIN,
-      },
-    });
+    const id = await upsertStaffEntry(entry, StaffRole.ADMIN);
+    if (id) allowedIds.add(id);
   }
 
   for (const entry of managerEntries) {
-    if (!entry.telegramId && !entry.username) {
-      continue;
-    }
+    const id = await upsertStaffEntry(entry, StaffRole.MANAGER);
+    if (id) allowedIds.add(id);
+  }
 
-    const existing =
-      (entry.telegramId
-        ? await prisma.staffAccount.findUnique({
-            where: { telegramId: entry.telegramId },
-          })
-        : null) ??
-      (entry.username
-        ? await prisma.staffAccount.findUnique({
-            where: { username: entry.username },
-          })
-        : null);
+  // Anyone NOT in the env lists gets deactivated so they lose staff
+  // access. We don't hard-delete to preserve audit trails / FKs.
+  const deactivated = await prisma.staffAccount.updateMany({
+    where: {
+      isActive: true,
+      id: { notIn: [...allowedIds] },
+    },
+    data: { isActive: false },
+  });
 
-    if (existing) {
-      await prisma.staffAccount.update({
-        where: { id: existing.id },
-        data: {
-          telegramId: entry.telegramId ?? existing.telegramId,
-          username: entry.username ?? existing.username,
-          role: StaffRole.MANAGER,
-          isActive: true,
-        },
-      });
-      continue;
-    }
-
-    await prisma.staffAccount.create({
-      data: {
-        telegramId: entry.telegramId,
-        username: entry.username,
-        role: StaffRole.MANAGER,
-      },
-    });
+  if (deactivated.count > 0) {
+    console.log(`[seed] deactivated ${deactivated.count} staff not in env lists`);
   }
 }
 
