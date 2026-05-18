@@ -453,63 +453,187 @@ export class OrderAdminService {
 
   // --- Category callback helpers ---
 
-  encodeCategoryCallback(action: 'open' | 'edit' | 'delete' | 'back', id: string) {
-    return `${CATEGORY_ACTION_PREFIX}${action}:${id}`;
+  /**
+   * Groups for the manager's "Все категории" view. Each enum-key category
+   * (seeded from DeliveryCategory) belongs to exactly one group. Any row
+   * whose categoryKey doesn't start with "enum:" is treated as dynamic
+   * and bucketed into the "dynamic" group.
+   */
+  private readonly KNOWN_CATEGORY_GROUPS: Array<{
+    key: string;
+    label: string;
+    enumKeys: string[];
+  }> = [
+    {
+      key: 'footwear',
+      label: '👟 Обувь',
+      enumKeys: ['enum:SNEAKERS', 'enum:SLIDES', 'enum:BOOTS', 'enum:LOAFERS'],
+    },
+    {
+      key: 'apparel',
+      label: '👕 Одежда',
+      enumKeys: [
+        'enum:TSHIRT',
+        'enum:SHORTS',
+        'enum:PANTS',
+        'enum:HOODIE',
+        'enum:SWEATSHIRT',
+        'enum:JACKET',
+        'enum:VEST',
+        'enum:DRESS',
+        'enum:SKIRT',
+        'enum:UNDERWEAR',
+      ],
+    },
+    {
+      key: 'accessories',
+      label: '👜 Аксессуары',
+      enumKeys: [
+        'enum:WATCH',
+        'enum:GLASSES',
+        'enum:BAG',
+        'enum:SMALL_ACCESSORY',
+        'enum:JEWELRY',
+        'enum:PHONE_CASE',
+        'enum:HEADWEAR',
+        'enum:SCARF',
+        'enum:PERFUME',
+        'enum:TECH_ACCESSORY',
+      ],
+    },
+  ];
+
+  getCategoryGroups() {
+    return this.KNOWN_CATEGORY_GROUPS;
+  }
+
+  encodeCategoryCallback(action: string, arg?: string): string {
+    return arg ? `${CATEGORY_ACTION_PREFIX}${action}:${arg}` : `${CATEGORY_ACTION_PREFIX}${action}`;
   }
 
   decodeCategoryCallback(
     callbackData: string,
-  ): { action: 'open' | 'edit' | 'delete' | 'back'; id: string } | null {
+  ): { action: string; arg?: string } | null {
     if (!callbackData.startsWith(CATEGORY_ACTION_PREFIX)) return null;
     const rest = callbackData.slice(CATEGORY_ACTION_PREFIX.length);
     const colon = rest.indexOf(':');
-    if (colon < 0) return null;
-    const action = rest.slice(0, colon);
-    const id = rest.slice(colon + 1);
-    if (
-      (action === 'open' || action === 'edit' || action === 'delete' || action === 'back') &&
-      id
-    ) {
-      return { action, id };
+    if (colon < 0) {
+      // Action without arg (e.g. list_pending, list_all, back_admin).
+      return { action: rest };
     }
-    return null;
+    return { action: rest.slice(0, colon), arg: rest.slice(colon + 1) };
   }
 
-  buildCategoryListText(
-    title: string,
+  /** Pending-only flat list (manager triage). */
+  buildPendingListText(
     rows: Array<{ id: string; title: string; weightKg: number | null; encounterCount: number }>,
   ): string {
     if (rows.length === 0) {
-      return `${title}\n\nСписок пуст.`;
+      return '⚠️ Непроверенные категории\n\nСписок пуст. Все категории имеют введённый вес.';
     }
     return [
-      title,
+      '⚠️ Непроверенные категории',
+      `Всего: ${rows.length}`,
       '',
-      ...rows.slice(0, 30).map((row, i) => {
-        const weight =
-          row.weightKg === null ? 'без веса' : `${row.weightKg.toFixed(2)} кг`;
-        return `${i + 1}. ${row.title} — ${weight} (×${row.encounterCount})`;
-      }),
-      rows.length > 30 ? `\n…и ещё ${rows.length - 30}.` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
+      'Категории, для которых ещё не задан вес. Клиенты видят «вес уточнит менеджер».',
+    ].join('\n');
   }
 
-  buildCategoryListKeyboard(
+  buildPendingListKeyboard(
+    rows: Array<{ id: string; title: string; encounterCount: number }>,
+  ): InlineKeyboardMarkup {
+    const inline_keyboard: InlineKeyboardMarkup['inline_keyboard'] = rows
+      .slice(0, 30)
+      .map((row) => {
+        const text = `⚠️ ${row.title} (×${row.encounterCount})`.slice(0, 60);
+        return [{ text, callback_data: this.encodeCategoryCallback('open', row.id) }];
+      });
+    inline_keyboard.push([
+      { text: '↑ Главное меню', callback_data: this.encodeCategoryCallback('back_admin') },
+    ]);
+    return { inline_keyboard };
+  }
+
+  /** Top-level group selector for "Все категории". */
+  buildAllCategoriesText(): string {
+    return [
+      '📦 Все категории',
+      '',
+      'Выбери подкатегорию для просмотра и редактирования веса.',
+    ].join('\n');
+  }
+
+  buildAllCategoriesKeyboard(dynamicCount: number): InlineKeyboardMarkup {
+    const inline_keyboard: InlineKeyboardMarkup['inline_keyboard'] = this.KNOWN_CATEGORY_GROUPS.map(
+      (group) => [
+        { text: group.label, callback_data: this.encodeCategoryCallback('group', group.key) },
+      ],
+    );
+    if (dynamicCount > 0) {
+      inline_keyboard.push([
+        {
+          text: `🆕 Найденные на Poizon (${dynamicCount})`,
+          callback_data: this.encodeCategoryCallback('group', 'dynamic'),
+        },
+      ]);
+    }
+    inline_keyboard.push([
+      { text: '↑ Главное меню', callback_data: this.encodeCategoryCallback('back_admin') },
+    ]);
+    return { inline_keyboard };
+  }
+
+  /** Categories within a single group. */
+  buildGroupCategoriesText(groupKey: string, count: number): string {
+    const group = this.KNOWN_CATEGORY_GROUPS.find((g) => g.key === groupKey);
+    const label = group?.label ?? (groupKey === 'dynamic' ? '🆕 Найденные на Poizon' : groupKey);
+    if (count === 0) {
+      return `${label}\n\nКатегорий нет.`;
+    }
+    return `${label}\n\nВыбери категорию для редактирования.`;
+  }
+
+  buildGroupCategoriesKeyboard(
+    groupKey: string,
     rows: Array<{ id: string; title: string; weightKg: number | null }>,
   ): InlineKeyboardMarkup {
-    return {
-      inline_keyboard: rows.slice(0, 30).map((row) => {
-        const prefix = row.weightKg === null ? '⚠️' : '✓';
-        const text = `${prefix} ${row.title}`.slice(0, 60);
-        return [{ text, callback_data: this.encodeCategoryCallback('open', row.id) }];
-      }),
-    };
+    const inline_keyboard: InlineKeyboardMarkup['inline_keyboard'] = rows.slice(0, 30).map((row) => {
+      const prefix = row.weightKg === null ? '⚠️' : '✓';
+      const weightSuffix =
+        row.weightKg === null ? '' : ` — ${row.weightKg.toFixed(2)} кг`;
+      const text = `${prefix} ${row.title}${weightSuffix}`.slice(0, 60);
+      return [{ text, callback_data: this.encodeCategoryCallback('open', row.id) }];
+    });
+    inline_keyboard.push([
+      {
+        text: '← К подкатегориям',
+        callback_data: this.encodeCategoryCallback('list_all'),
+      },
+    ]);
+    inline_keyboard.push([
+      { text: '↑ Главное меню', callback_data: this.encodeCategoryCallback('back_admin') },
+    ]);
+    void groupKey;
+    return { inline_keyboard };
+  }
+
+  /** Filter category rows by group. */
+  filterCategoriesByGroup<T extends { categoryKey: string }>(
+    rows: T[],
+    groupKey: string,
+  ): T[] {
+    if (groupKey === 'dynamic') {
+      return rows.filter((row) => !row.categoryKey.startsWith('enum:'));
+    }
+    const group = this.KNOWN_CATEGORY_GROUPS.find((g) => g.key === groupKey);
+    if (!group) return [];
+    const keySet = new Set(group.enumKeys);
+    return rows.filter((row) => keySet.has(row.categoryKey));
   }
 
   buildCategoryDetailText(record: {
     title: string;
+    categoryKey: string;
     categoryL1: string | null;
     categoryL2: string | null;
     categoryL3: string | null;
@@ -517,10 +641,12 @@ export class OrderAdminService {
     encounterCount: number;
     firstSeenAt: Date;
   }): string {
-    const chain =
-      [record.categoryL1, record.categoryL2, record.categoryL3]
-        .filter((s): s is string => Boolean(s))
-        .join(' › ') || '(нет от Poizon)';
+    const isEnum = record.categoryKey.startsWith('enum:');
+    const chain = isEnum
+      ? '(базовая категория)'
+      : [record.categoryL1, record.categoryL2, record.categoryL3]
+          .filter((s): s is string => Boolean(s))
+          .join(' › ') || '(нет от Poizon)';
     const weight =
       record.weightKg === null
         ? '— не задан, клиенты видят «вес уточнит менеджер»'
@@ -536,11 +662,30 @@ export class OrderAdminService {
     ].join('\n');
   }
 
-  buildCategoryDetailKeyboard(id: string): InlineKeyboardMarkup {
+  /**
+   * Detail keyboard. `backTo` controls the back navigation target:
+   *   - "pending" → back to pending list
+   *   - "group:<key>" → back to a group view
+   */
+  buildCategoryDetailKeyboard(id: string, backTo: string): InlineKeyboardMarkup {
+    const backButton =
+      backTo === 'pending'
+        ? { text: '← К непроверенным', callback_data: this.encodeCategoryCallback('list_pending') }
+        : backTo.startsWith('group:')
+          ? {
+              text: '← Назад',
+              callback_data: this.encodeCategoryCallback('group', backTo.slice('group:'.length)),
+            }
+          : { text: '← Назад', callback_data: this.encodeCategoryCallback('list_all') };
+
     return {
       inline_keyboard: [
         [{ text: 'Ввести / изменить вес', callback_data: this.encodeCategoryCallback('edit', id) }],
         [{ text: '🗑 Удалить категорию', callback_data: this.encodeCategoryCallback('delete', id) }],
+        [backButton],
+        [
+          { text: '↑ Главное меню', callback_data: this.encodeCategoryCallback('back_admin') },
+        ],
       ],
     };
   }

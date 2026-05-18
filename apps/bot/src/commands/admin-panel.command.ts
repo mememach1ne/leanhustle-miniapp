@@ -182,21 +182,13 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
           return;
         }
         case 'pending_categories': {
-          const rows = await apiService.listPendingDeliveryCategories(getActor(ctx));
           await ctx.answerCbQuery();
-          await ctx.reply(
-            orderAdminService.buildCategoryListText('⚠️ Непроверенные категории:', rows),
-            { reply_markup: orderAdminService.buildCategoryListKeyboard(rows) },
-          );
+          await showPendingList(ctx);
           return;
         }
         case 'all_categories': {
-          const rows = await apiService.listAllDeliveryCategories(getActor(ctx));
           await ctx.answerCbQuery();
-          await ctx.reply(
-            orderAdminService.buildCategoryListText('📦 Все категории:', rows),
-            { reply_markup: orderAdminService.buildCategoryListKeyboard(rows) },
-          );
+          await showAllCategoriesGroupSelector(ctx);
           return;
         }
       }
@@ -208,10 +200,10 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
     }
   });
 
-  // --- Category detail / edit / delete callbacks ---
+  // --- Category navigation (edit-in-place) ---
   bot.action(/^cat:.+$/, async (ctx) => {
     if (!(await assertStaffPanel(ctx))) return;
-    if (!ctx.from) return;
+    if (!ctx.from || !ctx.access) return;
 
     const decoded = orderAdminService.decodeCategoryCallback(ctx.match.input);
     if (!decoded) {
@@ -220,40 +212,87 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
     }
 
     try {
-      if (decoded.action === 'open') {
-        const record = await apiService.getDeliveryCategory(decoded.id, getActor(ctx));
-        await ctx.answerCbQuery();
-        await ctx.reply(
-          orderAdminService.buildCategoryDetailText({
-            title: record.title,
-            categoryL1: record.categoryL1,
-            categoryL2: record.categoryL2,
-            categoryL3: record.categoryL3,
-            weightKg: record.weightKg,
-            encounterCount: record.encounterCount,
-            firstSeenAt: new Date(record.firstSeenAt),
-          }),
-          { reply_markup: orderAdminService.buildCategoryDetailKeyboard(record.id) },
-        );
-        return;
-      }
-
-      if (decoded.action === 'edit') {
-        const record = await apiService.getDeliveryCategory(decoded.id, getActor(ctx));
-        orderAdminService.beginCategoryWeightInput(String(ctx.from.id), {
-          categoryId: record.id,
-          categoryTitle: record.title,
-        });
-        await ctx.answerCbQuery();
-        await ctx.reply(orderAdminService.buildCategoryWeightPrompt(record.title));
-        return;
-      }
-
-      if (decoded.action === 'delete') {
-        await apiService.deleteDeliveryCategory(decoded.id, getActor(ctx));
-        await ctx.answerCbQuery('Категория удалена');
-        await ctx.reply('🗑 Категория удалена.');
-        return;
+      switch (decoded.action) {
+        case 'back_admin': {
+          await ctx.answerCbQuery();
+          await ctx.editMessageText(
+            orderAdminService.getWelcomeText(
+              ctx.access.role === 'admin' ? 'Администратор' : 'Менеджер',
+            ),
+            { reply_markup: orderAdminService.buildAdminPanelKeyboard(ctx.access.role) },
+          );
+          return;
+        }
+        case 'list_pending': {
+          await ctx.answerCbQuery();
+          await showPendingList(ctx);
+          return;
+        }
+        case 'list_all': {
+          await ctx.answerCbQuery();
+          await showAllCategoriesGroupSelector(ctx);
+          return;
+        }
+        case 'group': {
+          if (!decoded.arg) return;
+          await ctx.answerCbQuery();
+          await showGroupCategories(ctx, decoded.arg);
+          return;
+        }
+        case 'open': {
+          if (!decoded.arg) return;
+          const record = await apiService.getDeliveryCategory(decoded.arg, getActor(ctx));
+          // Decide back target from where the category lives: pending if
+          // weight is null, otherwise its group (or "dynamic").
+          let backTo: string;
+          if (record.weightKg === null) {
+            backTo = 'pending';
+          } else if (record.categoryKey.startsWith('enum:')) {
+            const group = orderAdminService
+              .getCategoryGroups()
+              .find((g) => g.enumKeys.includes(record.categoryKey));
+            backTo = `group:${group?.key ?? 'apparel'}`;
+          } else {
+            backTo = 'group:dynamic';
+          }
+          await ctx.answerCbQuery();
+          await ctx.editMessageText(
+            orderAdminService.buildCategoryDetailText({
+              title: record.title,
+              categoryKey: record.categoryKey,
+              categoryL1: record.categoryL1,
+              categoryL2: record.categoryL2,
+              categoryL3: record.categoryL3,
+              weightKg: record.weightKg,
+              encounterCount: record.encounterCount,
+              firstSeenAt: new Date(record.firstSeenAt),
+            }),
+            { reply_markup: orderAdminService.buildCategoryDetailKeyboard(record.id, backTo) },
+          );
+          return;
+        }
+        case 'edit': {
+          if (!decoded.arg) return;
+          const record = await apiService.getDeliveryCategory(decoded.arg, getActor(ctx));
+          orderAdminService.beginCategoryWeightInput(String(ctx.from.id), {
+            categoryId: record.id,
+            categoryTitle: record.title,
+          });
+          await ctx.answerCbQuery();
+          // Don't edit the message — manager needs to see what they're
+          // editing while typing. Just send the prompt as a new message.
+          await ctx.reply(orderAdminService.buildCategoryWeightPrompt(record.title));
+          return;
+        }
+        case 'delete': {
+          if (!decoded.arg) return;
+          await apiService.deleteDeliveryCategory(decoded.arg, getActor(ctx));
+          await ctx.answerCbQuery('Категория удалена');
+          await showAllCategoriesGroupSelector(ctx);
+          return;
+        }
+        default:
+          await ctx.answerCbQuery();
       }
     } catch (error) {
       await ctx.answerCbQuery('Ошибка.', { show_alert: true });
@@ -262,4 +301,30 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
       );
     }
   });
+};
+
+// --- helpers ---
+
+const showPendingList = async (ctx: BotContext) => {
+  const rows = await apiService.listPendingDeliveryCategories(getActor(ctx));
+  await ctx.editMessageText(orderAdminService.buildPendingListText(rows), {
+    reply_markup: orderAdminService.buildPendingListKeyboard(rows),
+  });
+};
+
+const showAllCategoriesGroupSelector = async (ctx: BotContext) => {
+  const all = await apiService.listAllDeliveryCategories(getActor(ctx));
+  const dynamicCount = all.filter((r) => !r.categoryKey.startsWith('enum:')).length;
+  await ctx.editMessageText(orderAdminService.buildAllCategoriesText(), {
+    reply_markup: orderAdminService.buildAllCategoriesKeyboard(dynamicCount),
+  });
+};
+
+const showGroupCategories = async (ctx: BotContext, groupKey: string) => {
+  const all = await apiService.listAllDeliveryCategories(getActor(ctx));
+  const rows = orderAdminService.filterCategoriesByGroup(all, groupKey);
+  await ctx.editMessageText(
+    orderAdminService.buildGroupCategoriesText(groupKey, rows.length),
+    { reply_markup: orderAdminService.buildGroupCategoriesKeyboard(groupKey, rows) },
+  );
 };
