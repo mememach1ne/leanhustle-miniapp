@@ -48,10 +48,9 @@ const SETTINGS_RATE_PREFIX = 'settings_rate:';
 const ADMIN_PANEL_ACTION_PREFIX = 'admin_panel:';
 const CLIENT_ACTION_PREFIX = 'client:';
 
-export const POIZON_IOS_URL =
-  'https://apps.apple.com/us/app/poizon-authentic-collection/id1577673205';
-export const POIZON_ANDROID_URL =
-  'https://play.google.com/store/apps/details?id=com.shizhuang.poizon';
+export const POIZON_IOS_URL = 'https://apps.apple.com/app/id1012871328';
+// Poizon is not on Google Play; the official site serves the APK directly.
+export const POIZON_ANDROID_URL = 'https://poizon.com';
 export const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
 
 type AdminPanelAction =
