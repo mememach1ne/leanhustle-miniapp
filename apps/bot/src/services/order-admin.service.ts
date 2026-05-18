@@ -52,6 +52,11 @@ export const POIZON_IOS_URL = 'https://apps.apple.com/app/id1012871328';
 // Poizon is not on Google Play. We host the official APK ourselves and
 // serve it directly via nginx (see infra/nginx).
 export const POIZON_ANDROID_URL = 'https://leanhustle.ru/poizon.apk';
+
+// Mandatory news channel. The bot must be an administrator of this
+// channel (otherwise getChatMember fails).
+export const NEWS_CHANNEL_USERNAME = '@lh_poizon';
+export const NEWS_CHANNEL_URL = 'https://t.me/lh_poizon';
 export const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
 
 type AdminPanelAction =
@@ -174,6 +179,47 @@ export class OrderAdminService {
 
   isClientOtherMarketplacesCallback(data: string): boolean {
     return data === `${CLIENT_ACTION_PREFIX}other_marketplaces`;
+  }
+
+  isClientCheckSubscriptionCallback(data: string): boolean {
+    return data === `${CLIENT_ACTION_PREFIX}check_subscription`;
+  }
+
+  getSubscriptionRequiredText() {
+    return [
+      '🔒 Для использования бота подпишись на наш новостной канал',
+      '',
+      'Там — анонсы новых дропов, скидки и обновления сервиса.',
+      '',
+      'После подписки нажми «Проверить подписку».',
+    ].join('\n');
+  }
+
+  buildSubscriptionRequiredKeyboard(): InlineKeyboardMarkup {
+    return {
+      inline_keyboard: [
+        [
+          {
+            text: '📢 Подписаться на канал',
+            url: NEWS_CHANNEL_URL,
+          },
+        ],
+        [
+          {
+            text: '✅ Проверить подписку',
+            callback_data: `${CLIENT_ACTION_PREFIX}check_subscription`,
+          },
+        ],
+      ],
+    };
+  }
+
+  getSubscriptionStillMissingText() {
+    return [
+      '❌ Похоже, ты ещё не подписан на канал.',
+      '',
+      'Подпишись на @lh_poizon и нажми «Проверить подписку» ещё раз.',
+    ].join('\n');
   }
 
   buildAdminPanelKeyboard(role: 'admin' | 'manager'): InlineKeyboardMarkup {
