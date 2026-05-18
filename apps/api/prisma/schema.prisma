@@ -236,11 +236,12 @@ model StaffAccount {
   createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  assignedOrders        Order[]              @relation("AssignedOrders")
-  createdOrderNotes     OrderNote[]          @relation("CreatedOrderNotes")
-  changedOrderStatuses  OrderStatusHistory[] @relation("ChangedOrderStatuses")
-  settingsAuditLogs     SettingsAuditLog[]   @relation("SettingsAuditActor")
-  updatedSettings       BusinessSettings[]   @relation("SettingsUpdatedBy")
+  assignedOrders                Order[]                  @relation("AssignedOrders")
+  createdOrderNotes             OrderNote[]              @relation("CreatedOrderNotes")
+  changedOrderStatuses          OrderStatusHistory[]     @relation("ChangedOrderStatuses")
+  settingsAuditLogs             SettingsAuditLog[]       @relation("SettingsAuditActor")
+  updatedSettings               BusinessSettings[]       @relation("SettingsUpdatedBy")
+  deliveryCategoryWeightUpdates DeliveryCategoryWeight[] @relation("DeliveryCategoryWeightUpdates")
 
   @@index([role, isActive], map: "staff_accounts_role_is_active_idx")
   @@map("staff_accounts")
@@ -282,4 +283,30 @@ model SettingsAuditLog {
   @@index([settingsId, createdAt], map: "settings_audit_logs_settings_id_created_at_idx")
   @@index([changedByStaffId], map: "settings_audit_logs_changed_by_staff_id_idx")
   @@map("settings_audit_logs")
+}
+
+model DeliveryCategoryWeight {
+  id                String   @id @default(uuid()) @db.Uuid
+  // Stable lookup key built from the Poizon L1|L2|L3 chain.
+  categoryKey       String   @unique @map("category_key") @db.VarChar(640)
+  categoryL1        String?  @map("category_l1") @db.VarChar(200)
+  categoryL2        String?  @map("category_l2") @db.VarChar(200)
+  categoryL3        String?  @map("category_l3") @db.VarChar(200)
+  // Human-readable label (defaults to L3 -> L2 -> L1 -> "Unknown").
+  title             String   @db.VarChar(200)
+  // NULL = pending (manager hasn't entered a weight yet).
+  weightKg          Decimal? @map("weight_kg") @db.Decimal(8, 3)
+  // First time the category was encountered.
+  firstSeenAt       DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  // Last staff member to set/edit the weight.
+  updatedByStaffId  String?  @map("updated_by_staff_id") @db.Uuid
+  // How many times this category has been added to a cart.
+  encounterCount    Int      @default(1) @map("encounter_count")
+
+  updatedByStaff StaffAccount? @relation("DeliveryCategoryWeightUpdates", fields: [updatedByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([weightKg], map: "delivery_category_weights_weight_kg_idx")
+  @@index([categoryL1, categoryL2, categoryL3], map: "delivery_category_weights_lookup_idx")
+  @@map("delivery_category_weights")
 }

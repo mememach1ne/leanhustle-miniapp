@@ -181,11 +181,84 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
           await ctx.reply(orderAdminService.buildDeliveryPrompt());
           return;
         }
+        case 'pending_categories': {
+          const rows = await apiService.listPendingDeliveryCategories(getActor(ctx));
+          await ctx.answerCbQuery();
+          await ctx.reply(
+            orderAdminService.buildCategoryListText('⚠️ Непроверенные категории:', rows),
+            { reply_markup: orderAdminService.buildCategoryListKeyboard(rows) },
+          );
+          return;
+        }
+        case 'all_categories': {
+          const rows = await apiService.listAllDeliveryCategories(getActor(ctx));
+          await ctx.answerCbQuery();
+          await ctx.reply(
+            orderAdminService.buildCategoryListText('📦 Все категории:', rows),
+            { reply_markup: orderAdminService.buildCategoryListKeyboard(rows) },
+          );
+          return;
+        }
       }
     } catch (error) {
       await ctx.answerCbQuery('Не удалось выполнить действие.', { show_alert: true });
       await ctx.reply(
         extractAxiosMessage(error) ?? 'Не удалось выполнить действие из админ-панели.',
+      );
+    }
+  });
+
+  // --- Category detail / edit / delete callbacks ---
+  bot.action(/^cat:.+$/, async (ctx) => {
+    if (!(await assertStaffPanel(ctx))) return;
+    if (!ctx.from) return;
+
+    const decoded = orderAdminService.decodeCategoryCallback(ctx.match.input);
+    if (!decoded) {
+      await ctx.answerCbQuery('Не удалось распознать действие.', { show_alert: true });
+      return;
+    }
+
+    try {
+      if (decoded.action === 'open') {
+        const record = await apiService.getDeliveryCategory(decoded.id, getActor(ctx));
+        await ctx.answerCbQuery();
+        await ctx.reply(
+          orderAdminService.buildCategoryDetailText({
+            title: record.title,
+            categoryL1: record.categoryL1,
+            categoryL2: record.categoryL2,
+            categoryL3: record.categoryL3,
+            weightKg: record.weightKg,
+            encounterCount: record.encounterCount,
+            firstSeenAt: new Date(record.firstSeenAt),
+          }),
+          { reply_markup: orderAdminService.buildCategoryDetailKeyboard(record.id) },
+        );
+        return;
+      }
+
+      if (decoded.action === 'edit') {
+        const record = await apiService.getDeliveryCategory(decoded.id, getActor(ctx));
+        orderAdminService.beginCategoryWeightInput(String(ctx.from.id), {
+          categoryId: record.id,
+          categoryTitle: record.title,
+        });
+        await ctx.answerCbQuery();
+        await ctx.reply(orderAdminService.buildCategoryWeightPrompt(record.title));
+        return;
+      }
+
+      if (decoded.action === 'delete') {
+        await apiService.deleteDeliveryCategory(decoded.id, getActor(ctx));
+        await ctx.answerCbQuery('Категория удалена');
+        await ctx.reply('🗑 Категория удалена.');
+        return;
+      }
+    } catch (error) {
+      await ctx.answerCbQuery('Ошибка.', { show_alert: true });
+      await ctx.reply(
+        extractAxiosMessage(error) ?? 'Не удалось выполнить действие с категорией.',
       );
     }
   });

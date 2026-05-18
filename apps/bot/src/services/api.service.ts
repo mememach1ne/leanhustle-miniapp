@@ -2,6 +2,8 @@ import axios from 'axios';
 
 import type {
   BusinessSettingsDto,
+  DeliveryCategoryWeightDto,
+  SetCategoryWeightRequest,
   SettingsAuditLogItemDto,
   StaffOrderDetailsDto,
   StaffOrderListItemDto,
@@ -142,6 +144,56 @@ export class ApiService {
     );
 
     return response.data;
+  }
+
+  async listPendingDeliveryCategories(
+    actor: BotActorIdentity,
+  ): Promise<DeliveryCategoryWeightDto[]> {
+    const response = await this.http.get<DeliveryCategoryWeightDto[]>(
+      '/staff/delivery-categories/pending',
+      { headers: this.buildHeaders(actor) },
+    );
+    return response.data;
+  }
+
+  async listAllDeliveryCategories(
+    actor: BotActorIdentity,
+  ): Promise<DeliveryCategoryWeightDto[]> {
+    const response = await this.http.get<DeliveryCategoryWeightDto[]>(
+      '/staff/delivery-categories',
+      { headers: this.buildHeaders(actor) },
+    );
+    return response.data;
+  }
+
+  async getDeliveryCategory(
+    id: string,
+    actor: BotActorIdentity,
+  ): Promise<DeliveryCategoryWeightDto> {
+    const response = await this.http.get<DeliveryCategoryWeightDto>(
+      `/staff/delivery-categories/${id}`,
+      { headers: this.buildHeaders(actor) },
+    );
+    return response.data;
+  }
+
+  async setDeliveryCategoryWeight(
+    id: string,
+    payload: SetCategoryWeightRequest,
+    actor: BotActorIdentity,
+  ): Promise<DeliveryCategoryWeightDto> {
+    const response = await this.http.patch<DeliveryCategoryWeightDto>(
+      `/staff/delivery-categories/${id}`,
+      payload,
+      { headers: this.buildHeaders(actor) },
+    );
+    return response.data;
+  }
+
+  async deleteDeliveryCategory(id: string, actor: BotActorIdentity): Promise<void> {
+    await this.http.delete(`/staff/delivery-categories/${id}`, {
+      headers: this.buildHeaders(actor),
+    });
   }
 
   private buildHeaders(actor: BotActorIdentity) {

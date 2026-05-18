@@ -310,6 +310,36 @@ export const registerSettingsCommands = (bot: Telegraf<BotContext>) => {
       return;
     }
 
+    const pendingCategoryWeight = orderAdminService.getPendingCategoryWeightInput(managerId);
+
+    if (pendingCategoryWeight) {
+      const parsed = orderAdminService.parseNumericInput(text);
+
+      if (parsed === null || parsed < 0 || parsed > 100) {
+        await ctx.reply(
+          'Не удалось распознать вес. Введите число в килограммах, например 0.5 или 1,25.',
+        );
+        return;
+      }
+
+      try {
+        const updated = await apiService.setDeliveryCategoryWeight(
+          pendingCategoryWeight.categoryId,
+          { weightKg: parsed },
+          { telegramId: managerId, username: from.username ?? undefined },
+        );
+        orderAdminService.clearPendingIntent(managerId);
+        await ctx.reply(
+          `✓ Вес для «${updated.title}» установлен: ${parsed} кг. Применится к новым добавлениям в корзину.`,
+        );
+      } catch (error) {
+        await ctx.reply(
+          extractAxiosMessage(error) ?? 'Не удалось сохранить вес категории.',
+        );
+      }
+      return;
+    }
+
     return next();
   });
 };

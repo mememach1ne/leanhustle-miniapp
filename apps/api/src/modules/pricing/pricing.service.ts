@@ -11,9 +11,20 @@ import { Prisma } from '@prisma/client';
 import { SettingsService } from '../settings/settings.service';
 import { CalculatePricingDto } from './dto/calculate-pricing.dto';
 import { ManualPricingDto } from './dto/manual-pricing.dto';
+import {
+  DeliveryCategoryWeightService,
+} from './services/delivery-category-weight.service';
 import { DeliveryEstimationService } from './services/delivery-estimation.service';
 import { DutyCalculationService } from './services/duty-calculation.service';
 import { ProductCategoryClassifierService } from './services/product-category-classifier.service';
+
+interface ResolvedDeliveryInfo {
+  deliveryCategory: DeliveryCategory;
+  estimatedWeightKg: number;
+  deliveryRub: number;
+  /** True when no weight is known yet — caller should treat delivery as unknown. */
+  weightPending: boolean;
+}
 
 @Injectable()
 export class PricingService {
@@ -21,6 +32,7 @@ export class PricingService {
   private readonly deliveryEstimationService: DeliveryEstimationService;
   private readonly dutyCalculationService: DutyCalculationService;
   private readonly productCategoryClassifierService: ProductCategoryClassifierService;
+  private readonly categoryWeightService: DeliveryCategoryWeightService;
 
   constructor(
     @Inject(SettingsService) settingsService: SettingsService,
@@ -29,11 +41,95 @@ export class PricingService {
     @Inject(DutyCalculationService) dutyCalculationService: DutyCalculationService,
     @Inject(ProductCategoryClassifierService)
     productCategoryClassifierService: ProductCategoryClassifierService,
+    @Inject(DeliveryCategoryWeightService)
+    categoryWeightService: DeliveryCategoryWeightService,
   ) {
     this.settingsService = settingsService;
     this.deliveryEstimationService = deliveryEstimationService;
     this.dutyCalculationService = dutyCalculationService;
     this.productCategoryClassifierService = productCategoryClassifierService;
+    this.categoryWeightService = categoryWeightService;
+  }
+
+  /**
+   * Pick the appropriate delivery weight + cost for a product. The lookup
+   * order is:
+   *   1. Manager-set weight in DB for the exact L1>L2>L3 chain (overrides
+   *      everything) — applies even to known enum categories so managers
+   *      can fine-tune specific subcategories.
+   *   2. Keyword classifier — picks one of the hardcoded enum values
+   *      (SNEAKERS, JACKET, etc.) by matching the title/categories.
+   *   3. GENERIC_APPAREL fallback → mark as pending (no estimate).
+   */
+  async resolveDelivery(input: {
+    title: string;
+    categoryL1?: string | null;
+    categoryL2?: string | null;
+    categoryL3?: string | null;
+    deliveryPricePerKgRub: Prisma.Decimal;
+  }): Promise<ResolvedDeliveryInfo> {
+    // Step 1: explicit DB override for this chain.
+    const dbLookup = await this.categoryWeightService.lookup(
+      input.categoryL1,
+      input.categoryL2,
+      input.categoryL3,
+    );
+
+    if (dbLookup) {
+      if (typeof dbLookup.weightKg === 'number') {
+        const deliveryRub = new Prisma.Decimal(dbLookup.weightKg)
+          .mul(input.deliveryPricePerKgRub)
+          .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP)
+          .toNumber();
+        return {
+          deliveryCategory: DeliveryCategory.GENERIC_APPAREL,
+          estimatedWeightKg: dbLookup.weightKg,
+          deliveryRub,
+          weightPending: false,
+        };
+      }
+      if (dbLookup.weightKg === null) {
+        // Row exists but weight isn't set yet.
+        return {
+          deliveryCategory: DeliveryCategory.OTHER,
+          estimatedWeightKg: 0,
+          deliveryRub: 0,
+          weightPending: true,
+        };
+      }
+    }
+
+    // Step 2: keyword classifier on title + categories.
+    const { deliveryCategory } = this.productCategoryClassifierService.classify({
+      title: input.title,
+      categoryL1: input.categoryL1 ?? undefined,
+      categoryL2: input.categoryL2 ?? undefined,
+      categoryL3: input.categoryL3 ?? undefined,
+    });
+
+    if (deliveryCategory === DeliveryCategory.GENERIC_APPAREL) {
+      // Classifier fell back — we can't trust the weight. Mark pending.
+      return {
+        deliveryCategory: DeliveryCategory.OTHER,
+        estimatedWeightKg: 0,
+        deliveryRub: 0,
+        weightPending: true,
+      };
+    }
+
+    // Step 3: known enum category with hardcoded weight.
+    const { estimatedWeightKg, deliveryRub } =
+      this.deliveryEstimationService.estimateDeliveryRub({
+        deliveryCategory,
+        deliveryPricePerKgRub: input.deliveryPricePerKgRub,
+      });
+
+    return {
+      deliveryCategory,
+      estimatedWeightKg,
+      deliveryRub,
+      weightPending: false,
+    };
   }
 
   async calculateManual(dto: ManualPricingDto): Promise<ManualPricingResult> {
@@ -128,17 +224,15 @@ export class PricingService {
       .mul(new Prisma.Decimal(1).plus(settings.commissionPercent.div(100)))
       .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
-    const { categoryGroup, deliveryCategory } = this.productCategoryClassifierService.classify({
+    const delivery = await this.resolveDelivery({
       title: dto.product.title,
       categoryL1: dto.product.categoryL1,
       categoryL2: dto.product.categoryL2,
       categoryL3: dto.product.categoryL3,
-    });
-
-    const { estimatedWeightKg, deliveryRub } = this.deliveryEstimationService.estimateDeliveryRub({
-      deliveryCategory,
       deliveryPricePerKgRub: settings.deliveryPricePerKgRub,
     });
+
+    const categoryGroup = getCategoryGroupFromDeliveryCategory(delivery.deliveryCategory);
 
     const dutyResult = this.dutyCalculationService.calculate({
       priceYuan,
@@ -156,12 +250,13 @@ export class PricingService {
       version: sku.version,
       priceYuan: Number(priceYuan.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toNumber()),
       totalUsd: totalUsd.toNumber(),
-      deliveryRub,
+      deliveryRub: delivery.deliveryRub,
       dutyRub: dutyResult.dutyRub,
       dutyBreakdown: dutyResult.breakdown,
       categoryGroup,
-      deliveryCategory,
-      estimatedWeightKg,
+      deliveryCategory: delivery.deliveryCategory,
+      estimatedWeightKg: delivery.estimatedWeightKg,
+      weightPending: delivery.weightPending,
     };
   }
 }

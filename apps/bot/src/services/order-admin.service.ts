@@ -34,19 +34,26 @@ interface PendingRateValueState {
   field: Extract<SettingsFieldKey, 'cnyToUsd' | 'cnyToRub' | 'eurToRub'>;
 }
 
+interface PendingCategoryWeightState {
+  categoryId: string;
+  categoryTitle: string;
+}
+
 type PendingManagerIntent =
   | ({ type: 'awaiting_track_code' } & PendingTrackCodeState)
   | ({ type: 'awaiting_order_number' } & PendingOrderNumberState)
   | { type: 'awaiting_rate_field' }
   | ({ type: 'awaiting_rate_value' } & PendingRateValueState)
   | { type: 'awaiting_commission_value' }
-  | { type: 'awaiting_delivery_value' };
+  | { type: 'awaiting_delivery_value' }
+  | ({ type: 'awaiting_category_weight' } & PendingCategoryWeightState);
 
 const OPEN_ORDER_PREFIX = 'open_order:';
 const SETTINGS_ACTION_PREFIX = 'settings_action:';
 const SETTINGS_RATE_PREFIX = 'settings_rate:';
 const ADMIN_PANEL_ACTION_PREFIX = 'admin_panel:';
 const CLIENT_ACTION_PREFIX = 'client:';
+const CATEGORY_ACTION_PREFIX = 'cat:';
 
 export const POIZON_IOS_URL = 'https://apps.apple.com/app/id1012871328';
 // Poizon is not on Google Play. We host the official APK ourselves and
@@ -68,7 +75,9 @@ type AdminPanelAction =
   | 'settings_audit'
   | 'set_rate'
   | 'set_commission'
-  | 'set_delivery';
+  | 'set_delivery'
+  | 'pending_categories'
+  | 'all_categories';
 
 export class OrderAdminService {
   private readonly pendingIntentByManager = new Map<string, PendingManagerIntent>();
@@ -270,6 +279,16 @@ export class OrderAdminService {
           callback_data: this.encodeAdminPanelActionCallback('settings_audit'),
         },
       ],
+      [
+        {
+          text: 'Непроверенные категории',
+          callback_data: this.encodeAdminPanelActionCallback('pending_categories'),
+        },
+        {
+          text: 'Все категории',
+          callback_data: this.encodeAdminPanelActionCallback('all_categories'),
+        },
+      ],
     ];
 
     if (role === 'admin') {
@@ -380,6 +399,116 @@ export class OrderAdminService {
 
   clearPendingIntent(managerId: string) {
     this.pendingIntentByManager.delete(managerId);
+  }
+
+  beginCategoryWeightInput(managerId: string, state: PendingCategoryWeightState) {
+    this.pendingIntentByManager.set(managerId, {
+      type: 'awaiting_category_weight',
+      ...state,
+    });
+  }
+
+  getPendingCategoryWeightInput(managerId: string) {
+    const pending = this.pendingIntentByManager.get(managerId);
+    return pending?.type === 'awaiting_category_weight' ? pending : null;
+  }
+
+  // --- Category callback helpers ---
+
+  encodeCategoryCallback(action: 'open' | 'edit' | 'delete' | 'back', id: string) {
+    return `${CATEGORY_ACTION_PREFIX}${action}:${id}`;
+  }
+
+  decodeCategoryCallback(
+    callbackData: string,
+  ): { action: 'open' | 'edit' | 'delete' | 'back'; id: string } | null {
+    if (!callbackData.startsWith(CATEGORY_ACTION_PREFIX)) return null;
+    const rest = callbackData.slice(CATEGORY_ACTION_PREFIX.length);
+    const colon = rest.indexOf(':');
+    if (colon < 0) return null;
+    const action = rest.slice(0, colon);
+    const id = rest.slice(colon + 1);
+    if (
+      (action === 'open' || action === 'edit' || action === 'delete' || action === 'back') &&
+      id
+    ) {
+      return { action, id };
+    }
+    return null;
+  }
+
+  buildCategoryListText(
+    title: string,
+    rows: Array<{ id: string; title: string; weightKg: number | null; encounterCount: number }>,
+  ): string {
+    if (rows.length === 0) {
+      return `${title}\n\nСписок пуст.`;
+    }
+    return [
+      title,
+      '',
+      ...rows.slice(0, 30).map((row, i) => {
+        const weight =
+          row.weightKg === null ? 'без веса' : `${row.weightKg.toFixed(2)} кг`;
+        return `${i + 1}. ${row.title} — ${weight} (×${row.encounterCount})`;
+      }),
+      rows.length > 30 ? `\n…и ещё ${rows.length - 30}.` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  buildCategoryListKeyboard(
+    rows: Array<{ id: string; title: string; weightKg: number | null }>,
+  ): InlineKeyboardMarkup {
+    return {
+      inline_keyboard: rows.slice(0, 30).map((row) => {
+        const prefix = row.weightKg === null ? '⚠️' : '✓';
+        const text = `${prefix} ${row.title}`.slice(0, 60);
+        return [{ text, callback_data: this.encodeCategoryCallback('open', row.id) }];
+      }),
+    };
+  }
+
+  buildCategoryDetailText(record: {
+    title: string;
+    categoryL1: string | null;
+    categoryL2: string | null;
+    categoryL3: string | null;
+    weightKg: number | null;
+    encounterCount: number;
+    firstSeenAt: Date;
+  }): string {
+    const chain =
+      [record.categoryL1, record.categoryL2, record.categoryL3]
+        .filter((s): s is string => Boolean(s))
+        .join(' › ') || '(нет от Poizon)';
+    const weight =
+      record.weightKg === null
+        ? '— не задан, клиенты видят «вес уточнит менеджер»'
+        : `${record.weightKg.toFixed(3)} кг`;
+
+    return [
+      `📦 ${record.title}`,
+      '',
+      `Цепочка: ${chain}`,
+      `Вес: ${weight}`,
+      `Встречалась: ${record.encounterCount} раз`,
+      `Впервые: ${this.formatDateTime(record.firstSeenAt.toISOString())}`,
+    ].join('\n');
+  }
+
+  buildCategoryDetailKeyboard(id: string): InlineKeyboardMarkup {
+    return {
+      inline_keyboard: [
+        [{ text: 'Ввести / изменить вес', callback_data: this.encodeCategoryCallback('edit', id) }],
+        [{ text: '🗑 Удалить категорию', callback_data: this.encodeCategoryCallback('delete', id) }],
+      ],
+    };
+  }
+
+  buildCategoryWeightPrompt(title: string) {
+    return `Введите вес для категории «${title}» в килограммах. Можно через точку (0.5) или запятую (0,5). Для отмены — /cancel.`;
   }
 
   buildFindOrderPrompt() {
@@ -628,7 +757,9 @@ export class OrderAdminService {
       action === 'settings_audit' ||
       action === 'set_rate' ||
       action === 'set_commission' ||
-      action === 'set_delivery'
+      action === 'set_delivery' ||
+      action === 'pending_categories' ||
+      action === 'all_categories'
     ) {
       return action;
     }

@@ -768,15 +768,25 @@ export default function CalculatorPage() {
                     <InfoRow label="Итог товара" value={`$${pricing.totalUsd.toFixed(2)}`} accent />
                     <div className="border-t border-white/5" />
                     <p className="text-xs text-[var(--muted)]">Доставка и пошлина (RUB)</p>
-                    <InfoRow label="Примерная доставка" value={`${pricing.deliveryRub} ₽`} />
-                    <InfoRow
-                      label="Категория доставки"
-                      value={getDeliveryCategoryLabel(pricing.deliveryCategory)}
-                    />
-                    <InfoRow
-                      label="Примерный вес"
-                      value={`${pricing.estimatedWeightKg.toFixed(2)} кг`}
-                    />
+                    {pricing.weightPending ? (
+                      <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-xs leading-5 text-amber-100">
+                        Вес для этой категории ещё не определён. Менеджер уточнит стоимость
+                        доставки после получения товара. Можно добавить в корзину — итоговая
+                        сумма будет позже.
+                      </div>
+                    ) : (
+                      <>
+                        <InfoRow label="Примерная доставка" value={`${pricing.deliveryRub} ₽`} />
+                        <InfoRow
+                          label="Категория доставки"
+                          value={getDeliveryCategoryLabel(pricing.deliveryCategory)}
+                        />
+                        <InfoRow
+                          label="Примерный вес"
+                          value={`${pricing.estimatedWeightKg.toFixed(2)} кг`}
+                        />
+                      </>
+                    )}
                     <DutyRow dutyRub={pricing.dutyRub} breakdown={pricing.dutyBreakdown} />
                   </div>
                 ) : null}
