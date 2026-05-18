@@ -49,8 +49,9 @@ const ADMIN_PANEL_ACTION_PREFIX = 'admin_panel:';
 const CLIENT_ACTION_PREFIX = 'client:';
 
 export const POIZON_IOS_URL = 'https://apps.apple.com/app/id1012871328';
-// Poizon is not on Google Play; the official site serves the APK directly.
-export const POIZON_ANDROID_URL = 'https://poizon.com';
+// Poizon is not on Google Play. We host the official APK ourselves and
+// serve it directly via nginx (see infra/nginx).
+export const POIZON_ANDROID_URL = 'https://leanhustle.ru/poizon.apk';
 export const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
 
 type AdminPanelAction =
