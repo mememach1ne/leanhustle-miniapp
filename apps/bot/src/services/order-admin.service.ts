@@ -143,6 +143,12 @@ export class OrderAdminService {
             url: MANAGER_TELEGRAM_URL,
           },
         ],
+        [
+          {
+            text: '← Назад',
+            callback_data: `${CLIENT_ACTION_PREFIX}back_to_welcome`,
+          },
+        ],
       ],
     };
   }
@@ -169,6 +175,12 @@ export class OrderAdminService {
             icon_custom_emoji_id: '6199417621100629765',
           } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
+        [
+          {
+            text: '← Назад',
+            callback_data: `${CLIENT_ACTION_PREFIX}back_to_welcome`,
+          },
+        ],
       ],
     };
   }
@@ -179,6 +191,10 @@ export class OrderAdminService {
 
   isClientOtherMarketplacesCallback(data: string): boolean {
     return data === `${CLIENT_ACTION_PREFIX}other_marketplaces`;
+  }
+
+  isClientBackToWelcomeCallback(data: string): boolean {
+    return data === `${CLIENT_ACTION_PREFIX}back_to_welcome`;
   }
 
   isClientCheckSubscriptionCallback(data: string): boolean {

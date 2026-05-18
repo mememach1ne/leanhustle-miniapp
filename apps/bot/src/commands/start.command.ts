@@ -54,7 +54,7 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
     const chatId = ctx.chat?.id;
     if (!userId || !chatId) return;
 
-    // Clean up the chat from previous bot messages.
+    // Clean up any previous bot messages so the chat starts fresh.
     await clientMessagesService.clearChat(bot, chatId);
 
     const subscribed = await isUserSubscribed(bot, userId);
@@ -70,8 +70,8 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
   bot.action(/^client:.+$/, async (ctx) => {
     const data = ctx.match.input;
     const chatId = ctx.chat?.id;
-    const sourceMessageId = ctx.callbackQuery?.message?.message_id;
 
+    // --- Subscription check ---
     if (orderAdminService.isClientCheckSubscriptionCallback(data)) {
       const userId = ctx.from?.id;
       if (!userId || !chatId) {
@@ -83,39 +83,49 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
 
       if (subscribed) {
         await ctx.answerCbQuery('✅ Подписка подтверждена');
-        // Drop the subscription gate (and any leftover "still missing"
-        // notices) before showing the welcome.
-        await clientMessagesService.clearChat(bot, chatId);
-        await sendClientWelcome(ctx);
+        // Replace gate message in-place with the welcome screen.
+        await ctx.editMessageText(orderAdminService.getClientWelcomeText(), {
+          parse_mode: 'HTML',
+          reply_markup: orderAdminService.buildClientWelcomeKeyboard(),
+        });
       } else {
-        await ctx.answerCbQuery('Подписка не найдена');
-        // Don't pile up "still missing" notices: send one fresh and track it.
-        const sent = await ctx.reply(orderAdminService.getSubscriptionStillMissingText());
-        clientMessagesService.track(chatId, sent.message_id);
+        // Don't add a new message — show alert popup instead.
+        await ctx.answerCbQuery(
+          'Подписка не найдена. Подпишись на @lh_poizon и попробуй снова.',
+          { show_alert: true },
+        );
       }
       return;
     }
 
+    // --- Download submenu ---
     if (orderAdminService.isClientDownloadAppCallback(data)) {
       await ctx.answerCbQuery();
-      const sent = await ctx.reply(orderAdminService.getDownloadAppText(), {
+      await ctx.editMessageText(orderAdminService.getDownloadAppText(), {
         reply_markup: orderAdminService.buildDownloadAppKeyboard(),
       });
-      if (chatId) clientMessagesService.track(chatId, sent.message_id);
       return;
     }
 
+    // --- Other marketplaces submenu ---
     if (orderAdminService.isClientOtherMarketplacesCallback(data)) {
       await ctx.answerCbQuery();
-      const sent = await ctx.reply(orderAdminService.getOtherMarketplacesText(), {
+      await ctx.editMessageText(orderAdminService.getOtherMarketplacesText(), {
         reply_markup: orderAdminService.buildOtherMarketplacesKeyboard(),
       });
-      if (chatId) clientMessagesService.track(chatId, sent.message_id);
+      return;
+    }
+
+    // --- Back to welcome from any submenu ---
+    if (orderAdminService.isClientBackToWelcomeCallback(data)) {
+      await ctx.answerCbQuery();
+      await ctx.editMessageText(orderAdminService.getClientWelcomeText(), {
+        parse_mode: 'HTML',
+        reply_markup: orderAdminService.buildClientWelcomeKeyboard(),
+      });
       return;
     }
 
     await ctx.answerCbQuery();
-    // Touch unused variable to satisfy linter when no branch matched
-    void sourceMessageId;
   });
 };
