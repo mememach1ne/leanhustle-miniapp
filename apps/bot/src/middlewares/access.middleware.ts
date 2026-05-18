@@ -48,6 +48,7 @@ export const accessMiddleware: MiddlewareFn<BotContext> = async (ctx, next) => {
   }
 
   await ctx.reply(orderAdminService.getClientWelcomeText(), {
+    parse_mode: 'HTML',
     reply_markup: orderAdminService.buildClientWelcomeKeyboard(),
   });
 };

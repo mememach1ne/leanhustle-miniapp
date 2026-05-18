@@ -81,11 +81,14 @@ export class OrderAdminService {
     ].join('\n');
   }
 
+  // HTML-formatted; send with parse_mode: 'HTML'.
+  // <tg-emoji emoji-id="..."> renders a premium custom emoji on supported
+  // clients, and the inner standard emoji as a fallback elsewhere.
   getClientWelcomeText() {
     return [
-      'Добро пожаловать в LEAN HUSTLE POIZON!',
+      'Добро пожаловать в LEAN HUSTLE POIZON! <tg-emoji emoji-id="5386797112774110235">🔥</tg-emoji>',
       '',
-      'Здесь мы помогаем заказать товары с Poizon в Россию.',
+      'Здесь мы помогаем заказать товары с Poizon в Россию. <tg-emoji emoji-id="5449408995691341691">📦</tg-emoji>',
     ].join('\n');
   }
 
@@ -96,16 +99,19 @@ export class OrderAdminService {
           {
             text: '📲 Скачать приложение POIZON',
             callback_data: `${CLIENT_ACTION_PREFIX}download_app`,
-            // Bot API 9.4: blue accent button. Ignored by older clients.
-            style: 'primary',
-          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
+          },
+        ],
+        [
+          {
+            text: '🛒 Другие китайские маркетплейсы',
+            callback_data: `${CLIENT_ACTION_PREFIX}other_marketplaces`,
+          },
         ],
         [
           {
             text: '💬 Связаться с менеджером',
             url: MANAGER_TELEGRAM_URL,
-            style: 'success',
-          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
+          },
         ],
       ],
     };
@@ -117,6 +123,23 @@ export class OrderAdminService {
       '',
       'Выбери свою платформу:',
     ].join('\n');
+  }
+
+  getOtherMarketplacesText() {
+    return 'Скоро появится';
+  }
+
+  buildOtherMarketplacesKeyboard(): InlineKeyboardMarkup {
+    return {
+      inline_keyboard: [
+        [
+          {
+            text: '💬 Связаться с менеджером',
+            url: MANAGER_TELEGRAM_URL,
+          },
+        ],
+      ],
+    };
   }
 
   buildDownloadAppKeyboard(): InlineKeyboardMarkup {
@@ -147,6 +170,10 @@ export class OrderAdminService {
 
   isClientDownloadAppCallback(data: string): boolean {
     return data === `${CLIENT_ACTION_PREFIX}download_app`;
+  }
+
+  isClientOtherMarketplacesCallback(data: string): boolean {
+    return data === `${CLIENT_ACTION_PREFIX}other_marketplaces`;
   }
 
   buildAdminPanelKeyboard(role: 'admin' | 'manager'): InlineKeyboardMarkup {

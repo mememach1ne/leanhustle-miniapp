@@ -7,6 +7,7 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
   bot.start(async (ctx) => {
     if (!ctx.access) {
       await ctx.reply(orderAdminService.getClientWelcomeText(), {
+        parse_mode: 'HTML',
         reply_markup: orderAdminService.buildClientWelcomeKeyboard(),
       });
       return;
@@ -25,6 +26,14 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
       await ctx.answerCbQuery();
       await ctx.reply(orderAdminService.getDownloadAppText(), {
         reply_markup: orderAdminService.buildDownloadAppKeyboard(),
+      });
+      return;
+    }
+
+    if (orderAdminService.isClientOtherMarketplacesCallback(data)) {
+      await ctx.answerCbQuery();
+      await ctx.reply(orderAdminService.getOtherMarketplacesText(), {
+        reply_markup: orderAdminService.buildOtherMarketplacesKeyboard(),
       });
       return;
     }
