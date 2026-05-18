@@ -34,6 +34,9 @@ if [ "$SKIP_INSTALL" = false ]; then
   pnpm install --frozen-lockfile
 fi
 
+echo "==> prisma generate + migrate"
+(cd apps/api && npx prisma generate && npx prisma migrate deploy)
+
 if [ "$SKIP_SHARED" = false ]; then
   echo "==> build shared"
   pnpm --filter @lean-poizon/shared build
