@@ -3,6 +3,12 @@ export const MANAGER_ORDER_ACTIONS = {
   PAID_AWAITING_PURCHASE: 'paid',
   PURCHASED: 'buy',
   TRACK_CODE: 'trk',
+  // Phase 2: actual delivery / duty cycles.
+  ACTUAL_DELIVERY: 'adlv',
+  MARK_DELIVERY_PAID: 'dpd',
+  ACTUAL_DUTY: 'adty',
+  MARK_DUTY_PAID: 'dtyp',
+  MARK_DELIVERED: 'dlvd',
 } as const;
 
 export type ManagerOrderAction =

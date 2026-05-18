@@ -211,8 +211,32 @@ export default function OrderDetailsPage() {
           ) : null}
           <div className="border-t border-white/5" />
           <p className="text-xs text-[var(--muted)]">Доставка и пошлина (RUB)</p>
-          <InfoRow label="Доставка" value={`${order.summary.deliveryRub} ₽`} />
-          <InfoRow label="Пошлина" value={`${order.summary.dutyRub} ₽`} />
+          {order.summary.actualDeliveryRub !== null &&
+          order.summary.actualDeliveryRub !== undefined ? (
+            <InfoRow
+              label="Доставка (факт)"
+              value={`${order.summary.actualDeliveryRub} ₽`}
+              accent
+            />
+          ) : (
+            <InfoRow
+              label="Примерная доставка"
+              value={`${order.summary.deliveryRub} ₽`}
+            />
+          )}
+          {order.summary.actualDutyRub !== null &&
+          order.summary.actualDutyRub !== undefined ? (
+            <InfoRow
+              label="Пошлина (факт)"
+              value={`${order.summary.actualDutyRub} ₽`}
+              accent
+            />
+          ) : order.summary.dutyRub > 0 ? (
+            <InfoRow
+              label="Примерная пошлина"
+              value={`${order.summary.dutyRub} ₽`}
+            />
+          ) : null}
         </div>
       </SectionCard>
 

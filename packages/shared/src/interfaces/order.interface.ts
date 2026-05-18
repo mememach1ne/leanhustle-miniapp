@@ -7,8 +7,14 @@ export interface OrderSummaryDto {
   originalTotalUsd: number;
   benefitDiscountUsd: number;
   totalUsd: number;
+  /** Estimated delivery (computed at checkout). */
   deliveryRub: number;
+  /** Estimated duty (computed at checkout). */
   dutyRub: number;
+  /** Manager-entered actual delivery. NULL until manager sets it. */
+  actualDeliveryRub?: number | null;
+  /** Manager-entered actual duty. NULL until manager sets it. */
+  actualDutyRub?: number | null;
 }
 
 export interface StaffOrderUserDto {
@@ -107,6 +113,14 @@ export interface UpdateOrderStatusRequest {
 
 export interface UpdateOrderTrackCodeRequest {
   trackCode: string;
+}
+
+export interface SetActualDeliveryRequest {
+  actualDeliveryRub: number;
+}
+
+export interface SetActualDutyRequest {
+  actualDutyRub: number;
 }
 
 export interface StaffOrderDetailsDto extends OrderDetailsDto {

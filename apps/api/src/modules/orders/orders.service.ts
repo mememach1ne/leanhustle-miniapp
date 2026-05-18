@@ -40,7 +40,17 @@ const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PAYMENT_PENDING]: [OrderStatus.PAID_AWAITING_PURCHASE],
   [OrderStatus.PAID_AWAITING_PURCHASE]: [OrderStatus.PURCHASED],
   [OrderStatus.PURCHASED]: [],
+  // After track code, manager enters actual delivery -> DELIVERY_PAYMENT_PENDING
   [OrderStatus.TRACK_CODE_RECEIVED]: [],
+  // After delivery payment is confirmed by manager -> DELIVERY_PAID.
+  [OrderStatus.DELIVERY_PAYMENT_PENDING]: [OrderStatus.DELIVERY_PAID],
+  // From DELIVERY_PAID manager either enters duty cost (-> DUTY_PAYMENT_PENDING)
+  // or marks delivered without duty (-> DELIVERED). Both transitions are
+  // handled by dedicated endpoints, not generic updateStatus.
+  [OrderStatus.DELIVERY_PAID]: [OrderStatus.DELIVERED],
+  [OrderStatus.DUTY_PAYMENT_PENDING]: [OrderStatus.DUTY_PAID],
+  [OrderStatus.DUTY_PAID]: [OrderStatus.DELIVERED],
+  [OrderStatus.DELIVERED]: [],
 };
 
 const STAFF_NEW_ORDER_STATUSES: OrderStatus[] = [OrderStatus.CREATED];
@@ -49,6 +59,10 @@ const STAFF_ACTIVE_ORDER_STATUSES: OrderStatus[] = [
   OrderStatus.PAID_AWAITING_PURCHASE,
   OrderStatus.PURCHASED,
   OrderStatus.TRACK_CODE_RECEIVED,
+  OrderStatus.DELIVERY_PAYMENT_PENDING,
+  OrderStatus.DELIVERY_PAID,
+  OrderStatus.DUTY_PAYMENT_PENDING,
+  OrderStatus.DUTY_PAID,
 ];
 
 const STAFF_ORDER_LIST_LIMIT = 10;
@@ -561,6 +575,362 @@ export class OrdersService {
     }
 
     return staffOrder;
+  }
+
+  // ============================================================
+  // Phase 2: actual delivery / duty payment cycle
+  // ============================================================
+
+  /**
+   * Manager enters actual delivery cost. Transitions
+   *   TRACK_CODE_RECEIVED -> DELIVERY_PAYMENT_PENDING
+   * and notifies the customer.
+   */
+  async setActualDeliveryByStaff(
+    orderId: string,
+    actualDeliveryRub: number,
+    staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new BadRequestException('Staff context is required.');
+    if (!Number.isFinite(actualDeliveryRub) || actualDeliveryRub < 0) {
+      throw new BadRequestException('Сумма доставки должна быть положительным числом.');
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { user: { select: { telegramId: true } } },
+      });
+      if (!order) throw new NotFoundException('Заказ не найден.');
+
+      if (
+        order.status !== OrderStatus.TRACK_CODE_RECEIVED &&
+        order.status !== OrderStatus.DELIVERY_PAYMENT_PENDING
+      ) {
+        throw new BadRequestException(
+          'Стоимость доставки можно ввести только после получения трек-кода.',
+        );
+      }
+
+      const wasInitial = order.status !== OrderStatus.DELIVERY_PAYMENT_PENDING;
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          actualDeliveryRub: new Prisma.Decimal(actualDeliveryRub),
+          actualDeliverySetAt: new Date(),
+          status: OrderStatus.DELIVERY_PAYMENT_PENDING,
+        },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          fromStatus: order.status,
+          toStatus: OrderStatus.DELIVERY_PAYMENT_PENDING,
+          changedByStaffId: staff.id,
+          comment: wasInitial
+            ? `Стоимость доставки: ${actualDeliveryRub} ₽`
+            : `Стоимость доставки изменена: ${actualDeliveryRub} ₽`,
+        },
+      });
+
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        userTelegramId: order.user?.telegramId,
+        wasInitial,
+      };
+    });
+
+    if (result.userTelegramId && result.wasInitial) {
+      try {
+        await this.orderNotificationsService.notifyUserAboutStatusChange(
+          result.userTelegramId,
+          result.orderNumber,
+          SharedOrderStatus.DELIVERY_PAYMENT_PENDING,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to notify user about delivery cost: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return this.getOrderForStaff(result.orderId);
+  }
+
+  /**
+   * Manager confirms delivery payment was received.
+   *   DELIVERY_PAYMENT_PENDING -> DELIVERY_PAID
+   */
+  async markDeliveryPaidByStaff(
+    orderId: string,
+    staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new BadRequestException('Staff context is required.');
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { user: { select: { telegramId: true } } },
+      });
+      if (!order) throw new NotFoundException('Заказ не найден.');
+
+      if (order.status !== OrderStatus.DELIVERY_PAYMENT_PENDING) {
+        throw new BadRequestException(
+          'Подтвердить оплату доставки можно только из статуса «Ожидание оплаты доставки».',
+        );
+      }
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: OrderStatus.DELIVERY_PAID,
+          deliveryPaidAt: new Date(),
+        },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          fromStatus: order.status,
+          toStatus: OrderStatus.DELIVERY_PAID,
+          changedByStaffId: staff.id,
+          comment: 'Оплата доставки подтверждена менеджером.',
+        },
+      });
+
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        userTelegramId: order.user?.telegramId,
+      };
+    });
+
+    if (result.userTelegramId) {
+      try {
+        await this.orderNotificationsService.notifyUserAboutStatusChange(
+          result.userTelegramId,
+          result.orderNumber,
+          SharedOrderStatus.DELIVERY_PAID,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to notify user about delivery payment: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return this.getOrderForStaff(result.orderId);
+  }
+
+  /**
+   * Manager enters actual customs duty.
+   *   DELIVERY_PAID -> DUTY_PAYMENT_PENDING
+   */
+  async setActualDutyByStaff(
+    orderId: string,
+    actualDutyRub: number,
+    staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new BadRequestException('Staff context is required.');
+    if (!Number.isFinite(actualDutyRub) || actualDutyRub < 0) {
+      throw new BadRequestException('Сумма пошлины должна быть положительным числом или 0.');
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { user: { select: { telegramId: true } } },
+      });
+      if (!order) throw new NotFoundException('Заказ не найден.');
+
+      if (
+        order.status !== OrderStatus.DELIVERY_PAID &&
+        order.status !== OrderStatus.DUTY_PAYMENT_PENDING
+      ) {
+        throw new BadRequestException(
+          'Стоимость пошлины можно ввести только после оплаты доставки.',
+        );
+      }
+
+      const wasInitial = order.status !== OrderStatus.DUTY_PAYMENT_PENDING;
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          actualDutyRub: new Prisma.Decimal(actualDutyRub),
+          actualDutySetAt: new Date(),
+          status: OrderStatus.DUTY_PAYMENT_PENDING,
+        },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          fromStatus: order.status,
+          toStatus: OrderStatus.DUTY_PAYMENT_PENDING,
+          changedByStaffId: staff.id,
+          comment: wasInitial
+            ? `Стоимость пошлины: ${actualDutyRub} ₽`
+            : `Стоимость пошлины изменена: ${actualDutyRub} ₽`,
+        },
+      });
+
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        userTelegramId: order.user?.telegramId,
+        wasInitial,
+      };
+    });
+
+    if (result.userTelegramId && result.wasInitial) {
+      try {
+        await this.orderNotificationsService.notifyUserAboutStatusChange(
+          result.userTelegramId,
+          result.orderNumber,
+          SharedOrderStatus.DUTY_PAYMENT_PENDING,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to notify user about duty cost: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return this.getOrderForStaff(result.orderId);
+  }
+
+  /**
+   * Manager confirms duty payment.
+   *   DUTY_PAYMENT_PENDING -> DUTY_PAID
+   */
+  async markDutyPaidByStaff(
+    orderId: string,
+    staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new BadRequestException('Staff context is required.');
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { user: { select: { telegramId: true } } },
+      });
+      if (!order) throw new NotFoundException('Заказ не найден.');
+
+      if (order.status !== OrderStatus.DUTY_PAYMENT_PENDING) {
+        throw new BadRequestException(
+          'Подтвердить оплату пошлины можно только из статуса «Ожидание оплаты пошлины».',
+        );
+      }
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: OrderStatus.DUTY_PAID,
+          dutyPaidAt: new Date(),
+        },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          fromStatus: order.status,
+          toStatus: OrderStatus.DUTY_PAID,
+          changedByStaffId: staff.id,
+          comment: 'Оплата пошлины подтверждена менеджером.',
+        },
+      });
+
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        userTelegramId: order.user?.telegramId,
+      };
+    });
+
+    if (result.userTelegramId) {
+      try {
+        await this.orderNotificationsService.notifyUserAboutStatusChange(
+          result.userTelegramId,
+          result.orderNumber,
+          SharedOrderStatus.DUTY_PAID,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to notify user about duty payment: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return this.getOrderForStaff(result.orderId);
+  }
+
+  /**
+   * Manager marks order as delivered. Valid from DELIVERY_PAID (no duty)
+   * or DUTY_PAID (duty paid).
+   */
+  async markDeliveredByStaff(
+    orderId: string,
+    staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new BadRequestException('Staff context is required.');
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { user: { select: { telegramId: true } } },
+      });
+      if (!order) throw new NotFoundException('Заказ не найден.');
+
+      if (
+        order.status !== OrderStatus.DELIVERY_PAID &&
+        order.status !== OrderStatus.DUTY_PAID
+      ) {
+        throw new BadRequestException(
+          'Завершить заказ можно после оплаты доставки (и пошлины, если она есть).',
+        );
+      }
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: OrderStatus.DELIVERED, deliveredAt: new Date() },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          fromStatus: order.status,
+          toStatus: OrderStatus.DELIVERED,
+          changedByStaffId: staff.id,
+          comment: 'Заказ отмечен как доставленный.',
+        },
+      });
+
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        userTelegramId: order.user?.telegramId,
+      };
+    });
+
+    if (result.userTelegramId) {
+      try {
+        await this.orderNotificationsService.notifyUserAboutStatusChange(
+          result.userTelegramId,
+          result.orderNumber,
+          SharedOrderStatus.DELIVERED,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to notify user about delivery completion: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return this.getOrderForStaff(result.orderId);
   }
 
   private async getOwnedOrderOrThrow(userId: string, orderId: string) {

@@ -39,6 +39,16 @@ interface PendingCategoryWeightState {
   categoryTitle: string;
 }
 
+interface PendingActualDeliveryState {
+  orderId: string;
+  orderNumber: string;
+}
+
+interface PendingActualDutyState {
+  orderId: string;
+  orderNumber: string;
+}
+
 type PendingManagerIntent =
   | ({ type: 'awaiting_track_code' } & PendingTrackCodeState)
   | ({ type: 'awaiting_order_number' } & PendingOrderNumberState)
@@ -46,7 +56,9 @@ type PendingManagerIntent =
   | ({ type: 'awaiting_rate_value' } & PendingRateValueState)
   | { type: 'awaiting_commission_value' }
   | { type: 'awaiting_delivery_value' }
-  | ({ type: 'awaiting_category_weight' } & PendingCategoryWeightState);
+  | ({ type: 'awaiting_category_weight' } & PendingCategoryWeightState)
+  | ({ type: 'awaiting_actual_delivery' } & PendingActualDeliveryState)
+  | ({ type: 'awaiting_actual_duty' } & PendingActualDutyState);
 
 const OPEN_ORDER_PREFIX = 'open_order:';
 const SETTINGS_ACTION_PREFIX = 'settings_action:';
@@ -411,6 +423,32 @@ export class OrderAdminService {
   getPendingCategoryWeightInput(managerId: string) {
     const pending = this.pendingIntentByManager.get(managerId);
     return pending?.type === 'awaiting_category_weight' ? pending : null;
+  }
+
+  beginActualDeliveryInput(managerId: string, state: PendingActualDeliveryState) {
+    this.pendingIntentByManager.set(managerId, { type: 'awaiting_actual_delivery', ...state });
+  }
+
+  getPendingActualDeliveryInput(managerId: string) {
+    const pending = this.pendingIntentByManager.get(managerId);
+    return pending?.type === 'awaiting_actual_delivery' ? pending : null;
+  }
+
+  beginActualDutyInput(managerId: string, state: PendingActualDutyState) {
+    this.pendingIntentByManager.set(managerId, { type: 'awaiting_actual_duty', ...state });
+  }
+
+  getPendingActualDutyInput(managerId: string) {
+    const pending = this.pendingIntentByManager.get(managerId);
+    return pending?.type === 'awaiting_actual_duty' ? pending : null;
+  }
+
+  buildActualDeliveryPrompt(orderNumber: string) {
+    return `Введите фактическую стоимость доставки для заказа ${orderNumber} в рублях. Например: 1850 или 1850,50. Для отмены — /cancel.`;
+  }
+
+  buildActualDutyPrompt(orderNumber: string) {
+    return `Введите фактическую пошлину для заказа ${orderNumber} в рублях. Если пошлины нет — введите 0. Для отмены — /cancel.`;
   }
 
   // --- Category callback helpers ---
@@ -891,8 +929,12 @@ export class OrderAdminService {
         ? [`Исходная сумма: $${order.summary.originalTotalUsd.toFixed(2)}`]
         : []),
       `Итог: $${order.summary.totalUsd.toFixed(2)}`,
-      `Доставка: ${order.summary.deliveryRub} ₽`,
-      `Пошлина: ${order.summary.dutyRub} ₽`,
+      order.summary.actualDeliveryRub !== null && order.summary.actualDeliveryRub !== undefined
+        ? `Доставка: ${order.summary.actualDeliveryRub} ₽ (факт, было ~${order.summary.deliveryRub} ₽)`
+        : `Доставка: ~${order.summary.deliveryRub} ₽ (примерная)`,
+      order.summary.actualDutyRub !== null && order.summary.actualDutyRub !== undefined
+        ? `Пошлина: ${order.summary.actualDutyRub} ₽ (факт, было ~${order.summary.dutyRub} ₽)`
+        : `Пошлина: ~${order.summary.dutyRub} ₽ (примерная)`,
     ].join('\n');
   }
 
@@ -941,6 +983,76 @@ export class OrderAdminService {
           text: order.trackCode ? 'Обновить трек-код' : 'Ввести трек-код',
           callback_data: encodeManagerOrderCallback(
             MANAGER_ORDER_ACTIONS.TRACK_CODE,
+            order.id,
+          ),
+        },
+      ]);
+    }
+
+    // --- Phase 2: actual delivery / duty cycle ---
+
+    if (
+      order.status === OrderStatus.TRACK_CODE_RECEIVED ||
+      order.status === OrderStatus.DELIVERY_PAYMENT_PENDING
+    ) {
+      const hasActual = order.summary.actualDeliveryRub !== null && order.summary.actualDeliveryRub !== undefined;
+      buttons.push([
+        {
+          text: hasActual ? 'Изменить стоимость доставки' : 'Ввести стоимость доставки',
+          callback_data: encodeManagerOrderCallback(
+            MANAGER_ORDER_ACTIONS.ACTUAL_DELIVERY,
+            order.id,
+          ),
+        },
+      ]);
+    }
+
+    if (order.status === OrderStatus.DELIVERY_PAYMENT_PENDING) {
+      buttons.push([
+        {
+          text: '✓ Доставка оплачена',
+          callback_data: encodeManagerOrderCallback(
+            MANAGER_ORDER_ACTIONS.MARK_DELIVERY_PAID,
+            order.id,
+          ),
+        },
+      ]);
+    }
+
+    if (
+      order.status === OrderStatus.DELIVERY_PAID ||
+      order.status === OrderStatus.DUTY_PAYMENT_PENDING
+    ) {
+      const hasActual = order.summary.actualDutyRub !== null && order.summary.actualDutyRub !== undefined;
+      buttons.push([
+        {
+          text: hasActual ? 'Изменить стоимость пошлины' : 'Ввести стоимость пошлины',
+          callback_data: encodeManagerOrderCallback(
+            MANAGER_ORDER_ACTIONS.ACTUAL_DUTY,
+            order.id,
+          ),
+        },
+      ]);
+    }
+
+    if (order.status === OrderStatus.DUTY_PAYMENT_PENDING) {
+      buttons.push([
+        {
+          text: '✓ Пошлина оплачена',
+          callback_data: encodeManagerOrderCallback(
+            MANAGER_ORDER_ACTIONS.MARK_DUTY_PAID,
+            order.id,
+          ),
+        },
+      ]);
+    }
+
+    if (order.status === OrderStatus.DELIVERY_PAID || order.status === OrderStatus.DUTY_PAID) {
+      buttons.push([
+        {
+          text: '🚚 Отметить доставленным',
+          callback_data: encodeManagerOrderCallback(
+            MANAGER_ORDER_ACTIONS.MARK_DELIVERED,
             order.id,
           ),
         },

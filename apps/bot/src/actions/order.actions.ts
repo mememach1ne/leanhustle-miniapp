@@ -146,6 +146,47 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
           await refreshOrderMessage(ctx, payload.orderId);
           return;
         }
+        case MANAGER_ORDER_ACTIONS.ACTUAL_DELIVERY: {
+          const order = await apiService.getStaffOrder(payload.orderId, getActor(ctx));
+          orderAdminService.beginActualDeliveryInput(String(ctx.from?.id), {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+          });
+          await ctx.answerCbQuery();
+          await ctx.reply(orderAdminService.buildActualDeliveryPrompt(order.orderNumber));
+          return;
+        }
+        case MANAGER_ORDER_ACTIONS.MARK_DELIVERY_PAID: {
+          const order = await apiService.markDeliveryPaid(payload.orderId, getActor(ctx));
+          await ctx.answerCbQuery('Доставка отмечена оплаченной.');
+          await ctx.reply(orderAdminService.buildStatusUpdatedText(order));
+          await refreshOrderMessage(ctx, payload.orderId);
+          return;
+        }
+        case MANAGER_ORDER_ACTIONS.ACTUAL_DUTY: {
+          const order = await apiService.getStaffOrder(payload.orderId, getActor(ctx));
+          orderAdminService.beginActualDutyInput(String(ctx.from?.id), {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+          });
+          await ctx.answerCbQuery();
+          await ctx.reply(orderAdminService.buildActualDutyPrompt(order.orderNumber));
+          return;
+        }
+        case MANAGER_ORDER_ACTIONS.MARK_DUTY_PAID: {
+          const order = await apiService.markDutyPaid(payload.orderId, getActor(ctx));
+          await ctx.answerCbQuery('Пошлина отмечена оплаченной.');
+          await ctx.reply(orderAdminService.buildStatusUpdatedText(order));
+          await refreshOrderMessage(ctx, payload.orderId);
+          return;
+        }
+        case MANAGER_ORDER_ACTIONS.MARK_DELIVERED: {
+          const order = await apiService.markDelivered(payload.orderId, getActor(ctx));
+          await ctx.answerCbQuery('Заказ доставлен 🎉');
+          await ctx.reply(orderAdminService.buildStatusUpdatedText(order));
+          await refreshOrderMessage(ctx, payload.orderId);
+          return;
+        }
         case MANAGER_ORDER_ACTIONS.TRACK_CODE: {
           const order = await apiService.getStaffOrder(payload.orderId, getActor(ctx));
           const callbackMessage = ctx.callbackQuery.message;
@@ -246,6 +287,58 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
         );
       }
 
+      return;
+    }
+
+    const pendingActualDelivery = orderAdminService.getPendingActualDeliveryInput(
+      String(from.id),
+    );
+
+    if (pendingActualDelivery) {
+      const parsed = orderAdminService.parseNumericInput(text);
+      if (parsed === null || parsed < 0) {
+        await ctx.reply('Не удалось распознать сумму. Введите число в рублях, например 1850.');
+        return;
+      }
+      try {
+        const order = await apiService.setActualDelivery(
+          pendingActualDelivery.orderId,
+          { actualDeliveryRub: parsed },
+          getActor(ctx),
+        );
+        orderAdminService.clearPendingIntent(String(from.id));
+        await ctx.reply(
+          `✓ Стоимость доставки для заказа ${order.orderNumber}: ${parsed} ₽. Клиент уведомлён.`,
+        );
+      } catch (error) {
+        await ctx.reply(
+          extractAxiosMessage(error) ?? 'Не удалось сохранить стоимость доставки.',
+        );
+      }
+      return;
+    }
+
+    const pendingActualDuty = orderAdminService.getPendingActualDutyInput(String(from.id));
+
+    if (pendingActualDuty) {
+      const parsed = orderAdminService.parseNumericInput(text);
+      if (parsed === null || parsed < 0) {
+        await ctx.reply('Не удалось распознать сумму. Введите число в рублях (0 если пошлины нет).');
+        return;
+      }
+      try {
+        const order = await apiService.setActualDuty(
+          pendingActualDuty.orderId,
+          { actualDutyRub: parsed },
+          getActor(ctx),
+        );
+        orderAdminService.clearPendingIntent(String(from.id));
+        await ctx.reply(
+          `✓ Стоимость пошлины для заказа ${order.orderNumber}: ${parsed} ₽. Клиент уведомлён.`,
+        );
+      } catch (error) {
+        await ctx.reply(extractAxiosMessage(error) ?? 'Не удалось сохранить пошлину.');
+      }
       return;
     }
 

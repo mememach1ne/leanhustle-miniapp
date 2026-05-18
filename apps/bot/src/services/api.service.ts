@@ -3,6 +3,8 @@ import axios from 'axios';
 import type {
   BusinessSettingsDto,
   DeliveryCategoryWeightDto,
+  SetActualDeliveryRequest,
+  SetActualDutyRequest,
   SetCategoryWeightRequest,
   SettingsAuditLogItemDto,
   StaffOrderDetailsDto,
@@ -143,6 +145,68 @@ export class ApiService {
       },
     );
 
+    return response.data;
+  }
+
+  async setActualDelivery(
+    orderId: string,
+    payload: SetActualDeliveryRequest,
+    actor: BotActorIdentity,
+  ): Promise<StaffOrderDetailsDto> {
+    const response = await this.http.post<StaffOrderDetailsDto>(
+      `/staff/orders/${orderId}/actual-delivery`,
+      payload,
+      { headers: this.buildHeaders(actor) },
+    );
+    return response.data;
+  }
+
+  async markDeliveryPaid(
+    orderId: string,
+    actor: BotActorIdentity,
+  ): Promise<StaffOrderDetailsDto> {
+    const response = await this.http.post<StaffOrderDetailsDto>(
+      `/staff/orders/${orderId}/mark-delivery-paid`,
+      {},
+      { headers: this.buildHeaders(actor) },
+    );
+    return response.data;
+  }
+
+  async setActualDuty(
+    orderId: string,
+    payload: SetActualDutyRequest,
+    actor: BotActorIdentity,
+  ): Promise<StaffOrderDetailsDto> {
+    const response = await this.http.post<StaffOrderDetailsDto>(
+      `/staff/orders/${orderId}/actual-duty`,
+      payload,
+      { headers: this.buildHeaders(actor) },
+    );
+    return response.data;
+  }
+
+  async markDutyPaid(
+    orderId: string,
+    actor: BotActorIdentity,
+  ): Promise<StaffOrderDetailsDto> {
+    const response = await this.http.post<StaffOrderDetailsDto>(
+      `/staff/orders/${orderId}/mark-duty-paid`,
+      {},
+      { headers: this.buildHeaders(actor) },
+    );
+    return response.data;
+  }
+
+  async markDelivered(
+    orderId: string,
+    actor: BotActorIdentity,
+  ): Promise<StaffOrderDetailsDto> {
+    const response = await this.http.post<StaffOrderDetailsDto>(
+      `/staff/orders/${orderId}/mark-delivered`,
+      {},
+      { headers: this.buildHeaders(actor) },
+    );
     return response.data;
   }
 

@@ -14,6 +14,7 @@ import type { StaffAccount } from '@prisma/client';
 
 import { CurrentStaff } from '../staff/decorators/current-staff.decorator';
 import { StaffBotAuthGuard } from '../staff/guards/staff-bot-auth.guard';
+import { SetActualDeliveryDto, SetActualDutyDto } from './dto/set-actual-amount.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdateOrderTrackCodeDto } from './dto/update-order-track-code.dto';
 import { OrdersService } from './orders.service';
@@ -72,5 +73,49 @@ export class StaffOrdersController {
     @CurrentStaff() staff?: StaffAccount,
   ): Promise<StaffOrderDetailsDto> {
     return this.ordersService.setTrackCodeByStaff(id, dto.trackCode, staff);
+  }
+
+  // --- Phase 2: actual delivery / duty cycle ---
+
+  @Post(':id/actual-delivery')
+  async setActualDelivery(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetActualDeliveryDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.setActualDeliveryByStaff(id, dto.actualDeliveryRub, staff);
+  }
+
+  @Post(':id/mark-delivery-paid')
+  async markDeliveryPaid(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.markDeliveryPaidByStaff(id, staff);
+  }
+
+  @Post(':id/actual-duty')
+  async setActualDuty(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetActualDutyDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.setActualDutyByStaff(id, dto.actualDutyRub, staff);
+  }
+
+  @Post(':id/mark-duty-paid')
+  async markDutyPaid(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.markDutyPaidByStaff(id, staff);
+  }
+
+  @Post(':id/mark-delivered')
+  async markDelivered(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.markDeliveredByStaff(id, staff);
   }
 }

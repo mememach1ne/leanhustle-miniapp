@@ -13,6 +13,11 @@ enum OrderStatus {
   PAID_AWAITING_PURCHASE
   PURCHASED
   TRACK_CODE_RECEIVED
+  DELIVERY_PAYMENT_PENDING
+  DELIVERY_PAID
+  DUTY_PAYMENT_PENDING
+  DUTY_PAID
+  DELIVERED
 }
 
 enum StaffRole {
@@ -131,9 +136,18 @@ model Order {
   deliveryPhone                String?      @map("delivery_phone") @db.VarChar(20)
   customerComment              String?      @map("customer_comment") @db.Text
   trackCode                    String?      @map("track_code") @db.VarChar(128)
+  // Manager-entered actual amounts. NULL means "not yet known" — show
+  // estimated value (deliveryRub / dutyRub) to the customer.
+  actualDeliveryRub            Decimal?     @map("actual_delivery_rub") @db.Decimal(12, 0)
+  actualDutyRub                Decimal?     @map("actual_duty_rub") @db.Decimal(12, 0)
   paidAt                       DateTime?    @map("paid_at") @db.Timestamptz(6)
   purchasedAt                  DateTime?    @map("purchased_at") @db.Timestamptz(6)
   trackCodeReceivedAt          DateTime?    @map("track_code_received_at") @db.Timestamptz(6)
+  actualDeliverySetAt          DateTime?    @map("actual_delivery_set_at") @db.Timestamptz(6)
+  deliveryPaidAt               DateTime?    @map("delivery_paid_at") @db.Timestamptz(6)
+  actualDutySetAt              DateTime?    @map("actual_duty_set_at") @db.Timestamptz(6)
+  dutyPaidAt                   DateTime?    @map("duty_paid_at") @db.Timestamptz(6)
+  deliveredAt                  DateTime?    @map("delivered_at") @db.Timestamptz(6)
   createdAt                    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 

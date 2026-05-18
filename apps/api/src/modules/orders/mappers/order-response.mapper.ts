@@ -31,6 +31,8 @@ type OrderWithItems = {
   totalUsd: Prisma.Decimal;
   deliveryRub: Prisma.Decimal;
   dutyRub: Prisma.Decimal;
+  actualDeliveryRub: Prisma.Decimal | null;
+  actualDutyRub: Prisma.Decimal | null;
   deliveryFullName: string | null;
   deliveryCdekAddress: string | null;
   deliveryPhone: string | null;
@@ -122,6 +124,8 @@ export const mapOrderSummaryToDto = (order: OrderWithItems): OrderSummaryDto => 
     totalUsd: roundUsd(order.totalUsd),
     deliveryRub: roundRub(order.deliveryRub),
     dutyRub: roundRub(order.dutyRub),
+    actualDeliveryRub: order.actualDeliveryRub === null ? null : roundRub(order.actualDeliveryRub),
+    actualDutyRub: order.actualDutyRub === null ? null : roundRub(order.actualDutyRub),
   };
 };
 
