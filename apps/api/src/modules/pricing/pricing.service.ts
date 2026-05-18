@@ -117,7 +117,35 @@ export class PricingService {
       };
     }
 
-    // Step 3: known enum category with hardcoded weight.
+    // Step 3: known enum category. Prefer manager-overridden weight from
+    // DB (so they can fine-tune e.g. "boots" without code changes), fall
+    // back to the hardcoded one.
+    const dbOverride = await this.categoryWeightService.lookupByEnumKey(deliveryCategory);
+
+    if (dbOverride === null) {
+      // Manager explicitly cleared the weight — treat as pending.
+      return {
+        deliveryCategory: DeliveryCategory.OTHER,
+        estimatedWeightKg: 0,
+        deliveryRub: 0,
+        weightPending: true,
+      };
+    }
+
+    if (typeof dbOverride === 'number') {
+      const deliveryRub = new Prisma.Decimal(dbOverride)
+        .mul(input.deliveryPricePerKgRub)
+        .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP)
+        .toNumber();
+      return {
+        deliveryCategory,
+        estimatedWeightKg: dbOverride,
+        deliveryRub,
+        weightPending: false,
+      };
+    }
+
+    // Fallback to hardcoded weight (DB not seeded yet).
     const { estimatedWeightKg, deliveryRub } =
       this.deliveryEstimationService.estimateDeliveryRub({
         deliveryCategory,

@@ -55,6 +55,19 @@ export class DeliveryCategoryWeightService {
    * Look up the configured weight for a given L1>L2>L3 chain.
    * Returns `null` for "row exists but pending", `undefined` for "no row yet".
    */
+  /**
+   * Look up the weight for a known enum-based category (e.g. "enum:SNEAKERS").
+   * Returns null if the manager has deleted it; the caller should fall back
+   * to the hardcoded weight in that case.
+   */
+  async lookupByEnumKey(enumValue: string): Promise<number | null | undefined> {
+    const row = await this.prisma.deliveryCategoryWeight.findUnique({
+      where: { categoryKey: `enum:${enumValue}` },
+    });
+    if (!row) return undefined; // not seeded yet — caller should fall back
+    return row.weightKg === null ? null : Number(row.weightKg);
+  }
+
   async lookup(
     l1?: string | null,
     l2?: string | null,

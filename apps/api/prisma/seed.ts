@@ -116,9 +116,67 @@ async function seedStaffAccounts() {
   }
 }
 
+// Hardcoded delivery category catalog. Mirrors the keyword classifier in
+// product-category-classifier.service.ts so the manager can review/edit
+// every known category from the bot. The "categoryKey" uses an "enum:"
+// prefix to avoid collisions with dynamic L1|L2|L3 chains.
+const KNOWN_DELIVERY_CATEGORIES: Array<{
+  key: string;
+  title: string;
+  weightKg: number;
+}> = [
+  // Footwear
+  { key: 'enum:SNEAKERS', title: 'Кроссовки', weightKg: 1.8 },
+  { key: 'enum:SLIDES', title: 'Сланцы / сандалии', weightKg: 1.1 },
+  { key: 'enum:BOOTS', title: 'Ботинки', weightKg: 2.2 },
+  { key: 'enum:LOAFERS', title: 'Лоферы / мокасины', weightKg: 1.4 },
+  // Apparel
+  { key: 'enum:TSHIRT', title: 'Футболка / поло', weightKg: 0.4 },
+  { key: 'enum:SHORTS', title: 'Шорты', weightKg: 0.5 },
+  { key: 'enum:PANTS', title: 'Брюки / джинсы', weightKg: 0.8 },
+  { key: 'enum:HOODIE', title: 'Худи', weightKg: 1.0 },
+  { key: 'enum:SWEATSHIRT', title: 'Свитшот', weightKg: 0.9 },
+  { key: 'enum:JACKET', title: 'Куртка / пуховик', weightKg: 1.4 },
+  { key: 'enum:VEST', title: 'Жилет', weightKg: 0.6 },
+  { key: 'enum:DRESS', title: 'Платье', weightKg: 0.7 },
+  { key: 'enum:SKIRT', title: 'Юбка', weightKg: 0.5 },
+  { key: 'enum:UNDERWEAR', title: 'Бельё / носки', weightKg: 0.2 },
+  // Accessories
+  { key: 'enum:WATCH', title: 'Часы', weightKg: 0.3 },
+  { key: 'enum:GLASSES', title: 'Очки', weightKg: 0.25 },
+  { key: 'enum:BAG', title: 'Сумка / рюкзак', weightKg: 1.2 },
+  { key: 'enum:SMALL_ACCESSORY', title: 'Кошелёк / ремень', weightKg: 0.2 },
+  { key: 'enum:JEWELRY', title: 'Украшения', weightKg: 0.15 },
+  { key: 'enum:PHONE_CASE', title: 'Чехол для телефона', weightKg: 0.15 },
+  { key: 'enum:HEADWEAR', title: 'Кепка / шапка', weightKg: 0.25 },
+  { key: 'enum:SCARF', title: 'Шарф / платок', weightKg: 0.3 },
+  { key: 'enum:PERFUME', title: 'Парфюм', weightKg: 0.5 },
+  { key: 'enum:TECH_ACCESSORY', title: 'Наушники / техника', weightKg: 0.4 },
+];
+
+async function seedDeliveryCategories() {
+  for (const item of KNOWN_DELIVERY_CATEGORIES) {
+    await prisma.deliveryCategoryWeight.upsert({
+      where: { categoryKey: item.key },
+      // Don't override the manager's edits on re-run — only create if missing.
+      update: {},
+      create: {
+        categoryKey: item.key,
+        categoryL1: null,
+        categoryL2: null,
+        categoryL3: null,
+        title: item.title,
+        weightKg: item.weightKg.toString(),
+        encounterCount: 0,
+      },
+    });
+  }
+}
+
 async function main() {
   await seedBusinessSettings();
   await seedStaffAccounts();
+  await seedDeliveryCategories();
 }
 
 main()
