@@ -1,5 +1,6 @@
 import type { Telegraf } from 'telegraf';
 
+import { clientMessagesService } from '../services/client-messages.service';
 import { NEWS_CHANNEL_USERNAME, orderAdminService } from '../services/order-admin.service';
 import type { BotContext } from '../types/bot-context';
 
@@ -15,23 +16,28 @@ const isUserSubscribed = async (
   } catch (error) {
     // If the bot is not in the channel or the API call fails, fail open
     // (let users in) so we don't lock everyone out on a misconfiguration.
-    // The error is logged so operators can fix it.
     console.error('[subscription] getChatMember failed:', error);
     return true;
   }
 };
 
 const sendClientWelcome = async (ctx: BotContext) => {
-  await ctx.reply(orderAdminService.getClientWelcomeText(), {
+  const sent = await ctx.reply(orderAdminService.getClientWelcomeText(), {
     parse_mode: 'HTML',
     reply_markup: orderAdminService.buildClientWelcomeKeyboard(),
   });
+  if (ctx.chat) {
+    clientMessagesService.track(ctx.chat.id, sent.message_id);
+  }
 };
 
 const sendSubscriptionGate = async (ctx: BotContext) => {
-  await ctx.reply(orderAdminService.getSubscriptionRequiredText(), {
+  const sent = await ctx.reply(orderAdminService.getSubscriptionRequiredText(), {
     reply_markup: orderAdminService.buildSubscriptionRequiredKeyboard(),
   });
+  if (ctx.chat) {
+    clientMessagesService.track(ctx.chat.id, sent.message_id);
+  }
 };
 
 export const registerStartCommand = (bot: Telegraf<BotContext>) => {
@@ -45,7 +51,11 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
     }
 
     const userId = ctx.from?.id;
-    if (!userId) return;
+    const chatId = ctx.chat?.id;
+    if (!userId || !chatId) return;
+
+    // Clean up the chat from previous bot messages.
+    await clientMessagesService.clearChat(bot, chatId);
 
     const subscribed = await isUserSubscribed(bot, userId);
 
@@ -59,10 +69,12 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
 
   bot.action(/^client:.+$/, async (ctx) => {
     const data = ctx.match.input;
+    const chatId = ctx.chat?.id;
+    const sourceMessageId = ctx.callbackQuery?.message?.message_id;
 
     if (orderAdminService.isClientCheckSubscriptionCallback(data)) {
       const userId = ctx.from?.id;
-      if (!userId) {
+      if (!userId || !chatId) {
         await ctx.answerCbQuery();
         return;
       }
@@ -71,30 +83,39 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
 
       if (subscribed) {
         await ctx.answerCbQuery('✅ Подписка подтверждена');
+        // Drop the subscription gate (and any leftover "still missing"
+        // notices) before showing the welcome.
+        await clientMessagesService.clearChat(bot, chatId);
         await sendClientWelcome(ctx);
       } else {
-        await ctx.answerCbQuery('Подписка не найдена', { show_alert: false });
-        await ctx.reply(orderAdminService.getSubscriptionStillMissingText());
+        await ctx.answerCbQuery('Подписка не найдена');
+        // Don't pile up "still missing" notices: send one fresh and track it.
+        const sent = await ctx.reply(orderAdminService.getSubscriptionStillMissingText());
+        clientMessagesService.track(chatId, sent.message_id);
       }
       return;
     }
 
     if (orderAdminService.isClientDownloadAppCallback(data)) {
       await ctx.answerCbQuery();
-      await ctx.reply(orderAdminService.getDownloadAppText(), {
+      const sent = await ctx.reply(orderAdminService.getDownloadAppText(), {
         reply_markup: orderAdminService.buildDownloadAppKeyboard(),
       });
+      if (chatId) clientMessagesService.track(chatId, sent.message_id);
       return;
     }
 
     if (orderAdminService.isClientOtherMarketplacesCallback(data)) {
       await ctx.answerCbQuery();
-      await ctx.reply(orderAdminService.getOtherMarketplacesText(), {
+      const sent = await ctx.reply(orderAdminService.getOtherMarketplacesText(), {
         reply_markup: orderAdminService.buildOtherMarketplacesKeyboard(),
       });
+      if (chatId) clientMessagesService.track(chatId, sent.message_id);
       return;
     }
 
     await ctx.answerCbQuery();
+    // Touch unused variable to satisfy linter when no branch matched
+    void sourceMessageId;
   });
 };
