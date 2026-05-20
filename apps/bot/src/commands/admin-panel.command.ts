@@ -108,21 +108,23 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
       switch (action) {
         case 'orders_help': {
           await ctx.answerCbQuery();
-          await ctx.reply(orderAdminService.buildOrdersHelpText(), {
-            reply_markup: orderAdminService.buildAdminPanelKeyboard(access.role),
+          await ctx.editMessageText(orderAdminService.buildOrdersHelpText(), {
+            reply_markup: orderAdminService.withBackToAdmin(),
           });
           return;
         }
         case 'new_orders': {
           const orders = await apiService.getNewOrders(getActor(ctx));
+          const view = orderAdminService.buildOrderListView('new', orders, 1);
           await ctx.answerCbQuery();
-          await replyWithOrderList(ctx, 'Последние новые заказы:', orders, 'new');
+          await ctx.editMessageText(view.text, { reply_markup: view.reply_markup });
           return;
         }
         case 'active_orders': {
           const orders = await apiService.getActiveOrders(getActor(ctx));
+          const view = orderAdminService.buildOrderListView('active', orders, 1);
           await ctx.answerCbQuery();
-          await replyWithOrderList(ctx, 'Активные заказы:', orders, 'active');
+          await ctx.editMessageText(view.text, { reply_markup: view.reply_markup });
           return;
         }
         case 'find_order': {
@@ -138,15 +140,22 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
         case 'settings': {
           const settings = await apiService.getStaffSettings(getActor(ctx));
           await ctx.answerCbQuery();
-          await ctx.reply(orderAdminService.buildSettingsMessage(settings, canEditSettings(ctx)), {
-            reply_markup: orderAdminService.buildSettingsKeyboard(canEditSettings(ctx)),
-          });
+          await ctx.editMessageText(
+            orderAdminService.buildSettingsMessage(settings, canEditSettings(ctx)),
+            {
+              reply_markup: orderAdminService.withBackToAdmin(
+                orderAdminService.buildSettingsKeyboard(canEditSettings(ctx)),
+              ),
+            },
+          );
           return;
         }
         case 'settings_audit': {
           const logs = await apiService.getStaffSettingsAudit(getActor(ctx));
           await ctx.answerCbQuery();
-          await ctx.reply(orderAdminService.buildSettingsAuditMessage(logs));
+          await ctx.editMessageText(orderAdminService.buildSettingsAuditMessage(logs), {
+            reply_markup: orderAdminService.withBackToAdmin(),
+          });
           return;
         }
         case 'set_rate': {
@@ -197,6 +206,68 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
       await ctx.reply(
         extractAxiosMessage(error) ?? 'Не удалось выполнить действие из админ-панели.',
       );
+    }
+  });
+
+  // --- Generic edit-in-place navigation (admin panel, lists, order open) ---
+  bot.action(/^nav:.+$/, async (ctx) => {
+    if (!(await assertStaffPanel(ctx))) return;
+    if (!ctx.access) return;
+
+    const path = orderAdminService.decodeNavCallback(ctx.match.input);
+    if (!path) {
+      await ctx.answerCbQuery();
+      return;
+    }
+
+    try {
+      // nav:admin → back to admin panel
+      if (path === 'admin') {
+        await ctx.answerCbQuery();
+        const roleLabel = ctx.access.role === 'admin' ? 'Администратор' : 'Менеджер';
+        await ctx.editMessageText(orderAdminService.getWelcomeText(roleLabel), {
+          reply_markup: orderAdminService.buildAdminPanelKeyboard(ctx.access.role),
+        });
+        return;
+      }
+
+      // nav:list:<kind>:<page>
+      const listMatch = /^list:(new|active):(\d+)$/.exec(path);
+      if (listMatch) {
+        const kind = listMatch[1] as 'new' | 'active';
+        const page = Number(listMatch[2]) || 1;
+        const orders =
+          kind === 'new'
+            ? await apiService.getNewOrders(getActor(ctx))
+            : await apiService.getActiveOrders(getActor(ctx));
+        const view = orderAdminService.buildOrderListView(kind, orders, page);
+        await ctx.answerCbQuery();
+        await ctx.editMessageText(view.text, { reply_markup: view.reply_markup });
+        return;
+      }
+
+      // nav:order:<id>:<kind>:<page>
+      const orderMatch = /^order:([\w-]+):(new|active):(\d+)$/.exec(path);
+      if (orderMatch) {
+        const orderId = orderMatch[1];
+        const kind = orderMatch[2] as 'new' | 'active';
+        const page = Number(orderMatch[3]) || 1;
+        const order = await apiService.getStaffOrder(orderId, getActor(ctx));
+        await ctx.answerCbQuery();
+        await ctx.editMessageText(orderAdminService.buildOrderMessage(order), {
+          reply_markup: orderAdminService.withOrderDetailNav(
+            orderAdminService.buildOrderKeyboard(order),
+            { kind, page },
+          ),
+          link_preview_options: { is_disabled: true },
+        });
+        return;
+      }
+
+      await ctx.answerCbQuery();
+    } catch (error) {
+      await ctx.answerCbQuery('Ошибка.', { show_alert: true });
+      await ctx.reply(extractAxiosMessage(error) ?? 'Не удалось выполнить навигацию.');
     }
   });
 

@@ -52,10 +52,12 @@ const refreshOrderMessage = async (ctx: BotContext, orderId: string) => {
     }
 
     await ctx.editMessageText(orderAdminService.buildOrderMessage(order), {
-      reply_markup: orderAdminService.buildOrderKeyboard(order),
-      link_preview_options: {
-        is_disabled: true,
-      },
+      // After an action the original "back to list" context is no longer
+      // reachable from this scope — leave only "↑ Главное меню".
+      reply_markup: orderAdminService.withOrderDetailNav(
+        orderAdminService.buildOrderKeyboard(order),
+      ),
+      link_preview_options: { is_disabled: true },
     });
   } catch (error) {
     logger.warn('Failed to refresh manager order message', {
@@ -69,10 +71,10 @@ const replyWithOrderCard = async (ctx: BotContext, orderId: string) => {
   const order = await apiService.getStaffOrder(orderId, getActor(ctx));
 
   await ctx.reply(orderAdminService.buildOrderMessage(order), {
-    reply_markup: orderAdminService.buildOrderKeyboard(order),
-    link_preview_options: {
-      is_disabled: true,
-    },
+    reply_markup: orderAdminService.withOrderDetailNav(
+      orderAdminService.buildOrderKeyboard(order),
+    ),
+    link_preview_options: { is_disabled: true },
   });
 };
 
@@ -95,8 +97,20 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
     }
 
     try {
-      await replyWithOrderCard(ctx, orderId);
+      // Edit the source message in place if possible (e.g. a "new order"
+      // notification with an Open button). Falls back to a fresh card.
+      const order = await apiService.getStaffOrder(orderId, getActor(ctx));
       await ctx.answerCbQuery();
+      try {
+        await ctx.editMessageText(orderAdminService.buildOrderMessage(order), {
+          reply_markup: orderAdminService.withOrderDetailNav(
+            orderAdminService.buildOrderKeyboard(order),
+          ),
+          link_preview_options: { is_disabled: true },
+        });
+      } catch {
+        await replyWithOrderCard(ctx, orderId);
+      }
     } catch (error) {
       await ctx.answerCbQuery('Не удалось открыть заказ.', { show_alert: true });
       await ctx.reply(extractAxiosMessage(error) ?? 'Не удалось загрузить карточку заказа.');
@@ -352,10 +366,10 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
       const order = await apiService.findOrderByNumber(text, getActor(ctx));
       orderAdminService.clearPendingIntent(String(from.id));
       await ctx.reply(orderAdminService.buildOrderMessage(order), {
-        reply_markup: orderAdminService.buildOrderKeyboard(order),
-        link_preview_options: {
-          is_disabled: true,
-        },
+        reply_markup: orderAdminService.withOrderDetailNav(
+          orderAdminService.buildOrderKeyboard(order),
+        ),
+        link_preview_options: { is_disabled: true },
       });
     } catch (error) {
       await ctx.reply(

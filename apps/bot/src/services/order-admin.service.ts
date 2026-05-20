@@ -66,6 +66,9 @@ const SETTINGS_RATE_PREFIX = 'settings_rate:';
 const ADMIN_PANEL_ACTION_PREFIX = 'admin_panel:';
 const CLIENT_ACTION_PREFIX = 'client:';
 const CATEGORY_ACTION_PREFIX = 'cat:';
+const NAV_PREFIX = 'nav:';
+
+const ORDERS_PER_PAGE = 8;
 
 export const POIZON_IOS_URL = 'https://apps.apple.com/app/id1012871328';
 // Poizon is not on Google Play. We host the official APK ourselves and
@@ -1020,6 +1023,150 @@ export class OrderAdminService {
         ],
       ],
     };
+  }
+
+  // ===== Edit-in-place admin navigation =====
+
+  encodeNavCallback(path: string): string {
+    return `${NAV_PREFIX}${path}`;
+  }
+
+  decodeNavCallback(callbackData: string): string | null {
+    if (!callbackData.startsWith(NAV_PREFIX)) return null;
+    return callbackData.slice(NAV_PREFIX.length);
+  }
+
+  /** Pagination: returns the slice + total pages for a list. */
+  paginate<T>(items: T[], page: number): { slice: T[]; page: number; totalPages: number } {
+    const totalPages = Math.max(1, Math.ceil(items.length / ORDERS_PER_PAGE));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const start = (safePage - 1) * ORDERS_PER_PAGE;
+    return {
+      slice: items.slice(start, start + ORDERS_PER_PAGE),
+      page: safePage,
+      totalPages,
+    };
+  }
+
+  buildOrderListView(
+    kind: 'new' | 'active',
+    orders: StaffOrderListItemDto[],
+    page: number,
+  ): { text: string; reply_markup: InlineKeyboardMarkup } {
+    const title = kind === 'new' ? '📋 Новые заказы' : '🚚 Активные заказы';
+
+    if (orders.length === 0) {
+      return {
+        text: kind === 'new' ? 'Новых заказов сейчас нет.' : 'Активных заказов сейчас нет.',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '↑ Главное меню', callback_data: this.encodeNavCallback('admin') }],
+          ],
+        },
+      };
+    }
+
+    const { slice, page: safePage, totalPages } = this.paginate(orders, page);
+
+    const text = [
+      `${title} — стр. ${safePage}/${totalPages} • Всего: ${orders.length}`,
+      '',
+      'Нажми на заказ чтобы открыть.',
+    ].join('\n');
+
+    const inline_keyboard: InlineKeyboardMarkup['inline_keyboard'] = slice.map((order) => {
+      const userTag = order.user.username ? `@${order.user.username}` : order.user.firstName;
+      const statusEmoji = this.getStatusEmoji(order.status);
+      const label = `${statusEmoji} ${order.orderNumber} • $${order.totalUsd.toFixed(0)} • ${userTag}`.slice(0, 60);
+      return [{ text: label, callback_data: this.encodeNavCallback(`order:${order.id}:${kind}:${safePage}`) }];
+    });
+
+    // Pagination row (only if needed)
+    if (totalPages > 1) {
+      const navRow: InlineKeyboardMarkup['inline_keyboard'][number] = [];
+      if (safePage > 1) {
+        navRow.push({
+          text: '← Назад',
+          callback_data: this.encodeNavCallback(`list:${kind}:${safePage - 1}`),
+        });
+      }
+      navRow.push({
+        text: `${safePage}/${totalPages}`,
+        callback_data: this.encodeNavCallback(`list:${kind}:${safePage}`),
+      });
+      if (safePage < totalPages) {
+        navRow.push({
+          text: 'Вперёд →',
+          callback_data: this.encodeNavCallback(`list:${kind}:${safePage + 1}`),
+        });
+      }
+      inline_keyboard.push(navRow);
+    }
+
+    inline_keyboard.push([
+      { text: '↑ Главное меню', callback_data: this.encodeNavCallback('admin') },
+    ]);
+
+    return { text, reply_markup: { inline_keyboard } };
+  }
+
+  private getStatusEmoji(status: OrderStatus): string {
+    switch (status) {
+      case OrderStatus.CREATED:
+        return '🆕';
+      case OrderStatus.PAYMENT_PENDING:
+        return '💳';
+      case OrderStatus.PAID_AWAITING_PURCHASE:
+        return '💰';
+      case OrderStatus.PURCHASED:
+        return '✅';
+      case OrderStatus.DELIVERY_PAYMENT_PENDING:
+        return '📦';
+      case OrderStatus.DELIVERY_PAID:
+        return '✓';
+      case OrderStatus.DUTY_PAYMENT_PENDING:
+        return '🛃';
+      case OrderStatus.DUTY_PAID:
+        return '✓';
+      case OrderStatus.TRACK_CODE_RECEIVED:
+        return '📮';
+      case OrderStatus.DELIVERED:
+        return '🎉';
+      default:
+        return '•';
+    }
+  }
+
+  /**
+   * Append "← К списку" + "↑ Главное меню" to an order detail keyboard
+   * so the manager can navigate without leaving the message.
+   */
+  withOrderDetailNav(
+    keyboard: InlineKeyboardMarkup | undefined,
+    backToList?: { kind: 'new' | 'active'; page: number },
+  ): InlineKeyboardMarkup {
+    const inline_keyboard = keyboard ? [...keyboard.inline_keyboard] : [];
+    if (backToList) {
+      inline_keyboard.push([
+        {
+          text: '← К списку',
+          callback_data: this.encodeNavCallback(`list:${backToList.kind}:${backToList.page}`),
+        },
+      ]);
+    }
+    inline_keyboard.push([
+      { text: '↑ Главное меню', callback_data: this.encodeNavCallback('admin') },
+    ]);
+    return { inline_keyboard };
+  }
+
+  /** Wraps any single-message screen with "↑ Главное меню". */
+  withBackToAdmin(keyboard?: InlineKeyboardMarkup): InlineKeyboardMarkup {
+    const inline_keyboard = keyboard ? [...keyboard.inline_keyboard] : [];
+    inline_keyboard.push([
+      { text: '↑ Главное меню', callback_data: this.encodeNavCallback('admin') },
+    ]);
+    return { inline_keyboard };
   }
 
   buildOrderMessage(order: StaffOrderDetailsDto): string {
