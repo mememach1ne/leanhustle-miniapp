@@ -1122,22 +1122,13 @@ export class OrderAdminService {
       ]);
     }
 
-    if ([OrderStatus.PURCHASED, OrderStatus.TRACK_CODE_RECEIVED].includes(order.status)) {
-      buttons.push([
-        {
-          text: order.trackCode ? 'Обновить трек-код' : 'Ввести трек-код',
-          callback_data: encodeManagerOrderCallback(
-            MANAGER_ORDER_ACTIONS.TRACK_CODE,
-            order.id,
-          ),
-        },
-      ]);
-    }
-
-    // --- Phase 2: actual delivery / duty cycle ---
+    // --- New post-purchase flow ---
+    // PURCHASED → DELIVERY_PAYMENT_PENDING → DELIVERY_PAID
+    //          → (optional) DUTY_PAYMENT_PENDING → DUTY_PAID
+    //          → TRACK_CODE_RECEIVED → DELIVERED
 
     if (
-      order.status === OrderStatus.TRACK_CODE_RECEIVED ||
+      order.status === OrderStatus.PURCHASED ||
       order.status === OrderStatus.DELIVERY_PAYMENT_PENDING
     ) {
       const hasActual = order.summary.actualDeliveryRub !== null && order.summary.actualDeliveryRub !== undefined;
@@ -1192,7 +1183,24 @@ export class OrderAdminService {
       ]);
     }
 
-    if (order.status === OrderStatus.DELIVERY_PAID || order.status === OrderStatus.DUTY_PAID) {
+    // Track code is only available AFTER delivery (and duty) are paid.
+    if (
+      order.status === OrderStatus.DELIVERY_PAID ||
+      order.status === OrderStatus.DUTY_PAID ||
+      order.status === OrderStatus.TRACK_CODE_RECEIVED
+    ) {
+      buttons.push([
+        {
+          text: order.trackCode ? 'Обновить трек-код' : 'Ввести трек-код',
+          callback_data: encodeManagerOrderCallback(
+            MANAGER_ORDER_ACTIONS.TRACK_CODE,
+            order.id,
+          ),
+        },
+      ]);
+    }
+
+    if (order.status === OrderStatus.TRACK_CODE_RECEIVED) {
       buttons.push([
         {
           text: '🚚 Отметить доставленным',

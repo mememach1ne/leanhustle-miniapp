@@ -39,17 +39,17 @@ const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.CREATED]: [OrderStatus.PAYMENT_PENDING],
   [OrderStatus.PAYMENT_PENDING]: [OrderStatus.PAID_AWAITING_PURCHASE],
   [OrderStatus.PAID_AWAITING_PURCHASE]: [OrderStatus.PURCHASED],
+  // After purchase, manager enters actual delivery -> DELIVERY_PAYMENT_PENDING
   [OrderStatus.PURCHASED]: [],
-  // After track code, manager enters actual delivery -> DELIVERY_PAYMENT_PENDING
-  [OrderStatus.TRACK_CODE_RECEIVED]: [],
-  // After delivery payment is confirmed by manager -> DELIVERY_PAID.
   [OrderStatus.DELIVERY_PAYMENT_PENDING]: [OrderStatus.DELIVERY_PAID],
-  // From DELIVERY_PAID manager either enters duty cost (-> DUTY_PAYMENT_PENDING)
-  // or marks delivered without duty (-> DELIVERED). Both transitions are
-  // handled by dedicated endpoints, not generic updateStatus.
-  [OrderStatus.DELIVERY_PAID]: [OrderStatus.DELIVERED],
+  // From DELIVERY_PAID manager either enters duty cost or proceeds to
+  // track code directly.
+  [OrderStatus.DELIVERY_PAID]: [],
   [OrderStatus.DUTY_PAYMENT_PENDING]: [OrderStatus.DUTY_PAID],
-  [OrderStatus.DUTY_PAID]: [OrderStatus.DELIVERED],
+  [OrderStatus.DUTY_PAID]: [],
+  // Track code is entered AFTER delivery (and duty if any) are paid,
+  // because the track code belongs to the last-mile shipment to Russia.
+  [OrderStatus.TRACK_CODE_RECEIVED]: [OrderStatus.DELIVERED],
   [OrderStatus.DELIVERED]: [],
 };
 
@@ -525,11 +525,12 @@ export class OrdersService {
       }
 
       if (
-        order.status !== OrderStatus.PURCHASED &&
+        order.status !== OrderStatus.DELIVERY_PAID &&
+        order.status !== OrderStatus.DUTY_PAID &&
         order.status !== OrderStatus.TRACK_CODE_RECEIVED
       ) {
         throw new BadRequestException(
-          'Трек-код можно ввести только после статуса «Выкуплен».',
+          'Трек-код можно ввести только после оплаты доставки (и пошлины, если есть).',
         );
       }
 
@@ -604,11 +605,11 @@ export class OrdersService {
       if (!order) throw new NotFoundException('Заказ не найден.');
 
       if (
-        order.status !== OrderStatus.TRACK_CODE_RECEIVED &&
+        order.status !== OrderStatus.PURCHASED &&
         order.status !== OrderStatus.DELIVERY_PAYMENT_PENDING
       ) {
         throw new BadRequestException(
-          'Стоимость доставки можно ввести только после получения трек-кода.',
+          'Стоимость доставки можно ввести только после выкупа товара.',
         );
       }
 
@@ -885,12 +886,9 @@ export class OrdersService {
       });
       if (!order) throw new NotFoundException('Заказ не найден.');
 
-      if (
-        order.status !== OrderStatus.DELIVERY_PAID &&
-        order.status !== OrderStatus.DUTY_PAID
-      ) {
+      if (order.status !== OrderStatus.TRACK_CODE_RECEIVED) {
         throw new BadRequestException(
-          'Завершить заказ можно после оплаты доставки (и пошлины, если она есть).',
+          'Завершить заказ можно только после ввода трек-кода.',
         );
       }
 
