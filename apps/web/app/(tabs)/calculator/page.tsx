@@ -682,7 +682,7 @@ export default function CalculatorPage() {
           <SectionCard>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h3 className="text-lg font-semibold text-white">Размеры и цены</h3>
+                <h3 className="text-lg font-semibold text-white">Варианты и цены</h3>
                 <p className="mt-2 text-sm text-[var(--muted)]">
                   Доступно {product.availableSkus.length} из {product.skus.length}
                 </p>
@@ -760,7 +760,7 @@ export default function CalculatorPage() {
                 {pricing ? (
                   <div className="mt-4 space-y-3">
                     <InfoRow
-                      label={`Размер: ${selectedSku.size}`}
+                      label={`Вариант: ${selectedSku.size}`}
                       value={selectedSku.priceYuan ? `${selectedSku.priceYuan.toFixed(2)} CNY` : '—'}
                     />
                     <div className="border-t border-white/5" />

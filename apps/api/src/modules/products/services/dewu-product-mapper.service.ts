@@ -14,18 +14,31 @@ export class DewuProductMapperService {
     }
 
     const skus = (payload.data.skuList ?? []).map((sku) => {
-      const sizeAttr = sku.saleAttr?.find(
+      const attrs = sku.saleAttr ?? [];
+      const sizeAttr = attrs.find(
         (attr) => attr.enName === 'Size' || attr.cnName === '尺码',
       );
-      const versionAttr = sku.saleAttr?.find(
+      const versionAttr = attrs.find(
         (attr) => attr.enName === 'Version' || attr.cnName === '版本',
       );
+
+      // Poizon products beyond clothing/footwear use different saleAttr
+      // schemes — backpacks have Model/Color, perfumes have Volume in ml,
+      // electronics have Capacity. Concatenate every attribute value so
+      // the customer sees the real SKU description ("100ml", "Black / 30L",
+      // "EU 42") instead of a bogus "Unknown size".
+      const variantLabel =
+        attrs
+          .map((attr) => attr.enValue ?? attr.cnValue)
+          .filter((value): value is string => Boolean(value && value.trim()))
+          .join(' / ') || 'Стандартный вариант';
+
       const minBidPrice = Number(sku.minBidPrice ?? 0);
       const isAvailable = Number.isFinite(minBidPrice) && minBidPrice > 0;
 
       return {
         dwSkuId: String(sku.dwSkuId),
-        size: sizeAttr?.enValue ?? sizeAttr?.cnValue ?? 'Unknown size',
+        size: sizeAttr?.enValue ?? sizeAttr?.cnValue ?? variantLabel,
         version: versionAttr?.enValue ?? versionAttr?.cnValue,
         minBidPrice,
         isAvailable,
