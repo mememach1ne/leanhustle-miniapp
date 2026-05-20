@@ -1,6 +1,5 @@
 import type { DewuResolvedProduct } from '@lean-poizon/shared';
 import { Body, Controller, Inject, Post, UseGuards } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
 import type { User } from '@prisma/client';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -18,14 +17,12 @@ export class ProductsController {
   }
 
   @Post('resolve')
-  @Throttle({
-    short: { ttl: 60_000, limit: 5 },
-    long: { ttl: 86_400_000, limit: 20 },
-  })
+  // Rate limiting is enforced inside the service so staff can bypass it
+  // and so cache hits don't count against the quota.
   async resolveProduct(
     @Body() dto: ResolveProductDto,
-    @CurrentUser() _user: User,
+    @CurrentUser() user: User,
   ): Promise<DewuResolvedProduct> {
-    return this.productsService.resolveProduct(dto);
+    return this.productsService.resolveProduct(dto, user);
   }
 }

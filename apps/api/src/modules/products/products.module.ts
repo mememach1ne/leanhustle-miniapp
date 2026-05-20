@@ -6,6 +6,8 @@ import { ProductsService } from './products.service';
 import { DewuApiClientService } from './services/dewu-api-client.service';
 import { DewuLinkResolverService } from './services/dewu-link-resolver.service';
 import { DewuProductMapperService } from './services/dewu-product-mapper.service';
+import { ProductCacheService } from './services/product-cache.service';
+import { ProductRateLimitService } from './services/product-rate-limit.service';
 
 @Module({
   imports: [AuthModule],
@@ -15,6 +17,8 @@ import { DewuProductMapperService } from './services/dewu-product-mapper.service
     DewuLinkResolverService,
     DewuApiClientService,
     DewuProductMapperService,
+    ProductCacheService,
+    ProductRateLimitService,
   ],
   exports: [ProductsService],
 })

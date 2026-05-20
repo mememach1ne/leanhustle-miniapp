@@ -43,9 +43,10 @@ model User {
   updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   lastActiveAt              DateTime @default(now()) @map("last_active_at") @db.Timestamptz(6)
 
-  cart               Cart?
-  orders             Order[]
-  deliveryAddresses  DeliveryAddress[]
+  cart                  Cart?
+  orders                Order[]
+  deliveryAddresses     DeliveryAddress[]
+  productResolveEvents  ProductResolveEvent[]
 
   @@index([lastActiveAt], map: "users_last_active_at_idx")
   @@map("users")
@@ -297,6 +298,31 @@ model SettingsAuditLog {
   @@index([settingsId, createdAt], map: "settings_audit_logs_settings_id_created_at_idx")
   @@index([changedByStaffId], map: "settings_audit_logs_changed_by_staff_id_idx")
   @@map("settings_audit_logs")
+}
+
+model ProductCache {
+  // Shared across all users: same dwSpuId → same Poizon data.
+  dwSpuId   String   @id @map("dw_spu_id") @db.VarChar(64)
+  payload   Json     @map("payload")
+  cachedAt  DateTime @default(now()) @map("cached_at") @db.Timestamptz(6)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+
+  @@index([expiresAt], map: "product_cache_expires_at_idx")
+  @@map("product_cache")
+}
+
+model ProductResolveEvent {
+  // One row per actual external API call (cache misses only). Used to
+  // enforce per-user rate limits without burning the quota on cache hits.
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  dwSpuId   String   @map("dw_spu_id") @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt], map: "product_resolve_events_user_created_idx")
+  @@map("product_resolve_events")
 }
 
 model DeliveryCategoryWeight {
