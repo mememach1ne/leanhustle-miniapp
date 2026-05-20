@@ -26,10 +26,14 @@ export default () => ({
     jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1d',
   },
   integrations: {
-    rapidApiDewuHost: process.env.RAPIDAPI_DEWU_HOST ?? 'open-poizon-api.p.rapidapi.com',
-    rapidApiDewuKey: process.env.RAPIDAPI_DEWU_KEY ?? '',
-    rapidApiDewuProductEndpoint:
-      process.env.RAPIDAPI_DEWU_PRODUCT_ENDPOINT ?? '/poizon/product/queryDetail',
+    // Dewu / Poizon product API (via dajisaas.com). The previous RapidAPI
+    // provider stopped working and we migrated to a Chinese OpenAPI gateway.
+    // Auth is appKey + appSecret in query params (no headers).
+    dewuApiHost: process.env.DEWU_API_HOST ?? 'openapi.dajisaas.com',
+    dewuApiAppKey: process.env.DEWU_API_APP_KEY ?? '',
+    dewuApiAppSecret: process.env.DEWU_API_APP_SECRET ?? '',
+    dewuApiProductEndpoint:
+      process.env.DEWU_API_PRODUCT_ENDPOINT ?? '/poizon/product/queryDetail',
     dw4ResolverUrl: process.env.DW4_RESOLVER_URL ?? '',
   },
   notifications: {

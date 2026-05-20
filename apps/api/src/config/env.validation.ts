@@ -11,11 +11,12 @@ export function validateEnv(config: EnvShape) {
   const telegramBotToken = asString(config.TELEGRAM_BOT_TOKEN);
   const privateChannelId = asString(config.PRIVATE_CHANNEL_ID);
   const jwtSecret = asString(config.JWT_SECRET);
-  const rapidApiDewuKey = asString(config.RAPIDAPI_DEWU_KEY);
+  const dewuApiAppKey = asString(config.DEWU_API_APP_KEY);
+  const dewuApiAppSecret = asString(config.DEWU_API_APP_SECRET);
   const managerTelegramIds = asString(config.MANAGER_TELEGRAM_IDS);
   const botInternalApiToken = asString(config.BOT_INTERNAL_API_TOKEN);
-  const rapidApiDewuProductEndpoint =
-    asString(config.RAPIDAPI_DEWU_PRODUCT_ENDPOINT) || '/poizon/product/queryDetail';
+  const dewuApiProductEndpoint =
+    asString(config.DEWU_API_PRODUCT_ENDPOINT) || '/poizon/product/queryDetail';
   const port = Number(asString(config.PORT) || '3001');
   const authMaxAge = Number(asString(config.TELEGRAM_AUTH_MAX_AGE_SECONDS) || '300');
 
@@ -39,8 +40,12 @@ export function validateEnv(config: EnvShape) {
     errors.push('JWT_SECRET must not contain default placeholder value');
   }
 
-  if (!rapidApiDewuKey) {
-    errors.push('RAPIDAPI_DEWU_KEY is required');
+  if (!dewuApiAppKey) {
+    errors.push('DEWU_API_APP_KEY is required');
+  }
+
+  if (!dewuApiAppSecret) {
+    errors.push('DEWU_API_APP_SECRET is required');
   }
 
   if (!managerTelegramIds) {
@@ -78,10 +83,10 @@ export function validateEnv(config: EnvShape) {
     TELEGRAM_AUTH_MAX_AGE_SECONDS: String(authMaxAge),
     JWT_SECRET: jwtSecret,
     JWT_EXPIRES_IN: asString(config.JWT_EXPIRES_IN) || '1d',
-    RAPIDAPI_DEWU_HOST:
-      asString(config.RAPIDAPI_DEWU_HOST) || 'open-poizon-api.p.rapidapi.com',
-    RAPIDAPI_DEWU_KEY: rapidApiDewuKey,
-    RAPIDAPI_DEWU_PRODUCT_ENDPOINT: rapidApiDewuProductEndpoint,
+    DEWU_API_HOST: asString(config.DEWU_API_HOST) || 'openapi.dajisaas.com',
+    DEWU_API_APP_KEY: dewuApiAppKey,
+    DEWU_API_APP_SECRET: dewuApiAppSecret,
+    DEWU_API_PRODUCT_ENDPOINT: dewuApiProductEndpoint,
     MANAGER_TELEGRAM_IDS: asString(config.MANAGER_TELEGRAM_IDS),
     BOT_INTERNAL_API_TOKEN: botInternalApiToken,
     SEED_ADMIN_TELEGRAM_IDS: asString(config.SEED_ADMIN_TELEGRAM_IDS),
