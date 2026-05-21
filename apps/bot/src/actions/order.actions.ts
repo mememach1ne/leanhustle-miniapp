@@ -205,20 +205,21 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
           const order = await apiService.getStaffOrder(payload.orderId, getActor(ctx));
           const callbackMessage = ctx.callbackQuery.message;
 
-          if (
-            ![OrderStatus.PURCHASED, OrderStatus.TRACK_CODE_RECEIVED].includes(order.status)
-          ) {
+          const allowedForTrackCode: OrderStatus[] = [
+            OrderStatus.DELIVERY_PAID,
+            OrderStatus.DUTY_PAID,
+            OrderStatus.TRACK_CODE_RECEIVED,
+          ];
+          if (!allowedForTrackCode.includes(order.status)) {
             await ctx.answerCbQuery(
-              'Трек-код можно ввести только после статуса «Выкуплен».',
-              {
-                show_alert: true,
-              },
+              'Трек-код можно ввести только после оплаты доставки (и пошлины, если есть).',
+              { show_alert: true },
             );
             return;
           }
 
           if (!callbackMessage) {
-            await ctx.answerCbQuery('РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ СЃРѕРѕР±С‰РµРЅРёРµ Р·Р°РєР°Р·Р°.', {
+            await ctx.answerCbQuery('Не удалось определить сообщение заказа.', {
               show_alert: true,
             });
             return;

@@ -1419,13 +1419,23 @@ export class OrderAdminService {
       case OrderStatus.CREATED:
         return 'Создан';
       case OrderStatus.PAYMENT_PENDING:
-        return 'Ожидание оплаты';
+        return 'Ожидание оплаты товара';
       case OrderStatus.PAID_AWAITING_PURCHASE:
         return 'Оплачен, ожидается выкуп';
       case OrderStatus.PURCHASED:
         return 'Выкуплен';
+      case OrderStatus.DELIVERY_PAYMENT_PENDING:
+        return 'Ожидание оплаты доставки';
+      case OrderStatus.DELIVERY_PAID:
+        return 'Доставка оплачена';
+      case OrderStatus.DUTY_PAYMENT_PENDING:
+        return 'Ожидание оплаты пошлины';
+      case OrderStatus.DUTY_PAID:
+        return 'Пошлина оплачена';
       case OrderStatus.TRACK_CODE_RECEIVED:
         return trackCode ? `Трек-код получен — ${trackCode}` : 'Трек-код получен';
+      case OrderStatus.DELIVERED:
+        return 'Доставлено';
       default:
         return status;
     }
