@@ -25,6 +25,18 @@ const formatYuan = (value: number | null) =>
 const SUPPORTED_HOST_SUFFIXES = ['dw4.co', 'dewu.com', 'poizon.com', 'poizonresell.com'];
 
 /**
+ * Poizon's native "Share link" copies a chunk of Chinese marketing text
+ * with the URL embedded somewhere in the middle, e.g.
+ *   "【得物】… https://dw4.co/t/A/1vPN5j6PQ levi's 501 …"
+ * Pull the first http(s) URL out so the user doesn't have to clean it up.
+ * Returns the original string if no URL is found.
+ */
+const extractFirstUrl = (raw: string): string => {
+  const match = raw.match(/https?:\/\/[^\s)]+/i);
+  return match ? match[0] : raw;
+};
+
+/**
  * Lightweight client-side check. Returns null if the link is plausibly a
  * Poizon/Dewu URL; otherwise returns a user-facing error message.
  */
@@ -152,18 +164,28 @@ export default function CalculatorPage() {
     setCartError(null);
 
     // Client-side validation first — never call API for obvious junk.
-    const validationError = validatePoizonLink(link);
+    // Extract URL from Poizon's share-text format before validating.
+    const candidate = extractFirstUrl(link.trim());
+    const validationError = validatePoizonLink(candidate);
     if (validationError) {
       setError(validationError);
       hapticNotification('error');
       return;
     }
+    // Normalize the input so the user sees the clean URL.
+    if (candidate !== link.trim()) {
+      setLink(candidate);
+    }
 
     setProductLoading(true);
 
     try {
+      // Make absolutely sure we send the pure URL to the API. If the
+      // user pasted Poizon's marketing blob and the auto-extract on
+      // change missed something, this is the safety net.
+      const cleanLink = extractFirstUrl(link.trim());
       const resolvedProduct = await productsApi.resolveProduct({
-        link: link.trim(),
+        link: cleanLink,
       });
 
       setResolvedProduct(resolvedProduct);
@@ -361,21 +383,43 @@ export default function CalculatorPage() {
               type="text"
               value={link}
               onChange={(event) => setLink(event.target.value)}
+              onPaste={(event) => {
+                // Auto-extract URL from Poizon's marketing share text.
+                const pasted = event.clipboardData.getData('text');
+                const extracted = extractFirstUrl(pasted);
+                if (extracted !== pasted) {
+                  event.preventDefault();
+                  setLink(extracted.trim());
+                }
+              }}
               placeholder="https://dw4.co/t/A/..."
               className="min-w-0 flex-1 rounded-[16px] border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[var(--accent)]"
             />
             <button
               type="button"
               onClick={async () => {
+                // Telegram WebView on iOS/Android often blocks
+                // navigator.clipboard.readText with NotAllowedError.
+                // We try anyway; on failure we focus the input and ask
+                // the user to long-press → Paste, which always works.
                 try {
                   const text = await navigator.clipboard.readText();
                   if (text.trim()) {
-                    setLink(text.trim());
+                    setLink(extractFirstUrl(text.trim()));
                     hapticImpact('light');
+                    return;
                   }
                 } catch {
-                  hapticNotification('error');
+                  // fall through to manual instruction
                 }
+                hapticImpact('medium');
+                const input = document.querySelector<HTMLInputElement>(
+                  'input[placeholder^="https://dw4.co"]',
+                );
+                input?.focus();
+                setError(
+                  'На телефоне нажми и удерживай поле выше → «Вставить». Ссылку очистим автоматически.',
+                );
               }}
               className="shrink-0 rounded-[16px] border border-white/10 bg-white/5 px-3 py-2.5 text-xs font-semibold text-white transition active:scale-95"
             >
