@@ -268,10 +268,21 @@ export default function OrderDetailsPage() {
             action={
               <div className="space-y-2">
                 <InfoRow label="Количество" value={item.quantity} />
-                <InfoRow label="Цена за 1 шт" value={`$${item.totalUsd.toFixed(2)}`} />
-                <InfoRow label="Сумма по строке" value={`$${item.lineTotalUsd.toFixed(2)}`} accent />
-                <InfoRow label="Доставка по строке" value={`${item.lineDeliveryRub} ₽`} />
-                <InfoRow label="Пошлина по строке" value={`${item.lineDutyRub} ₽`} />
+                <InfoRow
+                  label={item.quantity > 1 ? 'Цена за 1 шт' : 'Цена'}
+                  value={`$${item.totalUsd.toFixed(2)}`}
+                />
+                {item.quantity > 1 ? (
+                  <InfoRow
+                    label="Сумма"
+                    value={`$${item.lineTotalUsd.toFixed(2)}`}
+                    accent
+                  />
+                ) : null}
+                <InfoRow label="Доставка" value={`${item.lineDeliveryRub} ₽`} />
+                {item.lineDutyRub > 0 ? (
+                  <InfoRow label="Пошлина" value={`${item.lineDutyRub} ₽`} />
+                ) : null}
               </div>
             }
           />

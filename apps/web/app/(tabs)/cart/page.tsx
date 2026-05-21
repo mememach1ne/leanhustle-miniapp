@@ -257,10 +257,27 @@ export default function CartPage() {
                 {isExpanded ? (
                   <div className="mt-3 space-y-3 border-t border-white/5 pt-3">
                     <div className="space-y-2">
-                      <InfoRow label="Цена за 1 шт" value={`$${item.totalUsd.toFixed(2)}`} />
-                      <InfoRow label="Доставка за 1 шт" value={`${item.deliveryRub} ₽`} />
-                      <InfoRow label="Пошлина за 1 шт" value={`${item.dutyRub} ₽`} />
-                      <InfoRow label="Сумма по строке" value={`$${item.lineTotalUsd.toFixed(2)}`} accent />
+                      <InfoRow
+                        label={item.quantity > 1 ? 'Цена за 1 шт' : 'Цена'}
+                        value={`$${item.totalUsd.toFixed(2)}`}
+                      />
+                      <InfoRow
+                        label={item.quantity > 1 ? 'Доставка за 1 шт' : 'Доставка'}
+                        value={`${item.deliveryRub} ₽`}
+                      />
+                      {item.dutyRub > 0 ? (
+                        <InfoRow
+                          label={item.quantity > 1 ? 'Пошлина за 1 шт' : 'Пошлина'}
+                          value={`${item.dutyRub} ₽`}
+                        />
+                      ) : null}
+                      {item.quantity > 1 ? (
+                        <InfoRow
+                          label="Сумма"
+                          value={`$${item.lineTotalUsd.toFixed(2)}`}
+                          accent
+                        />
+                      ) : null}
                     </div>
 
                     <div className="flex items-center justify-between gap-3">
