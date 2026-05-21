@@ -15,7 +15,12 @@ import { SizeChartModal } from '../../../components/ui/size-chart-modal';
 import { cartApi, pricingApi, productsApi } from '../../../lib/api-client';
 import { CATEGORY_GROUPS, getDeliveryCategoryLabel } from '../../../lib/delivery-categories';
 import { extractAxiosMessage, isAxiosClientError } from '../../../lib/error-utils';
-import { hapticImpact, hapticNotification, hapticSelection } from '../../../lib/telegram-web-app';
+import {
+  hapticImpact,
+  hapticNotification,
+  hapticSelection,
+  readClipboardText,
+} from '../../../lib/telegram-web-app';
 import { useCalculatorStore } from '../../../store/calculator-store';
 import { useCartStore } from '../../../store/cart-store';
 
@@ -398,19 +403,14 @@ export default function CalculatorPage() {
             <button
               type="button"
               onClick={async () => {
-                // Telegram WebView on iOS/Android often blocks
-                // navigator.clipboard.readText with NotAllowedError.
-                // We try anyway; on failure we focus the input and ask
-                // the user to long-press → Paste, which always works.
-                try {
-                  const text = await navigator.clipboard.readText();
-                  if (text.trim()) {
-                    setLink(extractFirstUrl(text.trim()));
-                    hapticImpact('light');
-                    return;
-                  }
-                } catch {
-                  // fall through to manual instruction
+                // readClipboardText prefers Telegram's native API (works
+                // on iOS/Android in the Telegram app) and falls back to
+                // the browser clipboard API on desktop.
+                const text = await readClipboardText();
+                if (text && text.trim()) {
+                  setLink(extractFirstUrl(text.trim()));
+                  hapticImpact('light');
+                  return;
                 }
                 hapticImpact('medium');
                 const input = document.querySelector<HTMLInputElement>(
@@ -418,7 +418,7 @@ export default function CalculatorPage() {
                 );
                 input?.focus();
                 setError(
-                  'На телефоне нажми и удерживай поле выше → «Вставить». Ссылку очистим автоматически.',
+                  'Буфер пуст или нет доступа. Скопируй ссылку ещё раз или вставь вручную — нажми и удерживай поле выше.',
                 );
               }}
               className="shrink-0 rounded-[16px] border border-white/10 bg-white/5 px-3 py-2.5 text-xs font-semibold text-white transition active:scale-95"

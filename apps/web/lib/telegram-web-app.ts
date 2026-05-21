@@ -36,11 +36,15 @@ export interface TelegramMainButton {
 export interface TelegramWebApp {
   initData: string;
   initDataUnsafe: TelegramWebAppInitDataUnsafe;
+  version?: string;
   ready: () => void;
   expand: () => void;
   HapticFeedback?: TelegramHapticFeedback;
   BackButton?: TelegramBackButton;
   MainButton?: TelegramMainButton;
+  // Bot API 6.4+: reads the user's clipboard inside the Telegram app
+  // itself (works on iOS where navigator.clipboard.readText is blocked).
+  readTextFromClipboard?: (callback?: (text: string | null) => void) => void;
 }
 
 declare global {
@@ -113,4 +117,32 @@ export const hapticNotification = (type: 'error' | 'success' | 'warning') => {
 
 export const hapticSelection = () => {
   getTelegramWebApp()?.HapticFeedback?.selectionChanged();
+};
+
+/**
+ * Read clipboard text. Prefers Telegram's own readTextFromClipboard
+ * (works on iOS/Android in the Telegram app) and falls back to the
+ * browser clipboard API on desktop / outside Telegram.
+ * Resolves to null on failure or empty clipboard.
+ */
+export const readClipboardText = async (): Promise<string | null> => {
+  const webApp = getTelegramWebApp();
+  if (typeof webApp?.readTextFromClipboard === 'function') {
+    return new Promise<string | null>((resolve) => {
+      try {
+        webApp.readTextFromClipboard!((text) => {
+          resolve(text && text.length > 0 ? text : null);
+        });
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  try {
+    const text = await navigator.clipboard.readText();
+    return text && text.length > 0 ? text : null;
+  } catch {
+    return null;
+  }
 };
