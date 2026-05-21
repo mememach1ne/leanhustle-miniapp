@@ -1,7 +1,7 @@
 'use client';
 
 import type { DeliveryCategory } from '@lean-poizon/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { DutyRow } from '../../../components/ui/duty-row';
 import { EmptyState } from '../../../components/ui/empty-state';
@@ -73,6 +73,7 @@ const validatePoizonLink = (rawLink: string): string | null => {
 };
 
 export default function CalculatorPage() {
+  const linkInputRef = useRef<HTMLInputElement>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
@@ -385,6 +386,7 @@ export default function CalculatorPage() {
           <span className="text-sm font-medium text-white">Ссылка на товар</span>
           <div className="mt-2 flex items-center gap-2">
             <input
+              ref={linkInputRef}
               type="text"
               value={link}
               onChange={(event) => setLink(event.target.value)}
@@ -403,23 +405,21 @@ export default function CalculatorPage() {
             <button
               type="button"
               onClick={async () => {
-                // readClipboardText prefers Telegram's native API (works
-                // on iOS/Android in the Telegram app) and falls back to
-                // the browser clipboard API on desktop.
+                // Always focus the input — on iOS this brings up the
+                // "Paste" suggestion in the keyboard's QuickType bar
+                // even when the clipboard API is blocked. On desktop
+                // it's a no-op visual cue.
+                linkInputRef.current?.focus();
+                hapticImpact('light');
+
+                // Try clipboard APIs in parallel. If we get text, fill
+                // the field directly. If not (iOS Telegram blocks both
+                // after the 1-second window), the user uses the native
+                // Paste suggestion that we just surfaced.
                 const text = await readClipboardText();
                 if (text && text.trim()) {
                   setLink(extractFirstUrl(text.trim()));
-                  hapticImpact('light');
-                  return;
                 }
-                hapticImpact('medium');
-                const input = document.querySelector<HTMLInputElement>(
-                  'input[placeholder^="https://dw4.co"]',
-                );
-                input?.focus();
-                setError(
-                  'Буфер пуст или нет доступа. Скопируй ссылку ещё раз или вставь вручную — нажми и удерживай поле выше.',
-                );
               }}
               className="shrink-0 rounded-[16px] border border-white/10 bg-white/5 px-3 py-2.5 text-xs font-semibold text-white transition active:scale-95"
             >
