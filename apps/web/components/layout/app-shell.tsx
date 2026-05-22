@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const activeTab = tabs.find((tab) => pathname?.startsWith(tab.href)) ?? tabs[0];
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))]">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-[calc(8.5rem+env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))]">
       <Header activeTitle={activeTab.label} subtitle={activeTab.subtitle} />
       <AuthStateBanner />
       <main className="flex-1 pt-1">{children}</main>
