@@ -55,3 +55,88 @@ select {
   background: rgba(41, 195, 197, 0.26);
   color: white;
 }
+
+/* =====================================================================
+ * Liquid Glass utilities (mid-intensity)
+ * Defining traits of Apple's Liquid Glass approximated for the web:
+ *   - bright 1px specular highlight along the top edge
+ *   - soft dark inset shadow along the bottom edge for depth
+ *   - layered translucent background with backdrop-filter blur+saturate
+ *   - gradient-tinted border via padding/border-box dual background
+ * Costs are kept moderate (single blur layer, no SVG displacement) so
+ * mid-range Android phones stay smooth.
+ * ===================================================================== */
+
+.lg-surface {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.02) 60%,
+      rgba(41, 195, 197, 0.04) 100%
+    )
+    padding-box,
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.28) 0%,
+      rgba(255, 255, 255, 0.06) 50%,
+      rgba(41, 195, 197, 0.18) 100%
+    )
+    border-box;
+  border: 1px solid transparent;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 10px 30px -12px rgba(0, 0, 0, 0.55);
+}
+
+.lg-surface-strong {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.10) 0%,
+      rgba(255, 255, 255, 0.03) 60%,
+      rgba(41, 195, 197, 0.08) 100%
+    )
+    padding-box,
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.38) 0%,
+      rgba(255, 255, 255, 0.10) 50%,
+      rgba(41, 195, 197, 0.30) 100%
+    )
+    border-box;
+  border: 1px solid transparent;
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 14px 40px -10px rgba(0, 0, 0, 0.6);
+}
+
+/* For pill-shaped buttons / chips. */
+.lg-chip {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02)) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.08)) border-box;
+  border: 1px solid transparent;
+  backdrop-filter: blur(14px) saturate(170%);
+  -webkit-backdrop-filter: blur(14px) saturate(170%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .lg-surface,
+  .lg-surface-strong,
+  .lg-chip {
+    background: rgba(15, 24, 38, 0.94);
+    border-color: rgba(255, 255, 255, 0.08);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

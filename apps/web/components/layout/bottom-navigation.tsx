@@ -12,7 +12,7 @@ export function BottomNavigation() {
   const tabs = getAppTabs(staffRole);
 
   return (
-    <nav className="fixed bottom-4 left-1/2 z-20 w-[calc(100%-24px)] max-w-md -translate-x-1/2 rounded-[28px] border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+    <nav className="lg-surface-strong fixed bottom-4 left-1/2 z-20 w-[calc(100%-24px)] max-w-md -translate-x-1/2 rounded-[28px] p-2">
       <ul className={`grid gap-2 ${tabs.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
         {tabs.map((tab) => {
           const isActive = pathname?.startsWith(tab.href) ?? false;
@@ -22,8 +22,10 @@ export function BottomNavigation() {
               <Link
                 href={tab.href}
                 className={[
-                  'flex flex-col items-center justify-center rounded-2xl px-2 py-3 text-xs font-medium transition-colors',
-                  isActive ? 'bg-[var(--accent)] text-slate-950' : 'text-slate-300 hover:bg-white/5',
+                  'flex flex-col items-center justify-center rounded-2xl px-2 py-3 text-xs font-medium transition-all',
+                  isActive
+                    ? 'bg-[var(--accent)] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_20px_-6px_rgba(41,195,197,0.55)]'
+                    : 'text-slate-300 hover:bg-white/5',
                 ].join(' ')}
               >
                 {tab.icon}
