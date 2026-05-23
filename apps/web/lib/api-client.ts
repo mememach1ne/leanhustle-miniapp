@@ -1,5 +1,6 @@
 import type {
   AddToCartRequest,
+  AdminAnalyticsResponse,
   AdminOrdersResponse,
   AdminUserDetailDto,
   AdminUsersResponse,
@@ -147,6 +148,11 @@ export const ordersApi = {
 };
 
 export const adminApi = {
+  // Analytics
+  async getAnalytics(): Promise<AdminAnalyticsResponse> {
+    const response = await apiClient.get<AdminAnalyticsResponse>('/admin/analytics');
+    return response.data;
+  },
   // Orders
   async getOrders(params: { status?: string; page?: number; pageSize?: number } = {}): Promise<AdminOrdersResponse> {
     const response = await apiClient.get<AdminOrdersResponse>('/admin/orders', { params });

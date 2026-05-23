@@ -1,4 +1,5 @@
 import type {
+  AdminAnalyticsResponse,
   AdminOrdersResponse,
   AdminUserDetailDto,
   AdminUsersResponse,
@@ -35,6 +36,7 @@ import { JwtStaffAuthGuard } from '../staff/guards/jwt-staff-auth.guard';
 import { AdminService } from './admin.service';
 import { AdminOrdersQueryDto, AdminOrdersSearchQueryDto } from './dto/admin-orders-query.dto';
 import { AdminUsersQueryDto } from './dto/admin-users-query.dto';
+import { AnalyticsService } from './services/analytics.service';
 import { ExcelExportService } from './services/excel-export.service';
 
 @Controller('admin')
@@ -45,17 +47,27 @@ export class AdminController {
   private readonly ordersService: OrdersService;
   private readonly settingsService: SettingsService;
   private readonly excelExportService: ExcelExportService;
+  private readonly analyticsService: AnalyticsService;
 
   constructor(
     @Inject(AdminService) adminService: AdminService,
     @Inject(OrdersService) ordersService: OrdersService,
     @Inject(SettingsService) settingsService: SettingsService,
     @Inject(ExcelExportService) excelExportService: ExcelExportService,
+    @Inject(AnalyticsService) analyticsService: AnalyticsService,
   ) {
     this.adminService = adminService;
     this.ordersService = ordersService;
     this.settingsService = settingsService;
     this.excelExportService = excelExportService;
+    this.analyticsService = analyticsService;
+  }
+
+  // ─── Analytics ─────────────────────────────────────────────
+
+  @Get('analytics')
+  async getAnalytics(): Promise<AdminAnalyticsResponse> {
+    return this.analyticsService.getActivity();
   }
 
   // ─── Orders ────────────────────────────────────────────────

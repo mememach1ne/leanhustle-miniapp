@@ -78,3 +78,32 @@ export interface DeliveryCategoryWeightDto {
 export interface SetCategoryWeightRequest {
   weightKg: number;
 }
+
+// ===== Admin analytics =====
+
+export interface AdminAnalyticsActivityPoint {
+  /** Bucket start in ISO 8601 (UTC). */
+  bucket: string;
+  activeUsers: number;
+}
+
+export interface AdminAnalyticsResponse {
+  /** Active in the last 5 minutes. */
+  onlineNow: number;
+  /** Active in the last 30 minutes. */
+  online30m: number;
+  /** Daily Active Users (last 24 hours). */
+  dau: number;
+  /** Weekly Active Users (last 7 days). */
+  wau: number;
+  /** Monthly Active Users (last 30 days). */
+  mau: number;
+  /** Total registered users. */
+  totalUsers: number;
+  /** New users registered in last 24 hours. */
+  newToday: number;
+  /** Hourly activity for the last 24h (24 points). */
+  hourly: AdminAnalyticsActivityPoint[];
+  /** Daily activity for the last 30 days (30 points). */
+  daily: AdminAnalyticsActivityPoint[];
+}

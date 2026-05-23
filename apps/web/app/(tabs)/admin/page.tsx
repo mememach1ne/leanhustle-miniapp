@@ -11,6 +11,7 @@ import { ORDER_STATUS_LABELS, OrderStatus } from '@lean-poizon/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
+import { AnalyticsPanel } from '../../../components/ui/analytics-panel';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../components/ui/feedback-message';
 import { LoadingBlock } from '../../../components/ui/loading-block';
@@ -20,7 +21,7 @@ import { adminApi } from '../../../lib/api-client';
 import { extractAxiosMessage } from '../../../lib/error-utils';
 import { useAuthStore } from '../../../store/auth-store';
 
-type AdminTab = 'orders' | 'settings' | 'users';
+type AdminTab = 'analytics' | 'orders' | 'settings' | 'users';
 
 const STATUS_COLORS: Record<string, string> = {
   CREATED: 'bg-blue-400/15 text-blue-300 border-blue-300/30',
@@ -33,7 +34,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function AdminPage() {
   const user = useAuthStore((state) => state.user);
-  const [activeTab, setActiveTab] = useState<AdminTab>('orders');
+  const [activeTab, setActiveTab] = useState<AdminTab>('analytics');
 
   if (!user?.staffRole) {
     return (
@@ -49,24 +50,31 @@ export default function AdminPage() {
   return (
     <PageSection>
       {/* Sub-navigation */}
-      <div className="flex gap-2">
-        {(['orders', 'settings', 'users'] as AdminTab[]).map((tab) => (
+      <div className="flex gap-2 overflow-x-auto">
+        {(['analytics', 'orders', 'settings', 'users'] as AdminTab[]).map((tab) => (
           <button
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
             className={[
-              'flex-1 rounded-[18px] px-3 py-2.5 text-sm font-semibold transition',
+              'shrink-0 rounded-[18px] px-3 py-2.5 text-sm font-semibold transition',
               activeTab === tab
                 ? 'bg-[var(--accent)] text-slate-950'
                 : 'border border-white/10 bg-white/5 text-white hover:bg-white/10',
             ].join(' ')}
           >
-            {tab === 'orders' ? 'Заказы' : tab === 'settings' ? 'Настройки' : 'Клиенты'}
+            {tab === 'analytics'
+              ? '📊 Онлайн'
+              : tab === 'orders'
+                ? 'Заказы'
+                : tab === 'settings'
+                  ? 'Настройки'
+                  : 'Клиенты'}
           </button>
         ))}
       </div>
 
+      {activeTab === 'analytics' ? <AnalyticsPanel /> : null}
       {activeTab === 'orders' ? <OrdersPanel /> : null}
       {activeTab === 'settings' ? <SettingsPanel /> : null}
       {activeTab === 'users' ? <UsersPanel /> : null}
