@@ -121,30 +121,34 @@ export const hapticSelection = () => {
 
 /**
  * Read clipboard text. Tries every available API in order:
- *   1. navigator.clipboard.readText (works on desktop browsers and
- *      desktop Telegram, instant).
- *   2. Telegram WebApp.readTextFromClipboard (works inside Telegram
- *      mobile apps; limited by Telegram's 1-second-since-copy rule).
- * Resolves to null only if both fail / return empty.
+ *   1. navigator.clipboard.readText (desktop / Telegram desktop)
+ *   2. Telegram WebApp.readTextFromClipboard (Telegram mobile)
+ *   3. document.execCommand('paste') against a focused input (legacy
+ *      fallback that sometimes still works in restricted WebViews)
+ * Returns null only if all three fail or the clipboard is empty.
+ *
+ * `targetInput`: optional input element to receive the pasted text if
+ * we fall back to execCommand. Pass the actual input ref to enable
+ * that fallback; otherwise execCommand is skipped.
  */
-export const readClipboardText = async (): Promise<string | null> => {
-  // 1. Try the browser API first — fast, no permission popup on most
-  // desktop Telegram clients.
+export const readClipboardText = async (
+  targetInput?: HTMLInputElement | null,
+): Promise<string | null> => {
+  // 1. Modern browser API
   try {
     const text = await navigator.clipboard.readText();
     if (text && text.trim().length > 0) {
       return text;
     }
   } catch {
-    // permission denied or unsupported — fall through to Telegram API
+    // fall through
   }
 
-  // 2. Try the Telegram-native API (the only thing that works inside
-  // iOS/Android Telegram). Add a 5s timeout to avoid hanging if the
-  // user dismisses the permission prompt.
+  // 2. Telegram-native API (iOS / Android Telegram). 5s timeout to
+  // protect against the user dismissing the permission dialog.
   const webApp = getTelegramWebApp();
   if (typeof webApp?.readTextFromClipboard === 'function') {
-    return new Promise<string | null>((resolve) => {
+    const fromTg = await new Promise<string | null>((resolve) => {
       let settled = false;
       const finish = (value: string | null) => {
         if (settled) return;
@@ -162,6 +166,26 @@ export const readClipboardText = async (): Promise<string | null> => {
 
       setTimeout(() => finish(null), 5000);
     });
+
+    if (fromTg) return fromTg;
+  }
+
+  // 3. Legacy execCommand('paste') against the target input. Some
+  // WebKit-based WebViews still honor this when both the new APIs
+  // are blocked. Requires the input to be focused.
+  if (targetInput && typeof document.execCommand === 'function') {
+    try {
+      const before = targetInput.value;
+      targetInput.focus();
+      // Move caret to end so the paste appends rather than overwriting.
+      targetInput.setSelectionRange(targetInput.value.length, targetInput.value.length);
+      const ok = document.execCommand('paste');
+      if (ok && targetInput.value !== before) {
+        return targetInput.value;
+      }
+    } catch {
+      // ignore
+    }
   }
 
   return null;

@@ -405,18 +405,15 @@ export default function CalculatorPage() {
             <button
               type="button"
               onClick={async () => {
-                // Always focus the input — on iOS this brings up the
-                // "Paste" suggestion in the keyboard's QuickType bar
-                // even when the clipboard API is blocked. On desktop
-                // it's a no-op visual cue.
+                // Focus first so iOS shows the Paste suggestion in the
+                // QuickType bar, and so the execCommand fallback has a
+                // focused input to write into.
                 linkInputRef.current?.focus();
                 hapticImpact('light');
 
-                // Try clipboard APIs in parallel. If we get text, fill
-                // the field directly. If not (iOS Telegram blocks both
-                // after the 1-second window), the user uses the native
-                // Paste suggestion that we just surfaced.
-                const text = await readClipboardText();
+                // Try (in order): browser clipboard, Telegram clipboard,
+                // execCommand('paste') against the focused input.
+                const text = await readClipboardText(linkInputRef.current);
                 if (text && text.trim()) {
                   setLink(extractFirstUrl(text.trim()));
                 }
