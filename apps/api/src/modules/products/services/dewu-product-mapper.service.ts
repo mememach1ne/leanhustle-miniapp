@@ -1,5 +1,5 @@
 import type { DewuProductSku, DewuResolvedProduct, ProductImage } from '@lean-poizon/shared';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 
 import type { DewuApiRawProductResponse } from './dewu-api-client.service';
 
@@ -9,8 +9,15 @@ export class DewuProductMapperService {
     payload: DewuApiRawProductResponse,
     resolvedLink: { originalLink: string; resolvedUrl: string; dwSpuId: string },
   ): DewuResolvedProduct {
-    if (payload.code !== 200 || !payload.data) {
-      throw new NotFoundException(payload.msg || 'Товар Dewu не найден.');
+    // Treat missing data the same as upstream failures — many product
+    // categories (watches, rings, some jewelry) return code:200 with
+    // data:null because the Dewu API doesn't expose them. Activate
+    // manual mode instead of surfacing the raw "success" / "ok" msg
+    // to the customer.
+    if (!payload.data) {
+      throw new ServiceUnavailableException(
+        'Не удалось получить данные о товаре автоматически. Введите вручную или попробуйте другую ссылку.',
+      );
     }
 
     const skus = (payload.data.skuList ?? []).map((sku) => {
