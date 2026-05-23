@@ -81,6 +81,14 @@ export class DewuApiClientService {
         this.logger.warn(
           `Dewu API returned code=${body.code} msg="${body.msg}" for ${params.dwSpuId ?? ''}`,
         );
+        // Non-200 codes mean upstream is in some failure mode — quota
+        // exhausted, account not activated, rate limit, internal error,
+        // etc. Treat them all as "service unavailable" so the frontend
+        // falls through to the manual-input mode with a Russian message
+        // (rather than showing the raw Chinese msg field to the user).
+        throw new ServiceUnavailableException(
+          'Dewu API временно недоступен. Введите данные товара вручную или попробуйте позже.',
+        );
       }
 
       return body;
