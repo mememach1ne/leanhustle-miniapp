@@ -37,6 +37,7 @@ export interface TelegramWebApp {
   initData: string;
   initDataUnsafe: TelegramWebAppInitDataUnsafe;
   version?: string;
+  platform?: string;
   ready: () => void;
   expand: () => void;
   HapticFeedback?: TelegramHapticFeedback;
@@ -46,6 +47,12 @@ export interface TelegramWebApp {
   // itself (works on iOS where navigator.clipboard.readText is blocked).
   readTextFromClipboard?: (callback?: (text: string | null) => void) => void;
 }
+
+/** Returns true on iOS Telegram, where clipboard APIs are restricted. */
+export const isIosTelegram = (): boolean => {
+  const webApp = getTelegramWebApp();
+  return webApp?.platform === 'ios';
+};
 
 declare global {
   interface Window {

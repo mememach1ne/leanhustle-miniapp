@@ -19,6 +19,7 @@ import {
   hapticImpact,
   hapticNotification,
   hapticSelection,
+  isIosTelegram,
   readClipboardText,
 } from '../../../lib/telegram-web-app';
 import { useCalculatorStore } from '../../../store/calculator-store';
@@ -74,6 +75,7 @@ const validatePoizonLink = (rawLink: string): string | null => {
 
 export default function CalculatorPage() {
   const linkInputRef = useRef<HTMLInputElement>(null);
+  const [pasteHint, setPasteHint] = useState<string | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
@@ -389,8 +391,12 @@ export default function CalculatorPage() {
               ref={linkInputRef}
               type="text"
               value={link}
-              onChange={(event) => setLink(event.target.value)}
+              onChange={(event) => {
+                setLink(event.target.value);
+                if (pasteHint) setPasteHint(null);
+              }}
               onPaste={(event) => {
+                if (pasteHint) setPasteHint(null);
                 // Auto-extract URL from Poizon's marketing share text.
                 const pasted = event.clipboardData.getData('text');
                 const extracted = extractFirstUrl(pasted);
@@ -405,6 +411,7 @@ export default function CalculatorPage() {
             <button
               type="button"
               onClick={async () => {
+                setPasteHint(null);
                 // Focus first so iOS shows the Paste suggestion in the
                 // QuickType bar, and so the execCommand fallback has a
                 // focused input to write into.
@@ -416,6 +423,14 @@ export default function CalculatorPage() {
                 const text = await readClipboardText(linkInputRef.current);
                 if (text && text.trim()) {
                   setLink(extractFirstUrl(text.trim()));
+                  return;
+                }
+                // iOS Telegram blocks every clipboard API. The input is
+                // already focused — guide the user to the native Paste.
+                if (isIosTelegram()) {
+                  setPasteHint(
+                    '👆 Нажми «Paste» над клавиатурой или удерживай поле → «Вставить»',
+                  );
                 }
               }}
               className="shrink-0 rounded-[16px] border border-white/10 bg-white/5 px-3 py-2.5 text-xs font-semibold text-white transition active:scale-95"
@@ -424,6 +439,12 @@ export default function CalculatorPage() {
             </button>
           </div>
         </label>
+
+        {pasteHint ? (
+          <div className="mt-2 rounded-[12px] border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-3 py-2 text-xs leading-5 text-[var(--accent)]">
+            {pasteHint}
+          </div>
+        ) : null}
 
         <button
           type="button"
