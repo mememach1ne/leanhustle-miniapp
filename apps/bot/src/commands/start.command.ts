@@ -116,6 +116,15 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
       return;
     }
 
+    // --- Guide submenu (video / text) ---
+    if (orderAdminService.isClientGuideCallback(data)) {
+      await ctx.answerCbQuery();
+      await ctx.editMessageText(orderAdminService.getGuideText(), {
+        reply_markup: orderAdminService.buildGuideKeyboard(),
+      });
+      return;
+    }
+
     // --- Back to welcome from any submenu ---
     if (orderAdminService.isClientBackToWelcomeCallback(data)) {
       await ctx.answerCbQuery();

@@ -138,6 +138,14 @@ export class OrderAdminService {
         ],
         [
           {
+            text: 'Инструкция',
+            callback_data: `${CLIENT_ACTION_PREFIX}guide`,
+            // Bot API 9.4 premium emoji (📗-style book).
+            icon_custom_emoji_id: '5402482853030163217',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
+        ],
+        [
+          {
             text: '💬 Связаться с менеджером',
             url: MANAGER_TELEGRAM_URL,
           },
@@ -217,8 +225,47 @@ export class OrderAdminService {
     return data === `${CLIENT_ACTION_PREFIX}other_marketplaces`;
   }
 
+  isClientGuideCallback(data: string): boolean {
+    return data === `${CLIENT_ACTION_PREFIX}guide`;
+  }
+
   isClientBackToWelcomeCallback(data: string): boolean {
     return data === `${CLIENT_ACTION_PREFIX}back_to_welcome`;
+  }
+
+  getGuideText() {
+    return [
+      '📗 Инструкция',
+      '',
+      'Выбери формат:',
+    ].join('\n');
+  }
+
+  buildGuideKeyboard(): InlineKeyboardMarkup {
+    return {
+      inline_keyboard: [
+        [
+          {
+            text: 'Видео-инструкция',
+            url: 'https://youtu.be/dwVmtQGWVa8',
+            icon_custom_emoji_id: '5269213586953085214',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
+        ],
+        [
+          {
+            text: 'Текстовая инструкция',
+            url: 'https://telegra.ph/KAK-ZAKAZYVAT-s-POIZON-v-ROSSII-05-24',
+            icon_custom_emoji_id: '5434144690511290129',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
+        ],
+        [
+          {
+            text: '← Назад',
+            callback_data: `${CLIENT_ACTION_PREFIX}back_to_welcome`,
+          },
+        ],
+      ],
+    };
   }
 
   isClientCheckSubscriptionCallback(data: string): boolean {
