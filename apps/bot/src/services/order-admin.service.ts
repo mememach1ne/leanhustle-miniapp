@@ -667,18 +667,79 @@ export class OrderAdminService {
     return { inline_keyboard };
   }
 
-  /** Filter category rows by group. */
-  filterCategoriesByGroup<T extends { categoryKey: string }>(
+  /**
+   * Map a dynamic category title (e.g. "T-Shirts", "Running Shoes",
+   * "Men's Perfumes") to one of our known group keys. Returns null when
+   * no keyword matches, meaning the entry stays in "dynamic".
+   */
+  private classifyDynamicTitle(title: string): string | null {
+    const t = title.toLowerCase().trim();
+    if (!t) return null;
+
+    // Footwear
+    if (/\b(sneakers?|shoes?|footwear|trainers?|runners?|boots?|loafers?|moccasins?|slides?|sandals?|slippers?|clogs?)\b/.test(t)) {
+      return 'footwear';
+    }
+
+    // Accessories — order matters: more specific first
+    if (/\b(watches?|wristwatch)\b/.test(t)) return 'accessories';
+    if (/\b(glasses|sunglasses|eyewear|spectacles?)\b/.test(t)) return 'accessories';
+    if (/\b(bag|bags|backpack|handbag|crossbody|tote|clutch|wallet)\b/.test(t)) return 'accessories';
+    if (/\b(jewelry|jewellery|necklace|bracelet|ring|earrings?)\b/.test(t)) return 'accessories';
+    if (/\b(cap|caps|hat|hats|beanie|headwear)\b/.test(t)) return 'accessories';
+    if (/\b(scarf|scarves|shawl)\b/.test(t)) return 'accessories';
+    if (/\b(perfume|cologne|fragrance|toiletry|toiletries|makeup)\b/.test(t)) return 'accessories';
+    if (/\b(case|cover|phone case)\b/.test(t)) return 'accessories';
+    if (/\b(earbuds|headphones|earphones|airpods|speakers?|camera|cameras?|tech)\b/.test(t)) return 'accessories';
+    if (/\b(belt|belts|keychain|key chain)\b/.test(t)) return 'accessories';
+
+    // Apparel
+    if (/\b(t-?shirts?|tees?|polo|polos)\b/.test(t)) return 'apparel';
+    if (/\b(shorts?)\b/.test(t)) return 'apparel';
+    if (/\b(jeans|pants|trousers|leggings)\b/.test(t)) return 'apparel';
+    if (/\b(hoodie|hoodies|hooded)\b/.test(t)) return 'apparel';
+    if (/\b(sweatshirts?|crewneck)\b/.test(t)) return 'apparel';
+    if (/\b(jackets?|coats?|parka|windbreaker|outerwear)\b/.test(t)) return 'apparel';
+    if (/\b(vest|gilet)\b/.test(t)) return 'apparel';
+    if (/\b(dress|gown|dresses)\b/.test(t)) return 'apparel';
+    if (/\b(skirt|skirts)\b/.test(t)) return 'apparel';
+    if (/\b(underwear|socks|boxers|briefs|bra|lingerie)\b/.test(t)) return 'apparel';
+
+    return null;
+  }
+
+  /**
+   * Filter category rows by group. Dynamic entries are auto-classified
+   * by title into footwear/apparel/accessories; only entries whose title
+   * doesn't match any keyword stay in the "dynamic" bucket.
+   * Within each group we deduplicate by title (case-insensitive) and
+   * keep the first occurrence — manager can clean leftovers from the
+   * "Все категории" view.
+   */
+  filterCategoriesByGroup<T extends { categoryKey: string; title: string }>(
     rows: T[],
     groupKey: string,
   ): T[] {
-    if (groupKey === 'dynamic') {
-      return rows.filter((row) => !row.categoryKey.startsWith('enum:'));
-    }
-    const group = this.KNOWN_CATEGORY_GROUPS.find((g) => g.key === groupKey);
-    if (!group) return [];
-    const keySet = new Set(group.enumKeys);
-    return rows.filter((row) => keySet.has(row.categoryKey));
+    const matched = rows.filter((row) => {
+      if (row.categoryKey.startsWith('enum:')) {
+        const group = this.KNOWN_CATEGORY_GROUPS.find((g) =>
+          g.enumKeys.includes(row.categoryKey),
+        );
+        return group?.key === groupKey;
+      }
+      const classified = this.classifyDynamicTitle(row.title);
+      if (classified) return classified === groupKey;
+      return groupKey === 'dynamic';
+    });
+
+    // Deduplicate by lowercase title — keeps the first occurrence.
+    const seen = new Set<string>();
+    return matched.filter((row) => {
+      const key = row.title.toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   buildCategoryDetailText(record: {

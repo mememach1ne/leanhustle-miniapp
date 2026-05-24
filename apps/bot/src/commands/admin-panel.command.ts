@@ -385,7 +385,10 @@ const showPendingList = async (ctx: BotContext) => {
 
 const showAllCategoriesGroupSelector = async (ctx: BotContext) => {
   const all = await apiService.listAllDeliveryCategories(getActor(ctx));
-  const dynamicCount = all.filter((r) => !r.categoryKey.startsWith('enum:')).length;
+  // Only count entries that don't fit into any named group (after the
+  // dynamic-title classifier). Otherwise the dynamic counter shows
+  // categories that already live under Footwear/Apparel/Accessories.
+  const dynamicCount = orderAdminService.filterCategoriesByGroup(all, 'dynamic').length;
   await ctx.editMessageText(orderAdminService.buildAllCategoriesText(), {
     reply_markup: orderAdminService.buildAllCategoriesKeyboard(dynamicCount),
   });
