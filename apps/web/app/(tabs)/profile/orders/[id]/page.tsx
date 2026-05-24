@@ -216,9 +216,31 @@ export default function OrderDetailsPage() {
         ) : null}
 
         {order.subscriberBenefitApplied ? (
-          <div className="mt-4 rounded-[20px] border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-            Льгота подписчика применена. Скидка на комиссию: {order.subscriberBenefitAmountRub} ₽
-          </div>
+          (() => {
+            const discountPct =
+              order.summary.originalTotalUsd > 0
+                ? Math.round(
+                    (order.summary.benefitDiscountUsd /
+                      order.summary.originalTotalUsd) *
+                      100,
+                  )
+                : 0;
+            return (
+              <div className="lg-accent-card mt-4 rounded-[20px] p-4">
+                <p className="text-sm font-semibold text-white">
+                  🎉 Льгота подписчика применена
+                </p>
+                <p className="mt-1 text-xs text-white/80">
+                  Скидка на комиссию{' '}
+                  <span className="font-semibold text-[var(--accent)]">
+                    {discountPct}%
+                  </span>{' '}
+                  — экономия ${order.summary.benefitDiscountUsd.toFixed(2)} (
+                  {order.subscriberBenefitAmountRub} ₽).
+                </p>
+              </div>
+            );
+          })()
         ) : null}
 
         <div className="mt-5 space-y-3">

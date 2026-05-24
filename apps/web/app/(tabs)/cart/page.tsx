@@ -23,6 +23,7 @@ export default function CartPage() {
   const router = useRouter();
 
   const authStatus = useAuthStore((state) => state.status);
+  const user = useAuthStore((state) => state.user);
   const cart = useCartStore((state) => state.cart);
   const isLoading = useCartStore((state) => state.isLoading);
   const error = useCartStore((state) => state.error);
@@ -317,6 +318,21 @@ export default function CartPage() {
               </SectionCard>
             );
           })}
+
+          {user?.isChannelSubscriber && !user.hasUsedSubscriberBenefit ? (
+            <div className="lg-accent-card rounded-[24px] p-4">
+              <p className="text-sm font-semibold text-white">
+                Активна льгота подписчика
+              </p>
+              <p className="mt-1 text-xs text-white/80">
+                При оформлении этого заказа{' '}
+                <span className="font-semibold text-[var(--accent)]">
+                  комиссия будет снята полностью
+                </span>
+                . Это ваш первый заказ как подписчика приватного канала.
+              </p>
+            </div>
+          ) : null}
 
           <PriceSummaryCard
             title="Итоги корзины"
