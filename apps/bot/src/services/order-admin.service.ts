@@ -132,17 +132,17 @@ export class OrderAdminService {
         ],
         [
           {
-            text: '🛒 Другие китайские маркетплейсы',
-            callback_data: `${CLIENT_ACTION_PREFIX}other_marketplaces`,
-          },
-        ],
-        [
-          {
             text: 'Инструкция',
             callback_data: `${CLIENT_ACTION_PREFIX}guide`,
             // Bot API 9.4 premium emoji (📗-style book).
             icon_custom_emoji_id: '5402482853030163217',
           } as InlineKeyboardMarkup['inline_keyboard'][number][number],
+        ],
+        [
+          {
+            text: '🛒 Другие китайские маркетплейсы',
+            callback_data: `${CLIENT_ACTION_PREFIX}other_marketplaces`,
+          },
         ],
         [
           {
