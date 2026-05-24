@@ -237,8 +237,49 @@ export class OrderNotificationsService {
         return 'Пошлина оплачена';
       case OrderStatus.DELIVERED:
         return 'Доставлено';
+      case OrderStatus.CANCELLED:
+        return 'Отменён';
       default:
         return status;
     }
+  }
+
+  async notifyManagersAboutCancellation(
+    orderNumber: string,
+    cancelledBy: string,
+    reason?: string,
+  ): Promise<void> {
+    const botToken = this.configService.get<string>('telegram.botToken');
+    const managerTelegramIds =
+      this.configService.get<string[]>('notifications.managerTelegramIds') ?? [];
+
+    if (!botToken || managerTelegramIds.length === 0) return;
+
+    const lines = [
+      `❌ Заказ ${orderNumber} отменён ${cancelledBy}.`,
+      ...(reason ? ['', `Причина: ${reason}`] : []),
+    ];
+
+    await Promise.allSettled(
+      managerTelegramIds.map(async (chatId) => {
+        const response = await fetch(
+          `https://api.telegram.org/bot${botToken}/sendMessage`,
+          {
+            method: 'POST',
+            signal: AbortSignal.timeout(10_000),
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: lines.join('\n'),
+              disable_web_page_preview: true,
+            }),
+          },
+        );
+        const payload = (await response.json()) as { ok?: boolean; description?: string };
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.description ?? 'Telegram sendMessage failed');
+        }
+      }),
+    );
   }
 }

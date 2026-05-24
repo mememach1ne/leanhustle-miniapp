@@ -123,6 +123,10 @@ export interface SetActualDutyRequest {
   actualDutyRub: number;
 }
 
+export interface CancelOrderRequest {
+  reason?: string;
+}
+
 export interface StaffOrderDetailsDto extends OrderDetailsDto {
   user: StaffOrderUserDto;
   statusHistory: StaffOrderStatusHistoryItemDto[];

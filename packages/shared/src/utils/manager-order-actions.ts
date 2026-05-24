@@ -9,6 +9,7 @@ export const MANAGER_ORDER_ACTIONS = {
   ACTUAL_DUTY: 'adty',
   MARK_DUTY_PAID: 'dtyp',
   MARK_DELIVERED: 'dlvd',
+  CANCEL: 'cncl',
 } as const;
 
 export type ManagerOrderAction =

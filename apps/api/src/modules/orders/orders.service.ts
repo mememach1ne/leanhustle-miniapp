@@ -13,6 +13,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   OrderStatus,
   Prisma,
@@ -51,6 +52,9 @@ const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   // because the track code belongs to the last-mile shipment to Russia.
   [OrderStatus.TRACK_CODE_RECEIVED]: [OrderStatus.DELIVERED],
   [OrderStatus.DELIVERED]: [],
+  // CANCELLED is reached via dedicated endpoints, not generic
+  // updateStatus, and is terminal.
+  [OrderStatus.CANCELLED]: [],
 };
 
 const STAFF_NEW_ORDER_STATUSES: OrderStatus[] = [OrderStatus.CREATED];
@@ -576,6 +580,181 @@ export class OrdersService {
     }
 
     return staffOrder;
+  }
+
+  // ============================================================
+  // Cancellation
+  // ============================================================
+
+  /** Statuses a customer is allowed to self-cancel from. */
+  private readonly CLIENT_CANCELLABLE: OrderStatus[] = [
+    OrderStatus.CREATED,
+    OrderStatus.PAYMENT_PENDING,
+  ];
+
+  /** Terminal statuses — no further transitions allowed. */
+  private readonly TERMINAL_STATUSES: OrderStatus[] = [
+    OrderStatus.DELIVERED,
+    OrderStatus.CANCELLED,
+  ];
+
+  /** Customer-initiated cancel. Allowed only before goods payment. */
+  async cancelByClient(
+    user: User,
+    orderId: string,
+    reason?: string,
+  ): Promise<OrderDetailsDto> {
+    const order = await this.getOwnedOrderOrThrow(user.id, orderId);
+
+    if (!this.CLIENT_CANCELLABLE.includes(order.status as OrderStatus)) {
+      throw new BadRequestException(
+        'Этот заказ уже нельзя отменить самостоятельно. Свяжитесь с менеджером.',
+      );
+    }
+
+    await this.executeCancellation(order.id, order.status as OrderStatus, {
+      reason: reason?.trim() || 'Отменено клиентом',
+      changedByStaffId: null,
+    });
+
+    // Tell the manager so they can react.
+    await this.orderNotificationsService
+      .notifyManagersAboutCancellation(order.orderNumber, 'клиентом', reason)
+      .catch((err) =>
+        this.logger.warn(
+          `Failed to notify managers about client cancellation: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        ),
+      );
+
+    return this.getCurrentUserOrderById(user.id, orderId);
+  }
+
+  /** Manager/admin cancel. Allowed from any non-terminal state. */
+  async cancelByStaff(
+    orderId: string,
+    staff?: StaffAccount,
+    reason?: string,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new BadRequestException('Staff context is required.');
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { user: { select: { telegramId: true } } },
+    });
+    if (!order) throw new NotFoundException('Заказ не найден.');
+
+    if (this.TERMINAL_STATUSES.includes(order.status as OrderStatus)) {
+      throw new BadRequestException(
+        order.status === OrderStatus.CANCELLED
+          ? 'Заказ уже отменён.'
+          : 'Завершённый заказ нельзя отменить.',
+      );
+    }
+
+    await this.executeCancellation(order.id, order.status as OrderStatus, {
+      reason: reason?.trim() || 'Отменено менеджером',
+      changedByStaffId: staff.id,
+    });
+
+    if (order.user?.telegramId) {
+      await this.orderNotificationsService
+        .notifyUserAboutStatusChange(
+          order.user.telegramId,
+          order.orderNumber,
+          SharedOrderStatus.CANCELLED,
+        )
+        .catch((err) =>
+          this.logger.warn(
+            `Failed to notify user about staff cancellation: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          ),
+        );
+    }
+
+    return this.getOrderForStaff(orderId);
+  }
+
+  /**
+   * Auto-cancel stale orders.
+   *   CREATED: stuck > 24h
+   *   PAYMENT_PENDING: stuck > 48h
+   * Returns the number of orders cancelled.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async autoCancelStaleOrders(): Promise<number> {
+    const now = Date.now();
+    const stale24h = new Date(now - 24 * 60 * 60 * 1000);
+    const stale48h = new Date(now - 48 * 60 * 60 * 1000);
+
+    const candidates = await this.prisma.order.findMany({
+      where: {
+        OR: [
+          { status: OrderStatus.CREATED, updatedAt: { lt: stale24h } },
+          { status: OrderStatus.PAYMENT_PENDING, updatedAt: { lt: stale48h } },
+        ],
+      },
+      include: { user: { select: { telegramId: true } } },
+    });
+
+    if (candidates.length === 0) return 0;
+
+    for (const order of candidates) {
+      try {
+        await this.executeCancellation(order.id, order.status as OrderStatus, {
+          reason: 'Авто-отмена: статус не менялся слишком долго',
+          changedByStaffId: null,
+        });
+
+        if (order.user?.telegramId) {
+          await this.orderNotificationsService
+            .notifyUserAboutStatusChange(
+              order.user.telegramId,
+              order.orderNumber,
+              SharedOrderStatus.CANCELLED,
+            )
+            .catch(() => undefined);
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Auto-cancel failed for order ${order.orderNumber}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
+    this.logger.log(`Auto-cancelled ${candidates.length} stale orders.`);
+    return candidates.length;
+  }
+
+  private async executeCancellation(
+    orderId: string,
+    fromStatus: OrderStatus,
+    opts: { reason: string; changedByStaffId: string | null },
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: OrderStatus.CANCELLED,
+          cancelledAt: new Date(),
+          cancelReason: opts.reason.slice(0, 256),
+        },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          fromStatus,
+          toStatus: OrderStatus.CANCELLED,
+          changedByStaffId: opts.changedByStaffId ?? undefined,
+          comment: opts.reason,
+        },
+      });
+    });
   }
 
   // ============================================================

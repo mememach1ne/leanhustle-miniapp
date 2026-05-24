@@ -14,6 +14,7 @@ import type { StaffAccount } from '@prisma/client';
 
 import { CurrentStaff } from '../staff/decorators/current-staff.decorator';
 import { StaffBotAuthGuard } from '../staff/guards/staff-bot-auth.guard';
+import { CancelOrderDto } from './dto/cancel-order.dto';
 import { SetActualDeliveryDto, SetActualDutyDto } from './dto/set-actual-amount.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdateOrderTrackCodeDto } from './dto/update-order-track-code.dto';
@@ -117,5 +118,14 @@ export class StaffOrdersController {
     @CurrentStaff() staff?: StaffAccount,
   ): Promise<StaffOrderDetailsDto> {
     return this.ordersService.markDeliveredByStaff(id, staff);
+  }
+
+  @Post(':id/cancel')
+  async cancel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelOrderDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.cancelByStaff(id, staff, dto.reason);
   }
 }

@@ -18,6 +18,7 @@ enum OrderStatus {
   DUTY_PAYMENT_PENDING
   DUTY_PAID
   DELIVERED
+  CANCELLED
 }
 
 enum StaffRole {
@@ -149,6 +150,8 @@ model Order {
   actualDutySetAt              DateTime?    @map("actual_duty_set_at") @db.Timestamptz(6)
   dutyPaidAt                   DateTime?    @map("duty_paid_at") @db.Timestamptz(6)
   deliveredAt                  DateTime?    @map("delivered_at") @db.Timestamptz(6)
+  cancelledAt                  DateTime?    @map("cancelled_at") @db.Timestamptz(6)
+  cancelReason                 String?      @map("cancel_reason") @db.VarChar(256)
   createdAt                    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 

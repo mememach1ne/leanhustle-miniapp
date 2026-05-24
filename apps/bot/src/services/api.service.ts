@@ -210,6 +210,19 @@ export class ApiService {
     return response.data;
   }
 
+  async cancelOrder(
+    orderId: string,
+    reason: string | undefined,
+    actor: BotActorIdentity,
+  ): Promise<StaffOrderDetailsDto> {
+    const response = await this.http.post<StaffOrderDetailsDto>(
+      `/staff/orders/${orderId}/cancel`,
+      { reason },
+      { headers: this.buildHeaders(actor) },
+    );
+    return response.data;
+  }
+
   async listPendingDeliveryCategories(
     actor: BotActorIdentity,
   ): Promise<DeliveryCategoryWeightDto[]> {

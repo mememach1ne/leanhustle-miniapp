@@ -1,5 +1,6 @@
 'use client';
 
+import { OrderStatus } from '@lean-poizon/shared';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -38,6 +39,33 @@ export default function OrderDetailsPage() {
   const setError = useOrdersStore((state) => state.setError);
   const setLink = useCalculatorStore((state) => state.setLink);
   const [trackCopied, setTrackCopied] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const canCancel =
+    order?.status === OrderStatus.CREATED ||
+    order?.status === OrderStatus.PAYMENT_PENDING;
+
+  const handleCancelOrder = async () => {
+    if (!order) return;
+    const confirmed = window.confirm(
+      'Отменить заказ? После отмены восстановить его будет нельзя — но можно создать новый.',
+    );
+    if (!confirmed) return;
+
+    setIsCancelling(true);
+    setCancelError(null);
+    try {
+      const updated = await ordersApi.cancelOrder(order.id);
+      setCurrentOrder(updated);
+      hapticNotification('success');
+    } catch (err) {
+      setCancelError(extractAxiosMessage(err) ?? 'Не удалось отменить заказ.');
+      hapticNotification('error');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const handleCopyTrackCode = async (trackCode: string) => {
     try {
@@ -297,6 +325,20 @@ export default function OrderDetailsPage() {
         >
           Заказать снова
         </button>
+      ) : null}
+
+      {canCancel ? (
+        <>
+          {cancelError ? <FeedbackMessage tone="error">{cancelError}</FeedbackMessage> : null}
+          <button
+            type="button"
+            onClick={handleCancelOrder}
+            disabled={isCancelling}
+            className="w-full rounded-[20px] border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm font-semibold text-rose-200 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isCancelling ? 'Отменяем...' : 'Отменить заказ'}
+          </button>
+        </>
       ) : null}
     </PageSection>
   );

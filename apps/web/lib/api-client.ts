@@ -145,6 +145,10 @@ export const ordersApi = {
     const response = await apiClient.get<OrderDetailsDto>(`/orders/${id}`);
     return response.data;
   },
+  async cancelOrder(id: string, reason?: string): Promise<OrderDetailsDto> {
+    const response = await apiClient.post<OrderDetailsDto>(`/orders/${id}/cancel`, { reason });
+    return response.data;
+  },
 };
 
 export const adminApi = {
@@ -172,6 +176,10 @@ export const adminApi = {
   },
   async setTrackCode(id: string, trackCode: string): Promise<StaffOrderDetailsDto> {
     const response = await apiClient.post<StaffOrderDetailsDto>(`/admin/orders/${id}/track-code`, { trackCode });
+    return response.data;
+  },
+  async cancelOrder(id: string, reason?: string): Promise<StaffOrderDetailsDto> {
+    const response = await apiClient.post<StaffOrderDetailsDto>(`/admin/orders/${id}/cancel`, { reason });
     return response.data;
   },
 

@@ -90,6 +90,26 @@ export default function AdminOrderDetailPage() {
     }
   };
 
+  const handleCancelOrder = async () => {
+    const reason = window.prompt(
+      'Причина отмены (необязательно):',
+      'Отменено менеджером',
+    );
+    if (reason === null) return; // dismissed
+    setActionLoading(true);
+    setSuccess(null);
+    setError(null);
+    try {
+      const updated = await adminApi.cancelOrder(id, reason || undefined);
+      setOrder(updated);
+      setSuccess('Заказ отменён');
+    } catch (err) {
+      setError(extractAxiosMessage(err) ?? 'Ошибка отмены заказа');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <PageSection>
@@ -258,6 +278,19 @@ export default function AdminOrderDetailPage() {
               Сохранить
             </button>
           </div>
+        ) : null}
+
+        {/* Cancel — available from any non-terminal status */}
+        {order.status !== OrderStatus.DELIVERED &&
+        order.status !== OrderStatus.CANCELLED ? (
+          <button
+            type="button"
+            onClick={handleCancelOrder}
+            disabled={actionLoading}
+            className="mt-3 w-full rounded-[18px] border border-rose-400/30 bg-rose-400/10 px-4 py-2.5 text-sm font-semibold text-rose-200 transition disabled:opacity-50"
+          >
+            Отменить заказ
+          </button>
         ) : null}
 
         {/* Status history */}

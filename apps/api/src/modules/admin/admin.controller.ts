@@ -26,6 +26,7 @@ import {
 import type { StaffAccount } from '@prisma/client';
 import type { Response } from 'express';
 
+import { CancelOrderDto } from '../orders/dto/cancel-order.dto';
 import { UpdateOrderStatusDto } from '../orders/dto/update-order-status.dto';
 import { UpdateOrderTrackCodeDto } from '../orders/dto/update-order-track-code.dto';
 import { OrdersService } from '../orders/orders.service';
@@ -119,6 +120,15 @@ export class AdminController {
     @CurrentStaff() staff?: StaffAccount,
   ): Promise<StaffOrderDetailsDto> {
     return this.ordersService.setTrackCodeByStaff(id, dto.trackCode, staff);
+  }
+
+  @Post('orders/:id/cancel')
+  async cancelOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelOrderDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.cancelByStaff(id, staff, dto.reason);
   }
 
   // ─── Settings ──────────────────────────────────────────────

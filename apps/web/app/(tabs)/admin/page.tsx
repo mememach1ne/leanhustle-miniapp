@@ -29,6 +29,8 @@ const STATUS_COLORS: Record<string, string> = {
   PAID_AWAITING_PURCHASE: 'bg-orange-400/15 text-orange-300 border-orange-300/30',
   PURCHASED: 'bg-purple-400/15 text-purple-300 border-purple-300/30',
   TRACK_CODE_RECEIVED: 'bg-emerald-400/15 text-emerald-300 border-emerald-300/30',
+  DELIVERED: 'bg-emerald-400/15 text-emerald-300 border-emerald-300/30',
+  CANCELLED: 'bg-rose-400/15 text-rose-300 border-rose-300/30',
 };
 
 

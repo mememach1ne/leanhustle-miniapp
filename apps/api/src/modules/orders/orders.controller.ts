@@ -8,6 +8,7 @@ import type { User } from '@prisma/client';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CheckoutDto } from './dto/checkout.dto';
 import { OrdersService } from './orders.service';
 
@@ -39,5 +40,14 @@ export class OrdersController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<OrderDetailsDto> {
     return this.ordersService.getCurrentUserOrderById(user.id, id);
+  }
+
+  @Post(':id/cancel')
+  async cancelOrder(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelOrderDto,
+  ): Promise<OrderDetailsDto> {
+    return this.ordersService.cancelByClient(user, id, dto.reason);
   }
 }

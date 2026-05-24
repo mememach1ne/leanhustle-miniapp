@@ -201,6 +201,17 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
           await refreshOrderMessage(ctx, payload.orderId);
           return;
         }
+        case MANAGER_ORDER_ACTIONS.CANCEL: {
+          const order = await apiService.cancelOrder(
+            payload.orderId,
+            'Отменено менеджером',
+            getActor(ctx),
+          );
+          await ctx.answerCbQuery('Заказ отменён');
+          await ctx.reply(`❌ Заказ ${order.orderNumber} отменён.`);
+          await refreshOrderMessage(ctx, payload.orderId);
+          return;
+        }
         case MANAGER_ORDER_ACTIONS.TRACK_CODE: {
           const order = await apiService.getStaffOrder(payload.orderId, getActor(ctx));
           const callbackMessage = ctx.callbackQuery.message;

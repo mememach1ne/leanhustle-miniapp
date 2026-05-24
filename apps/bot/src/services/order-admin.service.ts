@@ -1132,6 +1132,8 @@ export class OrderAdminService {
         return '📮';
       case OrderStatus.DELIVERED:
         return '🎉';
+      case OrderStatus.CANCELLED:
+        return '❌';
       default:
         return '•';
     }
@@ -1359,6 +1361,22 @@ export class OrderAdminService {
       ]);
     }
 
+    // Cancel available from any non-terminal status.
+    if (
+      order.status !== OrderStatus.DELIVERED &&
+      order.status !== OrderStatus.CANCELLED
+    ) {
+      buttons.push([
+        {
+          text: '❌ Отменить заказ',
+          callback_data: encodeManagerOrderCallback(
+            MANAGER_ORDER_ACTIONS.CANCEL,
+            order.id,
+          ),
+        },
+      ]);
+    }
+
     if (buttons.length === 0) {
       return undefined;
     }
@@ -1436,6 +1454,8 @@ export class OrderAdminService {
         return trackCode ? `Трек-код получен — ${trackCode}` : 'Трек-код получен';
       case OrderStatus.DELIVERED:
         return 'Доставлено';
+      case OrderStatus.CANCELLED:
+        return 'Отменён';
       default:
         return status;
     }
