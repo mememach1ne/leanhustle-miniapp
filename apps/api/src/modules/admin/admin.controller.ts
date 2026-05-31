@@ -27,6 +27,7 @@ import type { StaffAccount } from '@prisma/client';
 import type { Response } from 'express';
 
 import { CancelOrderDto } from '../orders/dto/cancel-order.dto';
+import { CreateManualOrderDto } from '../orders/dto/create-manual-order.dto';
 import { UpdateOrderStatusDto } from '../orders/dto/update-order-status.dto';
 import { UpdateOrderTrackCodeDto } from '../orders/dto/update-order-track-code.dto';
 import { OrdersService } from '../orders/orders.service';
@@ -88,6 +89,14 @@ export class AdminController {
       );
       throw error;
     }
+  }
+
+  @Post('orders/manual')
+  async createManualOrder(
+    @Body() dto: CreateManualOrderDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.createManualOrderByStaff(staff, dto);
   }
 
   @Get('orders/search')

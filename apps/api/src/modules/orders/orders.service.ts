@@ -1,5 +1,6 @@
 import type {
   CheckoutOrderResponse,
+  CreateManualOrderRequest,
   OrderDetailsDto,
   OrderListItemDto,
   StaffOrderDetailsDto,
@@ -8,6 +9,7 @@ import type {
 import { OrderStatus as SharedOrderStatus } from '@lean-poizon/shared';
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -18,6 +20,7 @@ import {
   OrderStatus,
   Prisma,
   type StaffAccount,
+  StaffRole,
   type User,
 } from '@prisma/client';
 
@@ -267,6 +270,182 @@ export class OrdersService {
     return {
       order: mapOrderToDetailsDto(order),
     };
+  }
+
+  /**
+   * Staff/admin manually creates an order on behalf of a client. Used when the
+   * product API can't resolve a product and the client agreed on a price with
+   * the manager directly. Admin-only. Starts at CREATED, so it then enters the
+   * normal flow (client pays, manager buys, etc.).
+   */
+  async createManualOrderByStaff(
+    staff: StaffAccount | undefined,
+    dto: CreateManualOrderRequest,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff || (staff.role !== StaffRole.ADMIN && staff.role !== StaffRole.MANAGER)) {
+      throw new ForbiddenException('Ручное создание заказа доступно только сотрудникам.');
+    }
+
+    const normalizedUsername = dto.username.trim().replace(/^@+/, '');
+    if (!normalizedUsername) {
+      throw new BadRequestException('Укажите username клиента.');
+    }
+
+    const client = await this.prisma.user.findFirst({
+      where: { username: { equals: normalizedUsername, mode: 'insensitive' } },
+    });
+
+    if (!client) {
+      throw new BadRequestException(
+        `Клиент @${normalizedUsername} не найден. Попроси клиента запустить бота, чтобы он появился в базе.`,
+      );
+    }
+
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException('Добавьте хотя бы один товар в заказ.');
+    }
+
+    const settings = await this.settingsService.getCurrentSettings();
+
+    // Compute pricing for each item using the existing manual-pricing logic.
+    const pricedItems = await Promise.all(
+      dto.items.map(async (item) => {
+        const pricing = await this.pricingService.calculateManual({
+          priceYuan: item.priceYuan,
+          deliveryCategory: item.deliveryCategory,
+        });
+        return { input: item, pricing };
+      }),
+    );
+
+    const itemsCount = dto.items.reduce((sum, item) => sum + item.quantity, 0);
+    const totalUsd = pricedItems.reduce(
+      (sum, { input, pricing }) =>
+        sum.add(new Prisma.Decimal(pricing.totalUsd).mul(input.quantity)),
+      new Prisma.Decimal(0),
+    );
+    const deliveryRub = pricedItems.reduce(
+      (sum, { input, pricing }) =>
+        sum.add(new Prisma.Decimal(pricing.deliveryRub).mul(input.quantity)),
+      new Prisma.Decimal(0),
+    );
+    const dutyRub = pricedItems.reduce(
+      (sum, { input, pricing }) =>
+        sum.add(new Prisma.Decimal(pricing.dutyRub).mul(input.quantity)),
+      new Prisma.Decimal(0),
+    );
+
+    const staffLabel = staff.username
+      ? `@${staff.username}`
+      : [staff.firstName, staff.lastName].filter(Boolean).join(' ') || 'администратором';
+
+    const createdOrderId = await this.prisma.$transaction(
+      async (tx) => {
+        const orderNumber = await this.orderNumberService.generate(
+          tx,
+          client.isChannelSubscriber,
+        );
+
+        const order = await tx.order.create({
+          data: {
+            orderNumber,
+            userId: client.id,
+            status: OrderStatus.CREATED,
+            isChannelSubscriberAtCheckout: client.isChannelSubscriber,
+            subscriberBenefitApplied: false,
+            subscriberBenefitAmountRub: new Prisma.Decimal(0),
+            itemsCount,
+            originalTotalUsd: totalUsd,
+            benefitDiscountUsd: new Prisma.Decimal(0),
+            totalUsd,
+            deliveryRub,
+            dutyRub,
+            pricingCnyToUsd: settings.cnyToUsd,
+            pricingCnyToRub: settings.cnyToRub,
+            pricingCommissionPercent: settings.commissionPercent,
+            deliveryAddressId: null,
+            deliveryFullName: dto.delivery.fullName,
+            deliveryCdekAddress: dto.delivery.cdekAddress,
+            deliveryPhone: dto.delivery.phone,
+            customerComment: dto.delivery.comment ?? null,
+          },
+        });
+
+        await tx.orderItem.createMany({
+          data: pricedItems.map(({ input, pricing }) => ({
+            orderId: order.id,
+            dewuLink: input.dewuLink?.trim() || '',
+            dwSpuId: 'manual',
+            dwSkuId: 'manual',
+            productTitle: input.productTitle.trim(),
+            productImage: null,
+            categoryL1: null,
+            categoryL2: null,
+            categoryL3: null,
+            sizeLabel: input.sizeLabel?.trim() || '—',
+            versionLabel: input.versionLabel?.trim() || null,
+            quantity: input.quantity,
+            priceYuan: new Prisma.Decimal(pricing.priceYuan),
+            originalTotalUsd: new Prisma.Decimal(pricing.totalUsd),
+            totalUsd: new Prisma.Decimal(pricing.totalUsd),
+            deliveryRub: new Prisma.Decimal(pricing.deliveryRub),
+            dutyRub: new Prisma.Decimal(pricing.dutyRub),
+            categoryGroup: pricing.categoryGroup,
+            deliveryCategory: pricing.deliveryCategory,
+            estimatedWeightKg: new Prisma.Decimal(pricing.estimatedWeightKg),
+          })),
+        });
+
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            fromStatus: null,
+            toStatus: OrderStatus.CREATED,
+            changedByStaffId: staff.id,
+            comment: `Заказ создан вручную ${staffLabel} через админ-панель.`,
+          },
+        });
+
+        return order.id;
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      },
+    );
+
+    const order = await this.getOrderForStaffOrThrow(createdOrderId);
+    const staffDto = mapOrderToStaffDetailsDto(order);
+
+    // Notify managers (so the order shows up with action buttons) and the
+    // client (so they know a manager created an order for them).
+    try {
+      await this.orderNotificationsService.notifyManagersAboutCreatedOrder(
+        staffDto,
+        mapUserToProfile(client),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to notify managers about manual order ${staffDto.orderNumber}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    try {
+      await this.orderNotificationsService.notifyUserAboutStatusChange(
+        client.telegramId,
+        staffDto.orderNumber,
+        SharedOrderStatus.CREATED,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to notify client about manual order ${staffDto.orderNumber}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    return staffDto;
   }
 
   async getCurrentUserOrders(userId: string): Promise<OrderListItemDto[]> {

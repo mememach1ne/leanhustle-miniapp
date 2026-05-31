@@ -15,6 +15,7 @@ import type { StaffAccount } from '@prisma/client';
 import { CurrentStaff } from '../staff/decorators/current-staff.decorator';
 import { StaffBotAuthGuard } from '../staff/guards/staff-bot-auth.guard';
 import { CancelOrderDto } from './dto/cancel-order.dto';
+import { CreateManualOrderDto } from './dto/create-manual-order.dto';
 import { SetActualDeliveryDto, SetActualDutyDto } from './dto/set-actual-amount.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdateOrderTrackCodeDto } from './dto/update-order-track-code.dto';
@@ -27,6 +28,14 @@ export class StaffOrdersController {
 
   constructor(@Inject(OrdersService) ordersService: OrdersService) {
     this.ordersService = ordersService;
+  }
+
+  @Post('manual')
+  async createManualOrder(
+    @Body() dto: CreateManualOrderDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.createManualOrderByStaff(staff, dto);
   }
 
   @Get('new')

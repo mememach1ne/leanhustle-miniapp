@@ -2,14 +2,18 @@ import { InlineKeyboardMarkup } from 'telegraf/types';
 
 import type {
   BusinessSettingsDto,
+  CreateManualOrderRequest,
   SettingsAuditLogItemDto,
   StaffOrderDetailsDto,
   StaffOrderListItemDto,
 } from '@lean-poizon/shared';
 import {
+  DELIVERY_CATEGORY_GROUPS,
+  DeliveryCategory,
   MANAGER_ORDER_ACTIONS,
   OrderStatus,
   encodeManagerOrderCallback,
+  getDeliveryCategoryLabel,
 } from '@lean-poizon/shared';
 
 type SettingsFieldKey =
@@ -49,6 +53,43 @@ interface PendingActualDutyState {
   orderNumber: string;
 }
 
+type ManualOrderStep =
+  | 'username'
+  | 'item_link'
+  | 'item_title'
+  | 'item_price'
+  | 'item_category'
+  | 'item_size'
+  | 'item_qty'
+  | 'add_more'
+  | 'delivery_name'
+  | 'delivery_address'
+  | 'delivery_phone'
+  | 'delivery_comment'
+  | 'confirm';
+
+interface ManualOrderDraftItem {
+  dewuLink?: string;
+  productTitle: string;
+  priceYuan: number;
+  deliveryCategory: string;
+  sizeLabel?: string;
+  quantity: number;
+}
+
+interface ManualOrderDraft {
+  step: ManualOrderStep;
+  username?: string;
+  items: ManualOrderDraftItem[];
+  current: Partial<ManualOrderDraftItem>;
+  delivery: {
+    fullName?: string;
+    cdekAddress?: string;
+    phone?: string;
+    comment?: string;
+  };
+}
+
 type PendingManagerIntent =
   | ({ type: 'awaiting_track_code' } & PendingTrackCodeState)
   | ({ type: 'awaiting_order_number' } & PendingOrderNumberState)
@@ -58,7 +99,8 @@ type PendingManagerIntent =
   | { type: 'awaiting_delivery_value' }
   | ({ type: 'awaiting_category_weight' } & PendingCategoryWeightState)
   | ({ type: 'awaiting_actual_delivery' } & PendingActualDeliveryState)
-  | ({ type: 'awaiting_actual_duty' } & PendingActualDutyState);
+  | ({ type: 'awaiting_actual_duty' } & PendingActualDutyState)
+  | { type: 'awaiting_manual_order'; draft: ManualOrderDraft };
 
 const OPEN_ORDER_PREFIX = 'open_order:';
 const SETTINGS_ACTION_PREFIX = 'settings_action:';
@@ -67,6 +109,7 @@ const ADMIN_PANEL_ACTION_PREFIX = 'admin_panel:';
 const CLIENT_ACTION_PREFIX = 'client:';
 const CATEGORY_ACTION_PREFIX = 'cat:';
 const NAV_PREFIX = 'nav:';
+const MANUAL_ORDER_PREFIX = 'mo:';
 
 const ORDERS_PER_PAGE = 8;
 
@@ -92,7 +135,8 @@ type AdminPanelAction =
   | 'set_commission'
   | 'set_delivery'
   | 'pending_categories'
-  | 'all_categories';
+  | 'all_categories'
+  | 'create_order';
 
 export class OrderAdminService {
   private readonly pendingIntentByManager = new Map<string, PendingManagerIntent>();
@@ -353,6 +397,13 @@ export class OrderAdminService {
       ],
     ];
 
+    keyboard.push([
+      {
+        text: '➕ Создать заказ вручную',
+        callback_data: this.encodeAdminPanelActionCallback('create_order'),
+      },
+    ]);
+
     if (role === 'admin') {
       keyboard.push(
         [
@@ -499,6 +550,231 @@ export class OrderAdminService {
 
   buildActualDutyPrompt(orderNumber: string) {
     return `Введите фактическую пошлину для заказа ${orderNumber} в рублях. Если пошлины нет — введите 0. Для отмены — /cancel.`;
+  }
+
+  // --- Manual order creation (admin only) ---
+
+  beginManualOrder(managerId: string) {
+    this.pendingIntentByManager.set(managerId, {
+      type: 'awaiting_manual_order',
+      draft: { step: 'username', items: [], current: {}, delivery: {} },
+    });
+  }
+
+  getManualOrderDraft(managerId: string): ManualOrderDraft | null {
+    const pending = this.pendingIntentByManager.get(managerId);
+    return pending?.type === 'awaiting_manual_order' ? pending.draft : null;
+  }
+
+  updateManualOrderDraft(managerId: string, draft: ManualOrderDraft) {
+    this.pendingIntentByManager.set(managerId, { type: 'awaiting_manual_order', draft });
+  }
+
+  encodeManualOrderCallback(action: string) {
+    return `${MANUAL_ORDER_PREFIX}${action}`;
+  }
+
+  decodeManualOrderCallback(callbackData: string): string | null {
+    if (!callbackData.startsWith(MANUAL_ORDER_PREFIX)) {
+      return null;
+    }
+    return callbackData.slice(MANUAL_ORDER_PREFIX.length);
+  }
+
+  buildManualUsernamePrompt() {
+    return [
+      '➕ Создание заказа вручную.',
+      '',
+      'Шаг 1. Введите @username клиента (он должен был хотя бы раз запустить бота).',
+      'Для отмены — /cancel.',
+    ].join('\n');
+  }
+
+  buildManualItemLinkPrompt(itemIndex: number) {
+    return [
+      `Товар №${itemIndex}. Шаг «ссылка».`,
+      '',
+      'Отправьте ссылку на товар Poizon/Dewu. Если ссылки нет — отправьте «-».',
+      'Для отмены — /cancel.',
+    ].join('\n');
+  }
+
+  buildManualItemTitlePrompt() {
+    return 'Введите название товара (например: Nike Air Force 1 White). Для отмены — /cancel.';
+  }
+
+  buildManualItemPricePrompt() {
+    return 'Введите цену товара в юанях (CNY), например 549 или 549,90. Для отмены — /cancel.';
+  }
+
+  buildManualItemCategoryPrompt() {
+    return 'Выберите категорию доставки товара кнопкой ниже.';
+  }
+
+  buildManualItemSizePrompt() {
+    return 'Введите размер / вариант (например 42 или M). Если без размера — отправьте «-». Для отмены — /cancel.';
+  }
+
+  buildManualItemQtyPrompt() {
+    return 'Введите количество (целое число), например 1. Для отмены — /cancel.';
+  }
+
+  buildManualDeliveryNamePrompt() {
+    return 'Данные доставки. Введите ФИО получателя. Для отмены — /cancel.';
+  }
+
+  buildManualDeliveryAddressPrompt() {
+    return 'Введите адрес / пункт выдачи СДЭК. Для отмены — /cancel.';
+  }
+
+  buildManualDeliveryPhonePrompt() {
+    return 'Введите телефон получателя. Для отмены — /cancel.';
+  }
+
+  buildManualDeliveryCommentPrompt() {
+    return 'Комментарий к заказу (необязательно). Если не нужен — отправьте «-». Для отмены — /cancel.';
+  }
+
+  buildManualCategoryGroupsKeyboard(): InlineKeyboardMarkup {
+    return {
+      inline_keyboard: DELIVERY_CATEGORY_GROUPS.map((group) => [
+        {
+          text: `${group.emoji} ${group.label}`,
+          callback_data: this.encodeManualOrderCallback(`grp:${group.key}`),
+        },
+      ]),
+    };
+  }
+
+  buildManualCategoryKeyboard(groupKey: string): InlineKeyboardMarkup | null {
+    const group = DELIVERY_CATEGORY_GROUPS.find((item) => item.key === groupKey);
+    if (!group) {
+      return null;
+    }
+
+    const rows: InlineKeyboardMarkup['inline_keyboard'] = [];
+    for (let i = 0; i < group.categories.length; i += 2) {
+      rows.push(
+        group.categories.slice(i, i + 2).map((category) => ({
+          text: getDeliveryCategoryLabel(category),
+          callback_data: this.encodeManualOrderCallback(`cat:${category}`),
+        })),
+      );
+    }
+    rows.push([
+      {
+        text: '‹ Назад к группам',
+        callback_data: this.encodeManualOrderCallback('grpback'),
+      },
+    ]);
+
+    return { inline_keyboard: rows };
+  }
+
+  buildManualAddMoreKeyboard(): InlineKeyboardMarkup {
+    return {
+      inline_keyboard: [
+        [
+          {
+            text: '➕ Добавить ещё товар',
+            callback_data: this.encodeManualOrderCallback('additem'),
+          },
+        ],
+        [
+          {
+            text: '✅ Перейти к данным доставки',
+            callback_data: this.encodeManualOrderCallback('finish'),
+          },
+        ],
+        [
+          {
+            text: '✖️ Отменить',
+            callback_data: this.encodeManualOrderCallback('cancel'),
+          },
+        ],
+      ],
+    };
+  }
+
+  buildManualConfirmKeyboard(): InlineKeyboardMarkup {
+    return {
+      inline_keyboard: [
+        [
+          {
+            text: '✅ Создать заказ',
+            callback_data: this.encodeManualOrderCallback('confirm'),
+          },
+        ],
+        [
+          {
+            text: '✖️ Отменить',
+            callback_data: this.encodeManualOrderCallback('cancel'),
+          },
+        ],
+      ],
+    };
+  }
+
+  isValidDeliveryCategory(value: string): value is DeliveryCategory {
+    return (Object.values(DeliveryCategory) as string[]).includes(value);
+  }
+
+  buildManualItemsSummary(draft: ManualOrderDraft): string {
+    if (draft.items.length === 0) {
+      return 'Товары ещё не добавлены.';
+    }
+    return draft.items
+      .map((item, index) => {
+        const parts = [
+          `${index + 1}. ${item.productTitle}`,
+          `   Категория: ${getDeliveryCategoryLabel(item.deliveryCategory)}`,
+          `   Цена: ${item.priceYuan} ¥ × ${item.quantity}`,
+        ];
+        if (item.sizeLabel) {
+          parts.splice(1, 0, `   Размер: ${item.sizeLabel}`);
+        }
+        return parts.join('\n');
+      })
+      .join('\n');
+  }
+
+  buildManualOrderConfirmText(draft: ManualOrderDraft): string {
+    return [
+      '🧾 Проверьте заказ перед созданием:',
+      '',
+      `Клиент: @${draft.username ?? ''}`,
+      '',
+      'Товары:',
+      this.buildManualItemsSummary(draft),
+      '',
+      'Доставка:',
+      `   ФИО: ${draft.delivery.fullName ?? '—'}`,
+      `   СДЭК: ${draft.delivery.cdekAddress ?? '—'}`,
+      `   Телефон: ${draft.delivery.phone ?? '—'}`,
+      ...(draft.delivery.comment ? [`   Комментарий: ${draft.delivery.comment}`] : []),
+      '',
+      'Нажмите «Создать заказ», чтобы сохранить и уведомить клиента.',
+    ].join('\n');
+  }
+
+  buildManualOrderRequest(draft: ManualOrderDraft): CreateManualOrderRequest {
+    return {
+      username: draft.username ?? '',
+      items: draft.items.map((item) => ({
+        dewuLink: item.dewuLink ?? null,
+        productTitle: item.productTitle,
+        priceYuan: item.priceYuan,
+        deliveryCategory: item.deliveryCategory as DeliveryCategory,
+        sizeLabel: item.sizeLabel ?? null,
+        quantity: item.quantity,
+      })),
+      delivery: {
+        fullName: draft.delivery.fullName ?? '',
+        cdekAddress: draft.delivery.cdekAddress ?? '',
+        phone: draft.delivery.phone ?? '',
+        comment: draft.delivery.comment ?? null,
+      },
+    };
   }
 
   // --- Category callback helpers ---

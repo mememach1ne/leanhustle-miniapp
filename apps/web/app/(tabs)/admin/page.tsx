@@ -15,6 +15,7 @@ import { AnalyticsPanel } from '../../../components/ui/analytics-panel';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../components/ui/feedback-message';
 import { LoadingBlock } from '../../../components/ui/loading-block';
+import { ManualOrderForm } from '../../../components/ui/manual-order-form';
 import { PageSection } from '../../../components/ui/page-section';
 import { SectionCard } from '../../../components/ui/section-card';
 import { adminApi } from '../../../lib/api-client';
@@ -87,12 +88,14 @@ export default function AdminPage() {
 // ─── Orders Panel ───────────────────────────────────────────
 
 function OrdersPanel() {
+  const staffRole = useAuthStore((state) => state.user?.staffRole);
   const [filter, setFilter] = useState<'active' | 'completed'>('active');
   const [data, setData] = useState<AdminOrdersResponse | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<StaffOrderListItemDto[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showManualForm, setShowManualForm] = useState(false);
 
   const loadOrders = useCallback(async (status: 'active' | 'completed', page = 1) => {
     setLoading(true);
@@ -136,6 +139,21 @@ function OrdersPanel() {
 
   return (
     <>
+      {/* Manual order creation (admin & manager) */}
+      {staffRole === 'ADMIN' || staffRole === 'MANAGER' ? (
+        showManualForm ? (
+          <ManualOrderForm onClose={() => setShowManualForm(false)} />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowManualForm(true)}
+            className="w-full rounded-[18px] bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-slate-950 transition"
+          >
+            ➕ Создать заказ вручную
+          </button>
+        )
+      ) : null}
+
       {/* Search */}
       <SectionCard className="!p-3">
         <div className="flex gap-2">

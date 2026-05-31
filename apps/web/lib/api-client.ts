@@ -10,6 +10,7 @@ import type {
   ChannelSubscriptionRefreshResponse,
   CheckoutOrderResponse,
   CreateDeliveryAddressRequest,
+  CreateManualOrderRequest,
   DeliveryAddressDto,
   DewuResolvedProduct,
   ManagerHelpRequest,
@@ -164,6 +165,10 @@ export const adminApi = {
   },
   async searchOrders(q: string): Promise<StaffOrderListItemDto[]> {
     const response = await apiClient.get<StaffOrderListItemDto[]>('/admin/orders/search', { params: { q } });
+    return response.data;
+  },
+  async createManualOrder(dto: CreateManualOrderRequest): Promise<StaffOrderDetailsDto> {
+    const response = await apiClient.post<StaffOrderDetailsDto>('/admin/orders/manual', dto);
     return response.data;
   },
   async getOrderById(id: string): Promise<StaffOrderDetailsDto> {

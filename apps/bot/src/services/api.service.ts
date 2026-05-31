@@ -2,6 +2,7 @@ import axios from 'axios';
 
 import type {
   BusinessSettingsDto,
+  CreateManualOrderRequest,
   DeliveryCategoryWeightDto,
   SetActualDeliveryRequest,
   SetActualDutyRequest,
@@ -98,6 +99,21 @@ export class ApiService {
     const response = await this.http.get<StaffOrderListItemDto[]>('/staff/orders/active', {
       headers: this.buildHeaders(actor),
     });
+
+    return response.data;
+  }
+
+  async createManualOrder(
+    payload: CreateManualOrderRequest,
+    actor: BotActorIdentity,
+  ): Promise<StaffOrderDetailsDto> {
+    const response = await this.http.post<StaffOrderDetailsDto>(
+      '/staff/orders/manual',
+      payload,
+      {
+        headers: this.buildHeaders(actor),
+      },
+    );
 
     return response.data;
   }

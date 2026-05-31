@@ -127,6 +127,36 @@ export interface CancelOrderRequest {
   reason?: string;
 }
 
+/** One item of a manually-entered order (staff fills these in by hand). */
+export interface CreateManualOrderItem {
+  /** Optional Poizon/Dewu link, shown for reference. */
+  dewuLink?: string | null;
+  productTitle: string;
+  priceYuan: number;
+  deliveryCategory: DeliveryCategory;
+  /** Size / variant label, optional for accessories without sizes. */
+  sizeLabel?: string | null;
+  versionLabel?: string | null;
+  quantity: number;
+}
+
+/** Payload for staff/admin manual order creation (bot + mini-app). */
+export interface CreateManualOrderRequest {
+  /** Client Telegram @username (with or without leading @). */
+  username: string;
+  items: CreateManualOrderItem[];
+  delivery: {
+    fullName: string;
+    cdekAddress: string;
+    phone: string;
+    comment?: string | null;
+  };
+}
+
+export interface CreateManualOrderResponse {
+  order: StaffOrderDetailsDto;
+}
+
 export interface StaffOrderDetailsDto extends OrderDetailsDto {
   user: StaffOrderUserDto;
   statusHistory: StaffOrderStatusHistoryItemDto[];
