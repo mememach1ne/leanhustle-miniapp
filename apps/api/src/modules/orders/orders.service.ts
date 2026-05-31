@@ -1,6 +1,7 @@
 import type {
   CheckoutOrderResponse,
   CreateManualOrderRequest,
+  ManualOrderClientLookupResponse,
   OrderDetailsDto,
   OrderListItemDto,
   StaffOrderDetailsDto,
@@ -273,6 +274,62 @@ export class OrdersService {
   }
 
   /**
+   * Look up an existing client by @username for the manual order flow.
+   * Returns saved delivery addresses (default first) and subscriber status
+   * so the bot/miniapp can pre-fill the manual order form.
+   */
+  async lookupManualOrderClient(
+    staff: StaffAccount | undefined,
+    rawUsername: string,
+  ): Promise<ManualOrderClientLookupResponse> {
+    if (!staff || (staff.role !== StaffRole.ADMIN && staff.role !== StaffRole.MANAGER)) {
+      throw new ForbiddenException('Поиск клиента доступен только сотрудникам.');
+    }
+
+    const normalizedUsername = (rawUsername ?? '').trim().replace(/^@+/, '');
+    if (!normalizedUsername) {
+      throw new BadRequestException('Укажите username клиента.');
+    }
+
+    const client = await this.prisma.user.findFirst({
+      where: { username: { equals: normalizedUsername, mode: 'insensitive' } },
+      include: {
+        deliveryAddresses: {
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+        },
+      },
+    });
+
+    if (!client) {
+      throw new BadRequestException(
+        `Клиент @${normalizedUsername} не найден. Попроси клиента запустить бота, чтобы он появился в базе.`,
+      );
+    }
+
+    return {
+      client: {
+        id: client.id,
+        telegramId: client.telegramId,
+        username: client.username,
+        firstName: client.firstName,
+        lastName: client.lastName,
+      },
+      addresses: client.deliveryAddresses.map((address) => ({
+        id: address.id,
+        fullName: address.fullName,
+        cdekAddress: address.cdekAddress,
+        phone: address.phone,
+        isDefault: address.isDefault,
+        createdAt: address.createdAt.toISOString(),
+      })),
+      subscription: {
+        isChannelSubscriber: client.isChannelSubscriber,
+        hasUsedSubscriberBenefit: client.hasUsedSubscriberBenefit,
+      },
+    };
+  }
+
+  /**
    * Staff/admin manually creates an order on behalf of a client. Used when the
    * product API can't resolve a product and the client agreed on a price with
    * the manager directly. Admin-only. Starts at CREATED, so it then enters the
@@ -396,13 +453,84 @@ export class OrdersService {
           })),
         });
 
+        // Subscriber benefit handling for manual orders. The intent comes
+        // from the staff toggle in the bot/miniapp:
+        //   - true  -> force-apply the discount now (bypass hasUsed guard);
+        //   - false -> explicitly skip (mark applied=true with zero amount so
+        //              the standard PAID-transition logic does not re-apply);
+        //   - undefined -> leave default behavior (auto-apply at PAID stage).
+        let benefitNote: string | null = null;
+
+        if (dto.applySubscriberBenefit === true) {
+          // Ensure the BenefitService eligibility checks pass.
+          if (client.hasUsedSubscriberBenefit) {
+            await tx.user.update({
+              where: { id: client.id },
+              data: { hasUsedSubscriberBenefit: false },
+            });
+          }
+          if (!client.isChannelSubscriber) {
+            await tx.order.update({
+              where: { id: order.id },
+              data: { isChannelSubscriberAtCheckout: true },
+            });
+          }
+
+          const benefitOrder = await tx.order.findUniqueOrThrow({
+            where: { id: order.id },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  isChannelSubscriber: true,
+                  hasUsedSubscriberBenefit: true,
+                },
+              },
+              items: {
+                select: {
+                  id: true,
+                  priceYuan: true,
+                  originalTotalUsd: true,
+                  totalUsd: true,
+                },
+              },
+            },
+          });
+
+          const benefitResult = await this.subscriberBenefitService.applyIfEligible(
+            tx,
+            benefitOrder,
+          );
+
+          if (benefitResult.applied) {
+            benefitNote = `Льгота подписчика применена вручную ${staffLabel}. Скидка: ₽${benefitResult.benefitDiscountRub
+              .toDecimalPlaces(2)
+              .toString()}.`;
+          }
+        } else if (dto.applySubscriberBenefit === false) {
+          await tx.order.update({
+            where: { id: order.id },
+            data: {
+              subscriberBenefitApplied: true,
+              subscriberBenefitAmountRub: new Prisma.Decimal(0),
+              isChannelSubscriberAtCheckout: false,
+            },
+          });
+          benefitNote = `Льгота подписчика отключена ${staffLabel} при создании заказа.`;
+        }
+
         await tx.orderStatusHistory.create({
           data: {
             orderId: order.id,
             fromStatus: null,
             toStatus: OrderStatus.CREATED,
             changedByStaffId: staff.id,
-            comment: `Заказ создан вручную ${staffLabel} через админ-панель.`,
+            comment: [
+              `Заказ создан вручную ${staffLabel} через админ-панель.`,
+              benefitNote,
+            ]
+              .filter(Boolean)
+              .join(' '),
           },
         });
 

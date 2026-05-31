@@ -4,6 +4,8 @@ import type {
   AdminUserDetailDto,
   AdminUsersResponse,
   BusinessSettingsDto,
+  DewuResolvedProduct,
+  ManualOrderClientLookupResponse,
   SettingsAuditLogItemDto,
   StaffOrderDetailsDto,
   StaffOrderListItemDto,
@@ -31,6 +33,8 @@ import { CreateManualOrderDto } from '../orders/dto/create-manual-order.dto';
 import { UpdateOrderStatusDto } from '../orders/dto/update-order-status.dto';
 import { UpdateOrderTrackCodeDto } from '../orders/dto/update-order-track-code.dto';
 import { OrdersService } from '../orders/orders.service';
+import { ResolveProductDto } from '../products/dto/resolve-product.dto';
+import { ProductsService } from '../products/products.service';
 import { UpdateSettingsDto } from '../settings/dto/update-settings.dto';
 import { SettingsService } from '../settings/settings.service';
 import { CurrentStaff } from '../staff/decorators/current-staff.decorator';
@@ -50,6 +54,7 @@ export class AdminController {
   private readonly settingsService: SettingsService;
   private readonly excelExportService: ExcelExportService;
   private readonly analyticsService: AnalyticsService;
+  private readonly productsService: ProductsService;
 
   constructor(
     @Inject(AdminService) adminService: AdminService,
@@ -57,12 +62,14 @@ export class AdminController {
     @Inject(SettingsService) settingsService: SettingsService,
     @Inject(ExcelExportService) excelExportService: ExcelExportService,
     @Inject(AnalyticsService) analyticsService: AnalyticsService,
+    @Inject(ProductsService) productsService: ProductsService,
   ) {
     this.adminService = adminService;
     this.ordersService = ordersService;
     this.settingsService = settingsService;
     this.excelExportService = excelExportService;
     this.analyticsService = analyticsService;
+    this.productsService = productsService;
   }
 
   // ─── Analytics ─────────────────────────────────────────────
@@ -97,6 +104,21 @@ export class AdminController {
     @CurrentStaff() staff?: StaffAccount,
   ): Promise<StaffOrderDetailsDto> {
     return this.ordersService.createManualOrderByStaff(staff, dto);
+  }
+
+  @Get('orders/manual/lookup-client')
+  async lookupManualOrderClient(
+    @Query('username') username: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<ManualOrderClientLookupResponse> {
+    return this.ordersService.lookupManualOrderClient(staff, username);
+  }
+
+  @Post('orders/manual/resolve-product')
+  async resolveManualOrderProduct(
+    @Body() dto: ResolveProductDto,
+  ): Promise<DewuResolvedProduct> {
+    return this.productsService.resolveProductForStaff(dto);
   }
 
   @Get('orders/search')

@@ -1,4 +1,9 @@
-import type { StaffOrderDetailsDto, StaffOrderListItemDto } from '@lean-poizon/shared';
+import type {
+  DewuResolvedProduct,
+  ManualOrderClientLookupResponse,
+  StaffOrderDetailsDto,
+  StaffOrderListItemDto,
+} from '@lean-poizon/shared';
 import {
   Body,
   Controller,
@@ -12,6 +17,8 @@ import {
 } from '@nestjs/common';
 import type { StaffAccount } from '@prisma/client';
 
+import { ResolveProductDto } from '../products/dto/resolve-product.dto';
+import { ProductsService } from '../products/products.service';
 import { CurrentStaff } from '../staff/decorators/current-staff.decorator';
 import { StaffBotAuthGuard } from '../staff/guards/staff-bot-auth.guard';
 import { CancelOrderDto } from './dto/cancel-order.dto';
@@ -25,9 +32,14 @@ import { OrdersService } from './orders.service';
 @UseGuards(StaffBotAuthGuard)
 export class StaffOrdersController {
   private readonly ordersService: OrdersService;
+  private readonly productsService: ProductsService;
 
-  constructor(@Inject(OrdersService) ordersService: OrdersService) {
+  constructor(
+    @Inject(OrdersService) ordersService: OrdersService,
+    @Inject(ProductsService) productsService: ProductsService,
+  ) {
     this.ordersService = ordersService;
+    this.productsService = productsService;
   }
 
   @Post('manual')
@@ -36,6 +48,21 @@ export class StaffOrdersController {
     @CurrentStaff() staff?: StaffAccount,
   ): Promise<StaffOrderDetailsDto> {
     return this.ordersService.createManualOrderByStaff(staff, dto);
+  }
+
+  @Get('manual/lookup-client')
+  async lookupManualOrderClient(
+    @Query('username') username: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<ManualOrderClientLookupResponse> {
+    return this.ordersService.lookupManualOrderClient(staff, username);
+  }
+
+  @Post('manual/resolve-product')
+  async resolveManualOrderProduct(
+    @Body() dto: ResolveProductDto,
+  ): Promise<DewuResolvedProduct> {
+    return this.productsService.resolveProductForStaff(dto);
   }
 
   @Get('new')

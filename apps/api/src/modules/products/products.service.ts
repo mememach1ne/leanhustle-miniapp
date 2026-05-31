@@ -59,4 +59,26 @@ export class ProductsService {
 
     return product;
   }
+
+  /**
+   * Same as `resolveProduct` but for staff (bot / admin panel manual order flow).
+   * Bypasses per-user rate limiting because staff aren't subject to it.
+   */
+  async resolveProductForStaff(dto: ResolveProductDto): Promise<DewuResolvedProduct> {
+    const resolvedLink = await this.dewuLinkResolverService.resolve(dto.link);
+    const cacheKey = resolvedLink.dwSpuId;
+
+    const cached = await this.cacheService.get(cacheKey);
+    if (cached) {
+      this.logger.debug(`[staff] Cache hit for dwSpuId=${cacheKey}`);
+      return { ...cached, originalLink: dto.link };
+    }
+
+    const rawProduct = await this.dewuApiClientService.queryProductDetail(cacheKey);
+    const product = this.dewuProductMapperService.mapProduct(rawProduct, resolvedLink);
+
+    await this.cacheService.set(cacheKey, product);
+
+    return product;
+  }
 }

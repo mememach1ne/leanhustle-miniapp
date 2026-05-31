@@ -14,6 +14,7 @@ import type {
   DeliveryAddressDto,
   DewuResolvedProduct,
   ManagerHelpRequest,
+  ManualOrderClientLookupResponse,
   ManualPricingRequest,
   ManualPricingResult,
   OrderDetailsDto,
@@ -169,6 +170,20 @@ export const adminApi = {
   },
   async createManualOrder(dto: CreateManualOrderRequest): Promise<StaffOrderDetailsDto> {
     const response = await apiClient.post<StaffOrderDetailsDto>('/admin/orders/manual', dto);
+    return response.data;
+  },
+  async lookupManualOrderClient(username: string): Promise<ManualOrderClientLookupResponse> {
+    const response = await apiClient.get<ManualOrderClientLookupResponse>(
+      '/admin/orders/manual/lookup-client',
+      { params: { username } },
+    );
+    return response.data;
+  },
+  async resolveManualOrderProduct(link: string): Promise<DewuResolvedProduct> {
+    const response = await apiClient.post<DewuResolvedProduct>(
+      '/admin/orders/manual/resolve-product',
+      { link },
+    );
     return response.data;
   },
   async getOrderById(id: string): Promise<StaffOrderDetailsDto> {

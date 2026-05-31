@@ -3,6 +3,10 @@ import { InlineKeyboardMarkup } from 'telegraf/types';
 import type {
   BusinessSettingsDto,
   CreateManualOrderRequest,
+  DeliveryAddressDto,
+  DewuProductSku,
+  DewuResolvedProduct,
+  ManualOrderClientLookupResponse,
   SettingsAuditLogItemDto,
   StaffOrderDetailsDto,
   StaffOrderListItemDto,
@@ -55,7 +59,9 @@ interface PendingActualDutyState {
 
 type ManualOrderStep =
   | 'username'
+  | 'pick_address'
   | 'item_link'
+  | 'item_pick_size'
   | 'item_title'
   | 'item_price'
   | 'item_category'
@@ -77,11 +83,29 @@ interface ManualOrderDraftItem {
   quantity: number;
 }
 
+interface ManualOrderClientSnapshot {
+  id: string;
+  isChannelSubscriber: boolean;
+  hasUsedSubscriberBenefit: boolean;
+}
+
 interface ManualOrderDraft {
   step: ManualOrderStep;
   username?: string;
+  /** Client snapshot from lookup; set once username is accepted. */
+  client?: ManualOrderClientSnapshot;
+  /** Saved delivery addresses fetched from API for the picker. */
+  addresses?: DeliveryAddressDto[];
+  /**
+   * Staff intent for the subscriber benefit. Auto-set after lookup
+   * (true when client is a subscriber and has not used it). Toggleable
+   * via inline button — staff can force-apply or skip.
+   */
+  applySubscriberBenefit: boolean;
   items: ManualOrderDraftItem[];
   current: Partial<ManualOrderDraftItem>;
+  /** Last resolved product cached for the active item (size-picker step). */
+  resolvedProduct?: DewuResolvedProduct;
   delivery: {
     fullName?: string;
     cdekAddress?: string;
@@ -557,8 +581,122 @@ export class OrderAdminService {
   beginManualOrder(managerId: string) {
     this.pendingIntentByManager.set(managerId, {
       type: 'awaiting_manual_order',
-      draft: { step: 'username', items: [], current: {}, delivery: {} },
+      draft: {
+        step: 'username',
+        items: [],
+        current: {},
+        delivery: {},
+        applySubscriberBenefit: false,
+      },
     });
+  }
+
+  /**
+   * Called after the staff entered the @username. Persists the lookup
+   * response on the draft and pre-toggles the subscriber benefit when
+   * the client is eligible (subscribed AND has not used it yet).
+   */
+  applyManualOrderClientLookup(
+    managerId: string,
+    lookup: ManualOrderClientLookupResponse,
+  ) {
+    const draft = this.getManualOrderDraft(managerId);
+    if (!draft) return;
+
+    draft.username = lookup.client.username ?? draft.username;
+    draft.client = {
+      id: lookup.client.id,
+      isChannelSubscriber: lookup.subscription.isChannelSubscriber,
+      hasUsedSubscriberBenefit: lookup.subscription.hasUsedSubscriberBenefit,
+    };
+    draft.addresses = lookup.addresses;
+    // Auto-on only when eligible without forcing; staff may flip it.
+    draft.applySubscriberBenefit =
+      lookup.subscription.isChannelSubscriber &&
+      !lookup.subscription.hasUsedSubscriberBenefit;
+    draft.step = 'pick_address';
+
+    this.updateManualOrderDraft(managerId, draft);
+  }
+
+  toggleManualOrderBenefit(managerId: string): boolean | null {
+    const draft = this.getManualOrderDraft(managerId);
+    if (!draft) return null;
+    draft.applySubscriberBenefit = !draft.applySubscriberBenefit;
+    this.updateManualOrderDraft(managerId, draft);
+    return draft.applySubscriberBenefit;
+  }
+
+  /**
+   * Apply a saved address selection. Returns false if the picked id is not
+   * in the draft's address list (stale callback).
+   */
+  pickManualOrderAddress(managerId: string, addressId: string): boolean {
+    const draft = this.getManualOrderDraft(managerId);
+    if (!draft) return false;
+    const address = draft.addresses?.find((a) => a.id === addressId);
+    if (!address) return false;
+    draft.delivery = {
+      fullName: address.fullName,
+      cdekAddress: address.cdekAddress,
+      phone: address.phone,
+      comment: draft.delivery.comment,
+    };
+    draft.step = 'item_link';
+    draft.items = [];
+    draft.current = {};
+    this.updateManualOrderDraft(managerId, draft);
+    return true;
+  }
+
+  /** Mark that staff chose to enter delivery data manually. */
+  startManualDeliveryEntry(managerId: string) {
+    const draft = this.getManualOrderDraft(managerId);
+    if (!draft) return;
+    draft.step = 'item_link';
+    draft.items = [];
+    draft.current = {};
+    this.updateManualOrderDraft(managerId, draft);
+  }
+
+  /**
+   * Stash a resolved Poizon product on the draft so the next step (size
+   * picker) can display its SKUs and prefill price.
+   */
+  applyManualOrderProductResolve(managerId: string, product: DewuResolvedProduct) {
+    const draft = this.getManualOrderDraft(managerId);
+    if (!draft) return;
+    draft.resolvedProduct = product;
+    draft.current = {
+      ...draft.current,
+      productTitle: product.title,
+    };
+    draft.step = 'item_pick_size';
+    this.updateManualOrderDraft(managerId, draft);
+  }
+
+  /**
+   * Apply a SKU selection from the resolved product. Prefills size + price,
+   * advances to category step.
+   */
+  pickManualOrderSku(managerId: string, dwSkuId: string): DewuProductSku | null {
+    const draft = this.getManualOrderDraft(managerId);
+    if (!draft?.resolvedProduct) return null;
+    const sku = draft.resolvedProduct.skus.find((s) => s.dwSkuId === dwSkuId);
+    if (!sku) return null;
+    draft.current = {
+      ...draft.current,
+      sizeLabel: sku.size,
+      priceYuan:
+        sku.priceYuan != null
+          ? sku.priceYuan
+          : sku.minBidPrice
+          ? sku.minBidPrice / 100
+          : draft.current.priceYuan,
+    };
+    draft.step = 'item_category';
+    this.updateManualOrderDraft(managerId, draft);
+    return sku;
   }
 
   getManualOrderDraft(managerId: string): ManualOrderDraft | null {
@@ -696,6 +834,116 @@ export class OrderAdminService {
     };
   }
 
+  buildManualAddressPickerPrompt(draft: ManualOrderDraft): string {
+    const lines: string[] = [];
+    const username = draft.username ?? '—';
+    const fullName = [draft.client ? '' : '', ''].filter(Boolean).join(' ');
+    void fullName;
+    lines.push(`Клиент: @${username}.`);
+    if (draft.client) {
+      const sub = draft.client.isChannelSubscriber ? 'да' : 'нет';
+      const used = draft.client.hasUsedSubscriberBenefit ? 'да' : 'нет';
+      lines.push(`Подписан на канал: ${sub}. Бонус уже использован: ${used}.`);
+    }
+    lines.push('');
+    if (!draft.addresses || draft.addresses.length === 0) {
+      lines.push('У клиента нет сохранённых адресов СДЭК — данные доставки нужно ввести вручную.');
+    } else {
+      lines.push('Выберите сохранённый адрес доставки клиента или введите вручную.');
+    }
+    lines.push('');
+    lines.push(
+      `🎁 Бонус подписчика: ${draft.applySubscriberBenefit ? 'ВКЛ' : 'ВЫКЛ'} (нажмите кнопку, чтобы переключить).`,
+    );
+    return lines.join('\n');
+  }
+
+  buildManualAddressPickerKeyboard(draft: ManualOrderDraft): InlineKeyboardMarkup {
+    const rows: InlineKeyboardMarkup['inline_keyboard'] = [];
+
+    (draft.addresses ?? []).forEach((address, index) => {
+      const tag = address.isDefault ? '⭐ ' : '';
+      const label = `${tag}${address.fullName} — ${address.cdekAddress}`.slice(0, 60);
+      rows.push([
+        {
+          text: label,
+          callback_data: this.encodeManualOrderCallback(`addr:${address.id}`),
+        },
+      ]);
+      void index;
+    });
+
+    rows.push([
+      {
+        text: '✏️ Ввести данные доставки вручную',
+        callback_data: this.encodeManualOrderCallback('addr:manual'),
+      },
+    ]);
+    rows.push([
+      {
+        text: `🎁 Бонус подписчика: ${draft.applySubscriberBenefit ? 'ВКЛ ✅' : 'ВЫКЛ ⛔'}`,
+        callback_data: this.encodeManualOrderCallback('benefit:toggle'),
+      },
+    ]);
+    rows.push([
+      {
+        text: '✖️ Отменить',
+        callback_data: this.encodeManualOrderCallback('cancel'),
+      },
+    ]);
+
+    return { inline_keyboard: rows };
+  }
+
+  buildManualItemResolvedPrompt(product: DewuResolvedProduct): string {
+    const lines = [
+      '✅ Товар распознан Poizon API.',
+      '',
+      `Название: ${product.title}`,
+    ];
+    if (product.brand) lines.push(`Бренд: ${product.brand}`);
+    lines.push('');
+    if (product.availableSkus.length > 0) {
+      lines.push('Выберите размер кнопкой ниже — цена и название подставятся автоматически.');
+    } else {
+      lines.push('Доступных SKU нет — введите данные вручную.');
+    }
+    return lines.join('\n');
+  }
+
+  buildManualItemSizePickerKeyboard(product: DewuResolvedProduct): InlineKeyboardMarkup {
+    const skus = product.availableSkus.length > 0 ? product.availableSkus : product.skus;
+    const rows: InlineKeyboardMarkup['inline_keyboard'] = [];
+    for (let i = 0; i < skus.length; i += 2) {
+      rows.push(
+        skus.slice(i, i + 2).map((sku) => {
+          const priceYuan =
+            sku.priceYuan != null ? sku.priceYuan : sku.minBidPrice / 100;
+          const priceText = Number.isFinite(priceYuan) && priceYuan > 0
+            ? ` · ${Math.round(priceYuan)}¥`
+            : '';
+          return {
+            text: `${sku.size}${priceText}`.slice(0, 60),
+            callback_data: this.encodeManualOrderCallback(`sku:${sku.dwSkuId}`),
+          };
+        }),
+      );
+    }
+    rows.push([
+      {
+        text: '✏️ Ввести данные вручную',
+        callback_data: this.encodeManualOrderCallback('sku:manual'),
+      },
+    ]);
+    rows.push([
+      {
+        text: '✖️ Отменить',
+        callback_data: this.encodeManualOrderCallback('cancel'),
+      },
+    ]);
+    return { inline_keyboard: rows };
+  }
+
   buildManualConfirmKeyboard(): InlineKeyboardMarkup {
     return {
       inline_keyboard: [
@@ -743,6 +991,7 @@ export class OrderAdminService {
       '🧾 Проверьте заказ перед созданием:',
       '',
       `Клиент: @${draft.username ?? ''}`,
+      `🎁 Бонус подписчика: ${draft.applySubscriberBenefit ? 'будет применён' : 'НЕ применяется'}.`,
       '',
       'Товары:',
       this.buildManualItemsSummary(draft),
@@ -774,6 +1023,7 @@ export class OrderAdminService {
         phone: draft.delivery.phone ?? '',
         comment: draft.delivery.comment ?? null,
       },
+      applySubscriberBenefit: draft.applySubscriberBenefit,
     };
   }
 

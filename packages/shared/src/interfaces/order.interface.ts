@@ -151,6 +151,38 @@ export interface CreateManualOrderRequest {
     phone: string;
     comment?: string | null;
   };
+  /**
+   * If true — force-apply the channel-subscriber first-order discount,
+   * even if the client has already used it (resets hasUsedSubscriberBenefit
+   * and applies the benefit to this order). Default: false.
+   */
+  applySubscriberBenefit?: boolean;
+}
+
+/** Lightweight client snapshot returned by the manual-order lookup endpoint. */
+export interface ManualOrderClientDto {
+  id: string;
+  telegramId: string;
+  username?: string | null;
+  firstName: string;
+  lastName?: string | null;
+}
+
+export interface ManualOrderClientSubscriptionDto {
+  /** Currently a channel subscriber per latest refresh. */
+  isChannelSubscriber: boolean;
+  /** Client has already used the first-order subscriber benefit. */
+  hasUsedSubscriberBenefit: boolean;
+}
+
+/**
+ * Response of GET /admin/orders/manual/lookup-client?username=... .
+ * Lets bot/miniapp pre-fill saved addresses + subscriber state.
+ */
+export interface ManualOrderClientLookupResponse {
+  client: ManualOrderClientDto;
+  addresses: import('./delivery-address.interface').DeliveryAddressDto[];
+  subscription: ManualOrderClientSubscriptionDto;
 }
 
 export interface CreateManualOrderResponse {

@@ -4,6 +4,8 @@ import type {
   BusinessSettingsDto,
   CreateManualOrderRequest,
   DeliveryCategoryWeightDto,
+  DewuResolvedProduct,
+  ManualOrderClientLookupResponse,
   SetActualDeliveryRequest,
   SetActualDutyRequest,
   SetCategoryWeightRequest,
@@ -113,6 +115,34 @@ export class ApiService {
       {
         headers: this.buildHeaders(actor),
       },
+    );
+
+    return response.data;
+  }
+
+  async lookupManualOrderClient(
+    username: string,
+    actor: BotActorIdentity,
+  ): Promise<ManualOrderClientLookupResponse> {
+    const response = await this.http.get<ManualOrderClientLookupResponse>(
+      '/staff/orders/manual/lookup-client',
+      {
+        headers: this.buildHeaders(actor),
+        params: { username },
+      },
+    );
+
+    return response.data;
+  }
+
+  async resolveManualOrderProduct(
+    link: string,
+    actor: BotActorIdentity,
+  ): Promise<DewuResolvedProduct> {
+    const response = await this.http.post<DewuResolvedProduct>(
+      '/staff/orders/manual/resolve-product',
+      { link },
+      { headers: this.buildHeaders(actor) },
     );
 
     return response.data;

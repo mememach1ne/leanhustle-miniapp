@@ -411,6 +411,84 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
         return;
       }
 
+      if (action === 'benefit:toggle') {
+        if (draft.step !== 'pick_address') {
+          await ctx.answerCbQuery();
+          return;
+        }
+        const next = orderAdminService.toggleManualOrderBenefit(managerId);
+        await ctx.answerCbQuery(
+          next ? '🎁 Бонус подписчика ВКЛ' : '🎁 Бонус подписчика ВЫКЛ',
+        );
+        const updated = orderAdminService.getManualOrderDraft(managerId);
+        if (updated) {
+          try {
+            await ctx.editMessageText(orderAdminService.buildManualAddressPickerPrompt(updated), {
+              reply_markup: orderAdminService.buildManualAddressPickerKeyboard(updated),
+            });
+          } catch {
+            // Ignore "message is not modified" — only the button label changed.
+          }
+        }
+        return;
+      }
+
+      if (action.startsWith('addr:')) {
+        if (draft.step !== 'pick_address') {
+          await ctx.answerCbQuery();
+          return;
+        }
+        const value = action.slice('addr:'.length);
+        if (value === 'manual') {
+          orderAdminService.startManualDeliveryEntry(managerId);
+          await ctx.answerCbQuery();
+          await ctx.editMessageText('Введём данные доставки вручную.');
+          await ctx.reply(orderAdminService.buildManualItemLinkPrompt(1));
+          // After items collected, the flow will branch to delivery_name via 'finish'.
+          return;
+        }
+        const ok = orderAdminService.pickManualOrderAddress(managerId, value);
+        if (!ok) {
+          await ctx.answerCbQuery('Адрес не найден.', { show_alert: true });
+          return;
+        }
+        await ctx.answerCbQuery('Адрес выбран');
+        await ctx.editMessageText('Адрес доставки выбран ✅');
+        await ctx.reply(orderAdminService.buildManualItemLinkPrompt(1));
+        return;
+      }
+
+      if (action.startsWith('sku:')) {
+        if (draft.step !== 'item_pick_size') {
+          await ctx.answerCbQuery();
+          return;
+        }
+        const value = action.slice('sku:'.length);
+        if (value === 'manual') {
+          draft.step = 'item_title';
+          orderAdminService.updateManualOrderDraft(managerId, draft);
+          await ctx.answerCbQuery();
+          await ctx.editMessageText('Вводим данные товара вручную.');
+          await ctx.reply(orderAdminService.buildManualItemTitlePrompt());
+          return;
+        }
+        const sku = orderAdminService.pickManualOrderSku(managerId, value);
+        if (!sku) {
+          await ctx.answerCbQuery('SKU не найден.', { show_alert: true });
+          return;
+        }
+        await ctx.answerCbQuery(`Размер: ${sku.size}`);
+        await ctx.editMessageText(
+          `Размер выбран: ${sku.size}. Цена подставлена: ${
+            sku.priceYuan != null ? sku.priceYuan : sku.minBidPrice / 100
+          } ¥.`,
+        );
+        await ctx.reply(orderAdminService.buildManualItemCategoryPrompt(), {
+          reply_markup: orderAdminService.buildManualCategoryGroupsKeyboard(),
+        });
+        return;
+      }
+
       if (action.startsWith('grp:')) {
         const groupKey = action.slice('grp:'.length);
         const keyboard = orderAdminService.buildManualCategoryKeyboard(groupKey);
@@ -456,6 +534,7 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
           return;
         }
         draft.current = {};
+        draft.resolvedProduct = undefined;
         draft.step = 'item_link';
         orderAdminService.updateManualOrderDraft(managerId, draft);
         await ctx.answerCbQuery();
@@ -472,10 +551,25 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
           await ctx.answerCbQuery('Добавьте хотя бы один товар.', { show_alert: true });
           return;
         }
-        draft.step = 'delivery_name';
-        orderAdminService.updateManualOrderDraft(managerId, draft);
-        await ctx.answerCbQuery();
-        await ctx.reply(orderAdminService.buildManualDeliveryNamePrompt());
+        // If staff picked a saved address earlier, delivery is already
+        // filled — go straight to confirm. Otherwise collect it manually.
+        const hasDelivery =
+          !!draft.delivery.fullName &&
+          !!draft.delivery.cdekAddress &&
+          !!draft.delivery.phone;
+        if (hasDelivery) {
+          draft.step = 'confirm';
+          orderAdminService.updateManualOrderDraft(managerId, draft);
+          await ctx.answerCbQuery();
+          await ctx.reply(orderAdminService.buildManualOrderConfirmText(draft), {
+            reply_markup: orderAdminService.buildManualConfirmKeyboard(),
+          });
+        } else {
+          draft.step = 'delivery_name';
+          orderAdminService.updateManualOrderDraft(managerId, draft);
+          await ctx.answerCbQuery();
+          await ctx.reply(orderAdminService.buildManualDeliveryNamePrompt());
+        }
         return;
       }
 
@@ -530,16 +624,61 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
           return;
         }
         draft.username = username;
-        draft.step = 'item_link';
         orderAdminService.updateManualOrderDraft(managerId, draft);
-        await ctx.reply(orderAdminService.buildManualItemLinkPrompt(1));
+        try {
+          const lookup = await apiService.lookupManualOrderClient(username, getActor(ctx));
+          orderAdminService.applyManualOrderClientLookup(managerId, lookup);
+          const refreshed = orderAdminService.getManualOrderDraft(managerId);
+          if (!refreshed) return;
+          await ctx.reply(orderAdminService.buildManualAddressPickerPrompt(refreshed), {
+            reply_markup: orderAdminService.buildManualAddressPickerKeyboard(refreshed),
+          });
+        } catch (error) {
+          await ctx.reply(
+            extractAxiosMessage(error) ??
+              'Не удалось найти клиента. Проверьте username и попробуйте снова.',
+          );
+        }
+        return;
+      }
+      case 'pick_address': {
+        await ctx.reply('Выберите адрес кнопкой выше или нажмите «Ввести вручную».');
         return;
       }
       case 'item_link': {
-        draft.current.dewuLink = text === '-' ? undefined : text;
+        const rawLink = text === '-' ? '' : text;
+        draft.current.dewuLink = rawLink || undefined;
+        orderAdminService.updateManualOrderDraft(managerId, draft);
+
+        // Try to resolve via Poizon API for prefill. Fall back to manual
+        // entry on any error (timeout, bad link, unsupported, etc).
+        if (rawLink) {
+          try {
+            const product = await apiService.resolveManualOrderProduct(
+              rawLink,
+              getActor(ctx),
+            );
+            orderAdminService.applyManualOrderProductResolve(managerId, product);
+            await ctx.reply(orderAdminService.buildManualItemResolvedPrompt(product), {
+              reply_markup: orderAdminService.buildManualItemSizePickerKeyboard(product),
+            });
+            return;
+          } catch (error) {
+            await ctx.reply(
+              `Не удалось распознать товар автоматически (${
+                extractAxiosMessage(error) ?? 'неизвестная ошибка'
+              }). Введите данные вручную.`,
+            );
+          }
+        }
+
         draft.step = 'item_title';
         orderAdminService.updateManualOrderDraft(managerId, draft);
         await ctx.reply(orderAdminService.buildManualItemTitlePrompt());
+        return;
+      }
+      case 'item_pick_size': {
+        await ctx.reply('Выберите размер кнопкой выше или «Ввести вручную».');
         return;
       }
       case 'item_title': {
@@ -602,6 +741,7 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
           quantity: qty,
         });
         draft.current = {};
+        draft.resolvedProduct = undefined;
         draft.step = 'add_more';
         orderAdminService.updateManualOrderDraft(managerId, draft);
         await ctx.reply(
