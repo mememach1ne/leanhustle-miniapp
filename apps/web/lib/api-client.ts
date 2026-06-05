@@ -202,6 +202,38 @@ export const adminApi = {
     const response = await apiClient.post<StaffOrderDetailsDto>(`/admin/orders/${id}/cancel`, { reason });
     return response.data;
   },
+  async setActualDelivery(id: string, actualDeliveryRub: number): Promise<StaffOrderDetailsDto> {
+    const response = await apiClient.post<StaffOrderDetailsDto>(
+      `/admin/orders/${id}/actual-delivery`,
+      { actualDeliveryRub },
+    );
+    return response.data;
+  },
+  async markDeliveryPaid(id: string): Promise<StaffOrderDetailsDto> {
+    const response = await apiClient.post<StaffOrderDetailsDto>(
+      `/admin/orders/${id}/mark-delivery-paid`,
+    );
+    return response.data;
+  },
+  async setActualDuty(id: string, actualDutyRub: number): Promise<StaffOrderDetailsDto> {
+    const response = await apiClient.post<StaffOrderDetailsDto>(
+      `/admin/orders/${id}/actual-duty`,
+      { actualDutyRub },
+    );
+    return response.data;
+  },
+  async markDutyPaid(id: string): Promise<StaffOrderDetailsDto> {
+    const response = await apiClient.post<StaffOrderDetailsDto>(
+      `/admin/orders/${id}/mark-duty-paid`,
+    );
+    return response.data;
+  },
+  async markDelivered(id: string): Promise<StaffOrderDetailsDto> {
+    const response = await apiClient.post<StaffOrderDetailsDto>(
+      `/admin/orders/${id}/mark-delivered`,
+    );
+    return response.data;
+  },
 
   // Settings
   async getSettings(): Promise<BusinessSettingsDto> {

@@ -30,6 +30,7 @@ import type { Response } from 'express';
 
 import { CancelOrderDto } from '../orders/dto/cancel-order.dto';
 import { CreateManualOrderDto } from '../orders/dto/create-manual-order.dto';
+import { SetActualDeliveryDto, SetActualDutyDto } from '../orders/dto/set-actual-amount.dto';
 import { UpdateOrderStatusDto } from '../orders/dto/update-order-status.dto';
 import { UpdateOrderTrackCodeDto } from '../orders/dto/update-order-track-code.dto';
 import { OrdersService } from '../orders/orders.service';
@@ -160,6 +161,50 @@ export class AdminController {
     @CurrentStaff() staff?: StaffAccount,
   ): Promise<StaffOrderDetailsDto> {
     return this.ordersService.cancelByStaff(id, staff, dto.reason);
+  }
+
+  // ─── Phase 2: actual delivery / duty cycle ─────────────────
+
+  @Post('orders/:id/actual-delivery')
+  async setActualDelivery(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetActualDeliveryDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.setActualDeliveryByStaff(id, dto.actualDeliveryRub, staff);
+  }
+
+  @Post('orders/:id/mark-delivery-paid')
+  async markDeliveryPaid(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.markDeliveryPaidByStaff(id, staff);
+  }
+
+  @Post('orders/:id/actual-duty')
+  async setActualDuty(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetActualDutyDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.setActualDutyByStaff(id, dto.actualDutyRub, staff);
+  }
+
+  @Post('orders/:id/mark-duty-paid')
+  async markDutyPaid(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.markDutyPaidByStaff(id, staff);
+  }
+
+  @Post('orders/:id/mark-delivered')
+  async markDelivered(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.markDeliveredByStaff(id, staff);
   }
 
   // ─── Settings ──────────────────────────────────────────────

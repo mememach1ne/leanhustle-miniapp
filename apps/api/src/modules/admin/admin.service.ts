@@ -15,14 +15,23 @@ import {
   mapOrderToStaffListItemDto,
 } from '../orders/mappers/order-response.mapper';
 
+// "Active" = anything not yet delivered (and not cancelled). Phase 2 of the
+// flow (actual delivery / duty / track code) keeps orders active until the
+// manager explicitly marks them DELIVERED.
 const ACTIVE_STATUSES = [
   OrderStatus.CREATED,
   OrderStatus.PAYMENT_PENDING,
   OrderStatus.PAID_AWAITING_PURCHASE,
   OrderStatus.PURCHASED,
+  OrderStatus.DELIVERY_PAYMENT_PENDING,
+  OrderStatus.DELIVERY_PAID,
+  OrderStatus.DUTY_PAYMENT_PENDING,
+  OrderStatus.DUTY_PAID,
+  OrderStatus.TRACK_CODE_RECEIVED,
 ];
 
-const COMPLETED_STATUSES = [OrderStatus.TRACK_CODE_RECEIVED];
+// "Completed" = terminal states only. CANCELLED is shown elsewhere.
+const COMPLETED_STATUSES = [OrderStatus.DELIVERED];
 
 const ORDER_INCLUDE_LIST = {
   user: {

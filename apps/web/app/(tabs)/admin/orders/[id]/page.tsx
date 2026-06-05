@@ -19,15 +19,29 @@ const STATUS_COLORS: Record<string, string> = {
   PAYMENT_PENDING: 'bg-amber-400/15 text-amber-300 border-amber-300/30',
   PAID_AWAITING_PURCHASE: 'bg-orange-400/15 text-orange-300 border-orange-300/30',
   PURCHASED: 'bg-purple-400/15 text-purple-300 border-purple-300/30',
+  DELIVERY_PAYMENT_PENDING: 'bg-pink-400/15 text-pink-300 border-pink-300/30',
+  DELIVERY_PAID: 'bg-cyan-400/15 text-cyan-300 border-cyan-300/30',
+  DUTY_PAYMENT_PENDING: 'bg-yellow-400/15 text-yellow-300 border-yellow-300/30',
+  DUTY_PAID: 'bg-teal-400/15 text-teal-300 border-teal-300/30',
   TRACK_CODE_RECEIVED: 'bg-emerald-400/15 text-emerald-300 border-emerald-300/30',
+  DELIVERED: 'bg-emerald-500/20 text-emerald-300 border-emerald-300/40',
+  CANCELLED: 'bg-rose-400/15 text-rose-300 border-rose-300/30',
 };
 
+// Linear staff-driven status transitions for the simple "next status" button.
+// Phase 2 (actual delivery / duty) has dedicated input widgets below.
 const NEXT_STATUS: Record<string, { status: OrderStatus; label: string }[]> = {
   CREATED: [{ status: OrderStatus.PAYMENT_PENDING, label: 'Реквизиты отправлены' }],
   PAYMENT_PENDING: [{ status: OrderStatus.PAID_AWAITING_PURCHASE, label: 'Оплата получена' }],
   PAID_AWAITING_PURCHASE: [{ status: OrderStatus.PURCHASED, label: 'Товар выкуплен' }],
   PURCHASED: [],
+  DELIVERY_PAYMENT_PENDING: [],
+  DELIVERY_PAID: [],
+  DUTY_PAYMENT_PENDING: [],
+  DUTY_PAID: [],
   TRACK_CODE_RECEIVED: [],
+  DELIVERED: [],
+  CANCELLED: [],
 };
 
 export default function AdminOrderDetailPage() {
@@ -39,6 +53,8 @@ export default function AdminOrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [trackCode, setTrackCode] = useState('');
+  const [actualDelivery, setActualDelivery] = useState('');
+  const [actualDuty, setActualDuty] = useState('');
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
@@ -50,8 +66,7 @@ export default function AdminOrderDetailPage() {
     setError(null);
     try {
       const data = await adminApi.getOrderById(id);
-      setOrder(data);
-      setTrackCode(data.trackCode ?? '');
+      applyOrder(data);
     } catch (err) {
       setError(extractAxiosMessage(err) ?? 'Заказ не найден');
     } finally {
@@ -59,36 +74,82 @@ export default function AdminOrderDetailPage() {
     }
   };
 
-  const handleStatusChange = async (status: OrderStatus) => {
+  const applyOrder = (data: StaffOrderDetailsDto) => {
+    setOrder(data);
+    setTrackCode(data.trackCode ?? '');
+    setActualDelivery(
+      data.summary.actualDeliveryRub != null ? String(data.summary.actualDeliveryRub) : '',
+    );
+    setActualDuty(
+      data.summary.actualDutyRub != null ? String(data.summary.actualDutyRub) : '',
+    );
+  };
+
+  // Generic runner so each action shares loading / error plumbing.
+  const runAction = async (
+    fn: () => Promise<StaffOrderDetailsDto>,
+    successText: string,
+  ) => {
     setActionLoading(true);
     setSuccess(null);
     setError(null);
     try {
-      const updated = await adminApi.updateOrderStatus(id, status);
-      setOrder(updated);
-      setSuccess(`Статус обновлён: ${ORDER_STATUS_LABELS[status]}`);
+      const updated = await fn();
+      applyOrder(updated);
+      setSuccess(successText);
     } catch (err) {
-      setError(extractAxiosMessage(err) ?? 'Ошибка обновления статуса');
+      setError(extractAxiosMessage(err) ?? 'Не удалось выполнить действие.');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleTrackCode = async () => {
-    if (!trackCode.trim()) return;
-    setActionLoading(true);
-    setSuccess(null);
-    setError(null);
-    try {
-      const updated = await adminApi.setTrackCode(id, trackCode.trim());
-      setOrder(updated);
-      setSuccess('Трек-код сохранён');
-    } catch (err) {
-      setError(extractAxiosMessage(err) ?? 'Ошибка сохранения трек-кода');
-    } finally {
-      setActionLoading(false);
+  const handleStatusChange = (status: OrderStatus) =>
+    runAction(
+      () => adminApi.updateOrderStatus(id, status),
+      `Статус обновлён: ${ORDER_STATUS_LABELS[status]}`,
+    );
+
+  const handleSetActualDelivery = () => {
+    const value = Number(actualDelivery.replace(',', '.'));
+    if (!Number.isFinite(value) || value < 0) {
+      setError('Введите корректную сумму доставки в рублях.');
+      return;
     }
+    return runAction(
+      () => adminApi.setActualDelivery(id, value),
+      'Стоимость доставки сохранена.',
+    );
   };
+
+  const handleMarkDeliveryPaid = () =>
+    runAction(() => adminApi.markDeliveryPaid(id), 'Доставка отмечена как оплаченная.');
+
+  const handleSetActualDuty = () => {
+    const value = Number(actualDuty.replace(',', '.'));
+    if (!Number.isFinite(value) || value < 0) {
+      setError('Введите корректную сумму пошлины в рублях (0, если без пошлины).');
+      return;
+    }
+    return runAction(
+      () => adminApi.setActualDuty(id, value),
+      'Пошлина сохранена.',
+    );
+  };
+
+  const handleMarkDutyPaid = () =>
+    runAction(() => adminApi.markDutyPaid(id), 'Пошлина отмечена как оплаченная.');
+
+  const handleTrackCode = () => {
+    if (!trackCode.trim()) return;
+    return runAction(
+      () => adminApi.setTrackCode(id, trackCode.trim()),
+      'Трек-код сохранён.',
+    );
+  };
+
+  const handleMarkDelivered = () =>
+    runAction(() => adminApi.markDelivered(id), 'Заказ отмечен как доставленный.');
 
   const handleCancelOrder = async () => {
     const reason = window.prompt(
@@ -96,18 +157,10 @@ export default function AdminOrderDetailPage() {
       'Отменено менеджером',
     );
     if (reason === null) return; // dismissed
-    setActionLoading(true);
-    setSuccess(null);
-    setError(null);
-    try {
-      const updated = await adminApi.cancelOrder(id, reason || undefined);
-      setOrder(updated);
-      setSuccess('Заказ отменён');
-    } catch (err) {
-      setError(extractAxiosMessage(err) ?? 'Ошибка отмены заказа');
-    } finally {
-      setActionLoading(false);
-    }
+    await runAction(
+      () => adminApi.cancelOrder(id, reason || undefined),
+      'Заказ отменён.',
+    );
   };
 
   if (loading) {
@@ -130,6 +183,26 @@ export default function AdminOrderDetailPage() {
     ORDER_STATUS_LABELS[order.status as OrderStatus] ?? order.status;
   const statusColor = STATUS_COLORS[order.status] ?? 'bg-white/10 text-white border-white/20';
   const nextStatuses = NEXT_STATUS[order.status] ?? [];
+
+  // Visibility flags for phase 2 widgets. They follow the real backend
+  // transitions (see orders.service.ts ORDER_STATUS_TRANSITIONS):
+  //   PURCHASED                  -> input actual delivery
+  //   DELIVERY_PAYMENT_PENDING   -> input (edit) actual delivery + mark paid
+  //   DELIVERY_PAID              -> input actual duty (0 == skip) + track code
+  //   DUTY_PAYMENT_PENDING       -> mark duty paid
+  //   DUTY_PAID                  -> track code
+  //   TRACK_CODE_RECEIVED        -> edit track code + mark delivered
+  const showActualDelivery =
+    order.status === OrderStatus.PURCHASED ||
+    order.status === OrderStatus.DELIVERY_PAYMENT_PENDING;
+  const showMarkDeliveryPaid = order.status === OrderStatus.DELIVERY_PAYMENT_PENDING;
+  const showActualDuty = order.status === OrderStatus.DELIVERY_PAID;
+  const showMarkDutyPaid = order.status === OrderStatus.DUTY_PAYMENT_PENDING;
+  const showTrackCodeInput =
+    order.status === OrderStatus.DELIVERY_PAID ||
+    order.status === OrderStatus.DUTY_PAID ||
+    order.status === OrderStatus.TRACK_CODE_RECEIVED;
+  const showMarkDelivered = order.status === OrderStatus.TRACK_CODE_RECEIVED;
 
   return (
     <PageSection>
@@ -221,13 +294,25 @@ export default function AdminOrderDetailPage() {
             <span className="text-white">${order.summary.totalUsd}</span>
           </div>
           <div className="flex justify-between text-white/60">
-            <span>Доставка:</span>
+            <span>Доставка (расчётная):</span>
             <span className="text-white">{order.summary.deliveryRub} ₽</span>
           </div>
           <div className="flex justify-between text-white/60">
-            <span>Пошлина:</span>
+            <span>Пошлина (расчётная):</span>
             <span className="text-white">{order.summary.dutyRub} ₽</span>
           </div>
+          {order.summary.actualDeliveryRub != null ? (
+            <div className="flex justify-between text-white/80">
+              <span>Доставка (факт):</span>
+              <span className="text-white">{order.summary.actualDeliveryRub} ₽</span>
+            </div>
+          ) : null}
+          {order.summary.actualDutyRub != null ? (
+            <div className="flex justify-between text-white/80">
+              <span>Пошлина (факт):</span>
+              <span className="text-white">{order.summary.actualDutyRub} ₽</span>
+            </div>
+          ) : null}
           {order.subscriberBenefitApplied ? (
             <div className="flex justify-between text-emerald-400">
               <span>Скидка подписчика:</span>
@@ -241,7 +326,7 @@ export default function AdminOrderDetailPage() {
       <SectionCard>
         <h3 className="mb-3 text-sm font-semibold text-white">Действия</h3>
 
-        {/* Status transitions */}
+        {/* Simple linear status transitions (phase 1) */}
         {nextStatuses.length > 0 ? (
           <div className="space-y-2">
             {nextStatuses.map((next) => (
@@ -258,26 +343,117 @@ export default function AdminOrderDetailPage() {
           </div>
         ) : null}
 
-        {/* Track code input */}
-        {order.status === OrderStatus.PURCHASED ||
-        order.status === OrderStatus.TRACK_CODE_RECEIVED ? (
-          <div className="mt-3 flex gap-2">
-            <input
-              type="text"
-              value={trackCode}
-              onChange={(e) => setTrackCode(e.target.value)}
-              placeholder="Введите трек-код"
-              className="min-w-0 flex-1 rounded-xl bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:ring-1 focus:ring-[var(--accent)]"
-            />
-            <button
-              type="button"
-              onClick={handleTrackCode}
-              disabled={actionLoading || !trackCode.trim()}
-              className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
-            >
-              Сохранить
-            </button>
+        {/* Phase 2: actual delivery cost */}
+        {showActualDelivery ? (
+          <div className="mt-3 space-y-1">
+            <p className="text-xs text-white/60">
+              Фактическая стоимость доставки (₽)
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                inputMode="decimal"
+                step="any"
+                value={actualDelivery}
+                onChange={(e) => setActualDelivery(e.target.value)}
+                placeholder="например, 1850"
+                className="min-w-0 flex-1 rounded-xl bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:ring-1 focus:ring-[var(--accent)]"
+              />
+              <button
+                type="button"
+                onClick={handleSetActualDelivery}
+                disabled={actionLoading || !actualDelivery.trim()}
+                className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
+              >
+                Сохранить
+              </button>
+            </div>
           </div>
+        ) : null}
+
+        {showMarkDeliveryPaid ? (
+          <button
+            type="button"
+            onClick={handleMarkDeliveryPaid}
+            disabled={actionLoading}
+            className="mt-3 w-full rounded-[18px] bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-slate-950 transition disabled:opacity-50"
+          >
+            Доставка оплачена
+          </button>
+        ) : null}
+
+        {/* Phase 2: actual duty */}
+        {showActualDuty ? (
+          <div className="mt-3 space-y-1">
+            <p className="text-xs text-white/60">
+              Фактическая пошлина (₽). Если пошлины нет — введите 0 и нажмите «Сохранить».
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                inputMode="decimal"
+                step="any"
+                value={actualDuty}
+                onChange={(e) => setActualDuty(e.target.value)}
+                placeholder="например, 0"
+                className="min-w-0 flex-1 rounded-xl bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:ring-1 focus:ring-[var(--accent)]"
+              />
+              <button
+                type="button"
+                onClick={handleSetActualDuty}
+                disabled={actionLoading || actualDuty.trim() === ''}
+                className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {showMarkDutyPaid ? (
+          <button
+            type="button"
+            onClick={handleMarkDutyPaid}
+            disabled={actionLoading}
+            className="mt-3 w-full rounded-[18px] bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-slate-950 transition disabled:opacity-50"
+          >
+            Пошлина оплачена
+          </button>
+        ) : null}
+
+        {/* Track code input */}
+        {showTrackCodeInput ? (
+          <div className="mt-3 space-y-1">
+            <p className="text-xs text-white/60">Трек-код последней мили (СДЭК)</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={trackCode}
+                onChange={(e) => setTrackCode(e.target.value)}
+                placeholder="Введите трек-код"
+                className="min-w-0 flex-1 rounded-xl bg-white/5 px-3 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:ring-1 focus:ring-[var(--accent)]"
+              />
+              <button
+                type="button"
+                onClick={handleTrackCode}
+                disabled={actionLoading || !trackCode.trim()}
+                className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-50"
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {showMarkDelivered ? (
+          <button
+            type="button"
+            onClick={handleMarkDelivered}
+            disabled={actionLoading}
+            className="mt-3 w-full rounded-[18px] bg-emerald-400 px-4 py-3 text-sm font-semibold text-slate-950 transition disabled:opacity-50"
+          >
+            Заказ доставлен
+          </button>
         ) : null}
 
         {/* Cancel — available from any non-terminal status */}
