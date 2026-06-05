@@ -269,6 +269,17 @@ export class ApiService {
     return response.data;
   }
 
+  async deleteOrder(
+    orderId: string,
+    actor: BotActorIdentity,
+  ): Promise<{ ok: true; orderNumber: string }> {
+    const response = await this.http.delete<{ ok: true; orderNumber: string }>(
+      `/staff/orders/${orderId}`,
+      { headers: this.buildHeaders(actor) },
+    );
+    return response.data;
+  }
+
   async listPendingDeliveryCategories(
     actor: BotActorIdentity,
   ): Promise<DeliveryCategoryWeightDto[]> {

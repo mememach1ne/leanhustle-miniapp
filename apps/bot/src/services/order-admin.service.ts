@@ -2011,6 +2011,18 @@ export class OrderAdminService {
       ]);
     }
 
+    // Hard-delete: clean up test / spam orders. Bot has no confirmation
+    // dialog so the label is intentionally explicit.
+    buttons.push([
+      {
+        text: '🗑 Удалить заказ безвозвратно',
+        callback_data: encodeManagerOrderCallback(
+          MANAGER_ORDER_ACTIONS.DELETE,
+          order.id,
+        ),
+      },
+    ]);
+
     if (buttons.length === 0) {
       return undefined;
     }

@@ -212,6 +212,20 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
           await refreshOrderMessage(ctx, payload.orderId);
           return;
         }
+        case MANAGER_ORDER_ACTIONS.DELETE: {
+          const result = await apiService.deleteOrder(payload.orderId, getActor(ctx));
+          await ctx.answerCbQuery('Заказ удалён');
+          // Replace the original order card with a confirmation so the
+          // manager doesn't try to act on it again.
+          try {
+            await ctx.editMessageText(
+              `🗑 Заказ ${result.orderNumber} удалён безвозвратно.`,
+            );
+          } catch {
+            await ctx.reply(`🗑 Заказ ${result.orderNumber} удалён безвозвратно.`);
+          }
+          return;
+        }
         case MANAGER_ORDER_ACTIONS.TRACK_CODE: {
           const order = await apiService.getStaffOrder(payload.orderId, getActor(ctx));
           const callbackMessage = ctx.callbackQuery.message;

@@ -7,6 +7,7 @@ import type {
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
@@ -163,5 +164,13 @@ export class StaffOrdersController {
     @CurrentStaff() staff?: StaffAccount,
   ): Promise<StaffOrderDetailsDto> {
     return this.ordersService.cancelByStaff(id, staff, dto.reason);
+  }
+
+  @Delete(':id')
+  async deleteOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<{ ok: true; orderNumber: string }> {
+    return this.ordersService.deleteOrderByStaff(id, staff);
   }
 }

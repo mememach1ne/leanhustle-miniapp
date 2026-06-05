@@ -189,9 +189,11 @@ export class AdminService {
       if (filter === 'subscribers') {
         where.isChannelSubscriber = true;
       } else if (filter === 'with_orders') {
-        where.orders = { some: {} };
+        // Auto-cancelled / staff-cancelled orders don't count as real
+        // customer activity.
+        where.orders = { some: { status: { not: OrderStatus.CANCELLED } } };
       } else if (filter === 'without_orders') {
-        where.orders = { none: {} };
+        where.orders = { none: { status: { not: OrderStatus.CANCELLED } } };
       }
 
       if (search) {
@@ -199,8 +201,13 @@ export class AdminService {
       }
 
       const userInclude = {
-        _count: { select: { orders: true } },
+        _count: {
+          select: {
+            orders: { where: { status: { not: OrderStatus.CANCELLED } } },
+          },
+        },
         orders: {
+          where: { status: { not: OrderStatus.CANCELLED } },
           select: {
             totalUsd: true,
             pricingCommissionPercent: true,
@@ -266,7 +273,14 @@ export class AdminService {
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
-        _count: { select: { orders: true } },
+        // Cancelled orders are excluded from the stats counters but still
+        // shown in the orders list further down, so the manager can audit
+        // what happened.
+        _count: {
+          select: {
+            orders: { where: { status: { not: OrderStatus.CANCELLED } } },
+          },
+        },
         orders: {
           include: ORDER_INCLUDE_LIST,
           orderBy: { createdAt: 'desc' },
@@ -278,13 +292,15 @@ export class AdminService {
       throw new NotFoundException('Пользователь не найден');
     }
 
-    const statsOrders = user.orders.map((o) => ({
-      totalUsd: o.totalUsd,
-      pricingCommissionPercent: o.pricingCommissionPercent,
-      pricingCnyToRub: o.pricingCnyToRub,
-      pricingCnyToUsd: o.pricingCnyToUsd,
-      createdAt: o.createdAt,
-    }));
+    const statsOrders = user.orders
+      .filter((o) => o.status !== OrderStatus.CANCELLED)
+      .map((o) => ({
+        totalUsd: o.totalUsd,
+        pricingCommissionPercent: o.pricingCommissionPercent,
+        pricingCnyToRub: o.pricingCnyToRub,
+        pricingCnyToUsd: o.pricingCnyToUsd,
+        createdAt: o.createdAt,
+      }));
     const { averageCheckRub, totalProfitRub } = this.calculateUserStats(statsOrders);
 
     return {
@@ -307,8 +323,13 @@ export class AdminService {
     const users = await this.prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        _count: { select: { orders: true } },
+        _count: {
+          select: {
+            orders: { where: { status: { not: OrderStatus.CANCELLED } } },
+          },
+        },
         orders: {
+          where: { status: { not: OrderStatus.CANCELLED } },
           select: {
             totalUsd: true,
             pricingCommissionPercent: true,

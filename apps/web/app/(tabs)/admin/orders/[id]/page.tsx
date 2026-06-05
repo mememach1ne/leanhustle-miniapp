@@ -3,7 +3,7 @@
 import type { StaffOrderDetailsDto } from '@lean-poizon/shared';
 import { ORDER_STATUS_LABELS, OrderStatus } from '@lean-poizon/shared';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { EmptyState } from '../../../../../components/ui/empty-state';
@@ -46,6 +46,7 @@ const NEXT_STATUS: Record<string, { status: OrderStatus; label: string }[]> = {
 
 export default function AdminOrderDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
 
   const [order, setOrder] = useState<StaffOrderDetailsDto | null>(null);
@@ -150,6 +151,24 @@ export default function AdminOrderDetailPage() {
 
   const handleMarkDelivered = () =>
     runAction(() => adminApi.markDelivered(id), 'Заказ отмечен как доставленный.');
+
+  const handleDeleteOrder = async () => {
+    const confirmed = window.confirm(
+      'Удалить заказ безвозвратно? Он исчезнет из списков и статистики клиента.',
+    );
+    if (!confirmed) return;
+    setActionLoading(true);
+    setSuccess(null);
+    setError(null);
+    try {
+      const result = await adminApi.deleteOrder(id);
+      // Navigate back to the admin orders list; nothing to show here anymore.
+      router.replace(`/admin?deleted=${encodeURIComponent(result.orderNumber)}`);
+    } catch (err) {
+      setError(extractAxiosMessage(err) ?? 'Не удалось удалить заказ.');
+      setActionLoading(false);
+    }
+  };
 
   const handleCancelOrder = async () => {
     const reason = window.prompt(
@@ -468,6 +487,16 @@ export default function AdminOrderDetailPage() {
             Отменить заказ
           </button>
         ) : null}
+
+        {/* Hard-delete — clean up test / spam orders. Skips analytics. */}
+        <button
+          type="button"
+          onClick={handleDeleteOrder}
+          disabled={actionLoading}
+          className="mt-2 w-full rounded-[18px] border border-rose-500/40 bg-rose-500/15 px-4 py-2.5 text-sm font-semibold text-rose-100 transition disabled:opacity-50"
+        >
+          🗑 Удалить заказ безвозвратно
+        </button>
 
         {/* Status history */}
         {order.statusHistory && order.statusHistory.length > 0 ? (

@@ -202,6 +202,12 @@ export const adminApi = {
     const response = await apiClient.post<StaffOrderDetailsDto>(`/admin/orders/${id}/cancel`, { reason });
     return response.data;
   },
+  async deleteOrder(id: string): Promise<{ ok: true; orderNumber: string }> {
+    const response = await apiClient.delete<{ ok: true; orderNumber: string }>(
+      `/admin/orders/${id}`,
+    );
+    return response.data;
+  },
   async setActualDelivery(id: string, actualDeliveryRub: number): Promise<StaffOrderDetailsDto> {
     const response = await apiClient.post<StaffOrderDetailsDto>(
       `/admin/orders/${id}/actual-delivery`,

@@ -14,6 +14,7 @@ import type {
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Inject,
   Logger,
@@ -161,6 +162,14 @@ export class AdminController {
     @CurrentStaff() staff?: StaffAccount,
   ): Promise<StaffOrderDetailsDto> {
     return this.ordersService.cancelByStaff(id, staff, dto.reason);
+  }
+
+  @Delete('orders/:id')
+  async deleteOrder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<{ ok: true; orderNumber: string }> {
+    return this.ordersService.deleteOrderByStaff(id, staff);
   }
 
   // ─── Phase 2: actual delivery / duty cycle ─────────────────

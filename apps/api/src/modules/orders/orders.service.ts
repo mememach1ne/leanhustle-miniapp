@@ -939,6 +939,42 @@ export class OrdersService {
   }
 
   /** Manager/admin cancel. Allowed from any non-terminal state. */
+  /**
+   * Hard-delete an order. Used by staff to clean up test / spam orders that
+   * shouldn't show up in analytics or history. Cascades to order items and
+   * status history via the schema. Available to ADMIN and MANAGER.
+   *
+   * The order's user is NOT touched. If they had `hasUsedSubscriberBenefit`
+   * set by this order, we leave it as-is (the manager should fix it via the
+   * benefit toggle on a future manual order rather than touching the user
+   * row implicitly).
+   */
+  async deleteOrderByStaff(
+    orderId: string,
+    staff?: StaffAccount,
+  ): Promise<{ ok: true; orderNumber: string }> {
+    if (!staff || (staff.role !== StaffRole.ADMIN && staff.role !== StaffRole.MANAGER)) {
+      throw new ForbiddenException('Удаление заказов доступно только сотрудникам.');
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, orderNumber: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Заказ не найден.');
+    }
+
+    await this.prisma.order.delete({ where: { id: order.id } });
+
+    this.logger.log(
+      `Order ${order.orderNumber} (${order.id}) hard-deleted by staff ${staff.id}.`,
+    );
+
+    return { ok: true, orderNumber: order.orderNumber };
+  }
+
   async cancelByStaff(
     orderId: string,
     staff?: StaffAccount,
