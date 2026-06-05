@@ -117,6 +117,28 @@ export default function CalculatorPage() {
   const setManualPricing = useCalculatorStore((state) => state.setManualPricing);
   const clearManualPricing = useCalculatorStore((state) => state.clearManualPricing);
   const setCart = useCartStore((state) => state.setCart);
+  const cart = useCartStore((state) => state.cart);
+
+  // Hydrate the cart once so the floating cart bar can render with the
+  // correct item count + total when the user lands on this screen. Cart
+  // mutations from addToCart already keep the store fresh after that.
+  useEffect(() => {
+    if (cart) return;
+    let cancelled = false;
+    cartApi
+      .getCart()
+      .then((response) => {
+        if (!cancelled) setCart(response);
+      })
+      .catch(() => {
+        // Silent — no cart yet, or the user isn't signed in. The floating
+        // bar simply stays hidden in that case.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // --- Auto pricing for API mode ---
   useEffect(() => {
