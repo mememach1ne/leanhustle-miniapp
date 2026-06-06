@@ -6,6 +6,7 @@ import {
   PAYMENT_NETWORK_SHORT,
   PaymentNetwork,
 } from '@lean-poizon/shared';
+import { QRCodeSVG } from 'qrcode.react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { cryptoPaymentsApi } from '../../lib/api-client';
@@ -191,6 +192,24 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
           </p>
         </div>
         <Countdown expiresAt={intent.expiresAt} />
+      </div>
+
+      {/* QR with the deposit address. We deliberately encode the bare
+          address rather than a chain-specific deep link so all wallets
+          on all chains parse it consistently — the customer still has to
+          type the amount (we show it in big text below). */}
+      <div className="mt-4 flex flex-col items-center gap-2">
+        <div className="rounded-2xl bg-white p-3">
+          <QRCodeSVG
+            value={intent.address}
+            size={168}
+            level="M"
+            includeMargin={false}
+          />
+        </div>
+        <p className="text-[11px] text-white/50">
+          Отсканируйте QR в кошельке, затем введите сумму вручную.
+        </p>
       </div>
 
       <div className="mt-3 space-y-2">
