@@ -161,7 +161,9 @@ export default function CartPage() {
       });
 
       hapticNotification('success');
-      router.push(`/profile/orders?created=${response.order.id}`);
+      // Open the new order directly — the customer needs to pick a USDT
+      // network there to trigger the auto-payment flow.
+      router.push(`/profile/orders/${response.order.id}`);
     } catch (requestError) {
       setCheckoutError(
         extractAxiosMessage(requestError) ??

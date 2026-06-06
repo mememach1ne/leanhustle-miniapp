@@ -99,7 +99,8 @@ function OrdersPageContent() {
 
       {createdId ? (
         <FeedbackMessage tone="success">
-          Заявка создана. Менеджер скоро свяжется с вами для оплаты.
+          Заявка создана. Откройте её и выберите способ оплаты USDT — заказ
+          уйдёт в выкуп автоматически после поступления.
         </FeedbackMessage>
       ) : null}
 

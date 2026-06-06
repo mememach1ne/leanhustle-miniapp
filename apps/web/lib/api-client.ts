@@ -159,7 +159,7 @@ export const ordersApi = {
 export const cryptoPaymentsApi = {
   async getNetworks(): Promise<{ networks: PaymentNetwork[] }> {
     const response = await apiClient.get<{ networks: PaymentNetwork[] }>(
-      '/orders/payment-networks',
+      '/crypto-payments/networks',
     );
     return response.data;
   },
@@ -168,7 +168,7 @@ export const cryptoPaymentsApi = {
     payload: CreateCryptoPaymentIntentRequest,
   ): Promise<CryptoPaymentIntentDto> {
     const response = await apiClient.post<CryptoPaymentIntentDto>(
-      `/orders/${orderId}/payment-intent`,
+      `/crypto-payments/orders/${orderId}/intent`,
       payload,
     );
     return response.data;
@@ -176,7 +176,7 @@ export const cryptoPaymentsApi = {
   async getStatus(orderId: string): Promise<CryptoPaymentIntentDto | null> {
     try {
       const response = await apiClient.get<CryptoPaymentIntentDto>(
-        `/orders/${orderId}/payment-status`,
+        `/crypto-payments/orders/${orderId}/status`,
       );
       return response.data;
     } catch (error) {
