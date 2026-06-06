@@ -4,7 +4,6 @@ import { usePathname } from 'next/navigation';
 
 import { getAppTabs } from '../../lib/navigation';
 import { useAuthStore } from '../../store/auth-store';
-import { FloatingCartBar } from '../ui/floating-cart-bar';
 import { AuthStateBanner } from './auth-state-banner';
 import { BottomNavigation } from './bottom-navigation';
 import { Header } from './header';
@@ -20,7 +19,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Header activeTitle={activeTab.label} subtitle={activeTab.subtitle} />
       <AuthStateBanner />
       <main className="flex-1 pt-1">{children}</main>
-      <FloatingCartBar />
       <BottomNavigation />
     </div>
   );
