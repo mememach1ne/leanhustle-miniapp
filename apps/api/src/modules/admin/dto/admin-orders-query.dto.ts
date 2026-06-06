@@ -3,8 +3,8 @@ import { Transform } from 'class-transformer';
 
 export class AdminOrdersQueryDto {
   @IsOptional()
-  @IsIn(['active', 'completed'])
-  status?: 'active' | 'completed' = 'active';
+  @IsIn(['active', 'completed', 'cancelled'])
+  status?: 'active' | 'completed' | 'cancelled' = 'active';
 
   @IsOptional()
   @Transform(({ value }) => parseInt(value, 10))

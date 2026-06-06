@@ -89,7 +89,7 @@ export default function AdminPage() {
 
 function OrdersPanel() {
   const staffRole = useAuthStore((state) => state.user?.staffRole);
-  const [filter, setFilter] = useState<'active' | 'completed'>('active');
+  const [filter, setFilter] = useState<'active' | 'completed' | 'cancelled'>('active');
   const [data, setData] = useState<AdminOrdersResponse | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<StaffOrderListItemDto[] | null>(null);
@@ -97,7 +97,7 @@ function OrdersPanel() {
   const [error, setError] = useState<string | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
 
-  const loadOrders = useCallback(async (status: 'active' | 'completed', page = 1) => {
+  const loadOrders = useCallback(async (status: 'active' | 'completed' | 'cancelled', page = 1) => {
     setLoading(true);
     setError(null);
     try {
@@ -211,6 +211,18 @@ function OrdersPanel() {
             ].join(' ')}
           >
             Завершённые {data && filter === 'completed' ? `(${data.total})` : ''}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter('cancelled')}
+            className={[
+              'flex-1 rounded-[16px] px-3 py-2 text-sm font-medium transition',
+              filter === 'cancelled'
+                ? 'bg-rose-400/15 text-rose-200'
+                : 'text-white/50 hover:text-white/80',
+            ].join(' ')}
+          >
+            Отменённые {data && filter === 'cancelled' ? `(${data.total})` : ''}
           </button>
         </div>
       ) : null}

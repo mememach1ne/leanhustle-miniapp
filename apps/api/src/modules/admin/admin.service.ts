@@ -33,6 +33,10 @@ const ACTIVE_STATUSES = [
 // "Completed" = terminal states only. CANCELLED is shown elsewhere.
 const COMPLETED_STATUSES = [OrderStatus.DELIVERED];
 
+// Dedicated tab so auto-cancelled and manager-cancelled orders are still
+// discoverable from the panel; otherwise they look like they vanished.
+const CANCELLED_STATUSES = [OrderStatus.CANCELLED];
+
 const ORDER_INCLUDE_LIST = {
   user: {
     select: {
@@ -82,11 +86,16 @@ export class AdminService {
   // ─── Orders ────────────────────────────────────────────────
 
   async getOrders(
-    status: 'active' | 'completed',
+    status: 'active' | 'completed' | 'cancelled',
     page: number,
     pageSize: number,
   ): Promise<AdminOrdersResponse> {
-    const statuses = status === 'active' ? ACTIVE_STATUSES : COMPLETED_STATUSES;
+    const statuses =
+      status === 'active'
+        ? ACTIVE_STATUSES
+        : status === 'cancelled'
+        ? CANCELLED_STATUSES
+        : COMPLETED_STATUSES;
     const pg = Number(page) || 1;
     const ps = Number(pageSize) || 20;
     const skip = (pg - 1) * ps;
