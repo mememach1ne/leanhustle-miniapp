@@ -159,14 +159,54 @@ model Order {
   assignedStaff   StaffAccount?      @relation("AssignedOrders", fields: [assignedStaffId], references: [id], onDelete: SetNull)
   deliveryAddress DeliveryAddress?   @relation(fields: [deliveryAddressId], references: [id], onDelete: SetNull)
   items           OrderItem[]
-  notes         OrderNote[]
-  statusHistory OrderStatusHistory[]
+  notes           OrderNote[]
+  statusHistory   OrderStatusHistory[]
+  cryptoPayments  CryptoPayment[]
 
   @@index([userId, createdAt], map: "orders_user_id_created_at_idx")
   @@index([status, createdAt], map: "orders_status_created_at_idx")
   @@index([assignedStaffId, status], map: "orders_assigned_staff_status_idx")
   @@index([paidAt], map: "orders_paid_at_idx")
   @@map("orders")
+}
+
+/// Tracks a USDT deposit the customer is expected to send to our Bybit
+/// master account to pay for an order. The bot polls Bybit's deposit-record
+/// endpoint and matches by (network, expectedAmountUsdt, time window).
+model CryptoPayment {
+  id                  String              @id @default(uuid()) @db.Uuid
+  orderId             String              @map("order_id") @db.Uuid
+  /// Bybit chainType, e.g. TRX, BSC, ETH, TON.
+  network             String              @db.VarChar(16)
+  /// Bybit master-account deposit address for (USDT, network).
+  address             String              @db.VarChar(128)
+  /// Optional memo / address tag (used by some chains like TON).
+  addressTag          String?             @map("address_tag") @db.VarChar(64)
+  /// Exact USDT amount with unique cents suffix. Two decimals.
+  expectedAmountUsdt  Decimal             @map("expected_amount_usdt") @db.Decimal(20, 6)
+  status              CryptoPaymentStatus @default(PENDING)
+  txHash              String?             @map("tx_hash") @db.VarChar(128)
+  /// Bybit's `id` field for the matched deposit row (idempotency key).
+  bybitDepositId      String?             @map("bybit_deposit_id") @db.VarChar(64)
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  matchedAt           DateTime?           @map("matched_at") @db.Timestamptz(6)
+  expiresAt           DateTime            @map("expires_at") @db.Timestamptz(6)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // For the polling job: fast lookup of "still-pending payments per chain".
+  @@index([status, network], map: "crypto_payments_status_network_idx")
+  @@index([orderId, status], map: "crypto_payments_order_status_idx")
+  // Idempotency: never insert two rows from the same Bybit deposit.
+  @@unique([bybitDepositId], map: "crypto_payments_bybit_deposit_id_uniq")
+  @@map("crypto_payments")
+}
+
+enum CryptoPaymentStatus {
+  PENDING
+  MATCHED
+  EXPIRED
+  CANCELLED
 }
 
 model OrderItem {

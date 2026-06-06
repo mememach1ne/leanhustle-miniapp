@@ -22,6 +22,6 @@ import { StaffOrdersController } from './staff-orders.controller';
     OrderNotificationsService,
     SubscriberBenefitService,
   ],
-  exports: [OrdersService],
+  exports: [OrdersService, OrderNotificationsService],
 })
 export class OrdersModule {}

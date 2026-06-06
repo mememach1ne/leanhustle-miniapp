@@ -9,8 +9,10 @@ import type {
   CartResponse,
   ChannelSubscriptionRefreshResponse,
   CheckoutOrderResponse,
+  CreateCryptoPaymentIntentRequest,
   CreateDeliveryAddressRequest,
   CreateManualOrderRequest,
+  CryptoPaymentIntentDto,
   DeliveryAddressDto,
   DewuResolvedProduct,
   ManagerHelpRequest,
@@ -19,6 +21,7 @@ import type {
   ManualPricingResult,
   OrderDetailsDto,
   OrderListItemDto,
+  PaymentNetwork,
   PricingCalculationRequest,
   PricingCalculationResult,
   ResolveProductRequest,
@@ -152,6 +155,47 @@ export const ordersApi = {
     return response.data;
   },
 };
+
+export const cryptoPaymentsApi = {
+  async getNetworks(): Promise<{ networks: PaymentNetwork[] }> {
+    const response = await apiClient.get<{ networks: PaymentNetwork[] }>(
+      '/orders/payment-networks',
+    );
+    return response.data;
+  },
+  async createIntent(
+    orderId: string,
+    payload: CreateCryptoPaymentIntentRequest,
+  ): Promise<CryptoPaymentIntentDto> {
+    const response = await apiClient.post<CryptoPaymentIntentDto>(
+      `/orders/${orderId}/payment-intent`,
+      payload,
+    );
+    return response.data;
+  },
+  async getStatus(orderId: string): Promise<CryptoPaymentIntentDto | null> {
+    try {
+      const response = await apiClient.get<CryptoPaymentIntentDto>(
+        `/orders/${orderId}/payment-status`,
+      );
+      return response.data;
+    } catch (error) {
+      // 404 = no intent yet for this order; not an error from the UI's
+      // perspective — it just means we should show the network picker.
+      if (isAxios404(error)) return null;
+      throw error;
+    }
+  },
+};
+
+function isAxios404(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error &&
+    (error as { response?: { status?: number } }).response?.status === 404
+  );
+}
 
 export const adminApi = {
   // Analytics

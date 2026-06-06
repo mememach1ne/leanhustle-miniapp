@@ -35,6 +35,18 @@ export default () => ({
     dewuApiProductEndpoint:
       process.env.DEWU_API_PRODUCT_ENDPOINT ?? '/poizon/product/queryDetail',
     dw4ResolverUrl: process.env.DW4_RESOLVER_URL ?? '',
+    // Bybit V5 API for crypto payment automation. Read-only key with
+    // Wallet -> Account Transfer permission. See docs/bybit-setup.md.
+    bybitApiKey: process.env.BYBIT_API_KEY ?? '',
+    bybitApiSecret: process.env.BYBIT_API_SECRET ?? '',
+    bybitRestBase: process.env.BYBIT_REST_BASE ?? 'https://api.bybit.com',
+    // Comma-separated list of payment-network enum values to surface to
+    // the user. Defaults to all supported. Use this to hide a chain
+    // temporarily without redeploying.
+    bybitEnabledNetworks: parseCsv(process.env.BYBIT_ENABLED_NETWORKS),
+    // How long a pending payment intent stays valid before EXPIRED. The
+    // window after which we stop expecting a deposit to land.
+    bybitPaymentTtlMinutes: Number(process.env.BYBIT_PAYMENT_TTL_MINUTES ?? 60),
   },
   notifications: {
     managerTelegramIds: parseCsv(process.env.MANAGER_TELEGRAM_IDS),

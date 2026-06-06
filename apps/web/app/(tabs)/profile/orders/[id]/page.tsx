@@ -13,6 +13,7 @@ import { ProductMiniCard } from '../../../../../components/ui/product-mini-card'
 import { SectionCard } from '../../../../../components/ui/section-card';
 import { ProductCardSkeleton, Skeleton } from '../../../../../components/ui/skeleton';
 import { StatusBadge } from '../../../../../components/ui/status-badge';
+import { CryptoPaymentPanel } from '../../../../../components/ui/crypto-payment-panel';
 import { ordersApi } from '../../../../../lib/api-client';
 import { extractAxiosMessage } from '../../../../../lib/error-utils';
 import { getTelegramWebApp, hapticImpact, hapticNotification } from '../../../../../lib/telegram-web-app';
@@ -289,6 +290,11 @@ export default function OrderDetailsPage() {
           ) : null}
         </div>
       </SectionCard>
+
+      {order.status === OrderStatus.CREATED ||
+      order.status === OrderStatus.PAYMENT_PENDING ? (
+        <CryptoPaymentPanel orderId={order.id} onMatched={handleLoadOrder} />
+      ) : null}
 
       {order.delivery ? (
         <SectionCard>

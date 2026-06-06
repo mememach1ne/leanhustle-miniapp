@@ -11,6 +11,7 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { AdminModule } from '../admin/admin.module';
 import { AuthModule } from '../auth/auth.module';
 import { CartModule } from '../cart/cart.module';
+import { CryptoPaymentsModule } from '../crypto-payments/crypto-payments.module';
 import { DeliveryAddressesModule } from '../delivery-addresses/delivery-addresses.module';
 import { HealthModule } from '../health/health.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
@@ -51,6 +52,7 @@ import { UsersModule } from '../users/users.module';
     CartModule,
     DeliveryAddressesModule,
     OrdersModule,
+    CryptoPaymentsModule,
     PricingModule,
     SettingsModule,
     LoyaltyModule,
