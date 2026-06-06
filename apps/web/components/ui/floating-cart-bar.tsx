@@ -6,52 +6,43 @@ import { usePathname } from 'next/navigation';
 import { useCartStore } from '../../store/cart-store';
 
 /**
- * Floating pill above the bottom navigation that links to /cart.
- * Currently shown only on the Calculator screen (matches the Portals-style
- * pattern where the cart CTA sits above the catalog/main flow).
+ * Compact floating cart pill (Portals-style) anchored to the right edge,
+ * sitting just above the bottom navigation. Liquid-glass look: translucent
+ * white surface with a subtle blur and white text inside.
  *
- * Hides itself when:
- *   - we're already on the cart page,
- *   - the cart hasn't loaded yet,
- *   - the cart is empty.
+ * Only shown on /calculator. Hidden when the cart is empty or unloaded.
  */
 export function FloatingCartBar() {
   const pathname = usePathname();
   const cart = useCartStore((state) => state.cart);
 
-  // Only on the calculator screen for now.
   if (!pathname?.startsWith('/calculator')) return null;
   if (!cart) return null;
 
   const count = cart.summary.itemsCount;
   if (count <= 0) return null;
 
-  // USD as requested. Round to 2 decimals; trim trailing zero if integer.
   const totalUsdLabel = `$${cart.summary.cartTotalUsd.toFixed(2)}`;
-
-  // Russian noun agreement: 1 товар / 2 товара / 5 товаров
-  const noun = pluralize(count, ['товар', 'товара', 'товаров']);
+  const itemsLabel = `${count} ${pluralize(count, ['товар', 'товара', 'товаров'])}`;
 
   return (
-    // Fixed position aligns the bar above the bottom-nav (~5.5rem high).
-    // The inner div is centered + max-width-md to match the rest of the
-    // miniapp shell, so on wide screens the pill doesn't span the page.
     <div
       className="pointer-events-none fixed inset-x-0 z-30"
       style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }}
     >
-      <div className="mx-auto w-full max-w-md px-4">
+      {/* Same horizontal frame as the rest of the shell so the pill
+          aligns with the content and sticks to the right edge of the
+          card column on wide screens. */}
+      <div className="mx-auto flex w-full max-w-md justify-end px-4">
         <Link
           href="/cart"
-          className="pointer-events-auto flex items-center justify-between rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-black/30 transition active:scale-[0.99]"
+          aria-label={`Открыть корзину — ${itemsLabel}, ${totalUsdLabel}`}
+          className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-black/30 backdrop-blur-xl transition active:scale-[0.97]"
         >
-          <span className="flex items-center gap-2">
-            <CartIcon />
-            <span>{totalUsdLabel}</span>
-          </span>
-          <span className="text-xs font-medium text-slate-950/80">
-            {count} {noun}
-          </span>
+          <CartIcon />
+          <span className="leading-none">{totalUsdLabel}</span>
+          <span className="leading-none text-white/60">·</span>
+          <span className="leading-none text-white/80">{itemsLabel}</span>
         </Link>
       </div>
     </div>
@@ -62,8 +53,8 @@ function CartIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
