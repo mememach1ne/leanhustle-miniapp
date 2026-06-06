@@ -4,6 +4,7 @@ import { OrderStatus } from '@lean-poizon/shared';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
+import { CryptoPaymentPanel } from '../../../../../components/ui/crypto-payment-panel';
 import { EmptyState } from '../../../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../../../components/ui/feedback-message';
 import { InfoRow } from '../../../../../components/ui/info-row';
@@ -13,7 +14,6 @@ import { ProductMiniCard } from '../../../../../components/ui/product-mini-card'
 import { SectionCard } from '../../../../../components/ui/section-card';
 import { ProductCardSkeleton, Skeleton } from '../../../../../components/ui/skeleton';
 import { StatusBadge } from '../../../../../components/ui/status-badge';
-import { CryptoPaymentPanel } from '../../../../../components/ui/crypto-payment-panel';
 import { ordersApi } from '../../../../../lib/api-client';
 import { extractAxiosMessage } from '../../../../../lib/error-utils';
 import { getTelegramWebApp, hapticImpact, hapticNotification } from '../../../../../lib/telegram-web-app';
