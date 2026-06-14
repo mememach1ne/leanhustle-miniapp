@@ -125,6 +125,15 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
       return;
     }
 
+    // --- Reviews submenu (reviews / purchases channels) ---
+    if (orderAdminService.isClientReviewsCallback(data)) {
+      await ctx.answerCbQuery();
+      await ctx.editMessageText(orderAdminService.getReviewsText(), {
+        reply_markup: orderAdminService.buildReviewsKeyboard(),
+      });
+      return;
+    }
+
     // --- Back to welcome from any submenu ---
     if (orderAdminService.isClientBackToWelcomeCallback(data)) {
       await ctx.answerCbQuery();

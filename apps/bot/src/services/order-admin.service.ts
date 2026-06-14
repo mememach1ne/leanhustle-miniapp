@@ -148,6 +148,10 @@ export const NEWS_CHANNEL_USERNAME = '@lh_poizon';
 export const NEWS_CHANNEL_URL = 'https://t.me/lh_poizon';
 export const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
 
+// Social proof channels surfaced behind the "Отзывы" welcome button.
+export const REVIEWS_CHANNEL_URL = 'https://t.me/lh_poizonreviews';
+export const PURCHASES_CHANNEL_URL = 'https://t.me/lh_poizonpurchases';
+
 type AdminPanelAction =
   | 'new_orders'
   | 'active_orders'
@@ -204,6 +208,14 @@ export class OrderAdminService {
             callback_data: `${CLIENT_ACTION_PREFIX}guide`,
             // Bot API 9.4 premium emoji (📗-style book).
             icon_custom_emoji_id: '5402482853030163217',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
+        ],
+        [
+          {
+            text: 'Отзывы',
+            callback_data: `${CLIENT_ACTION_PREFIX}reviews`,
+            // Bot API 9.4 premium emoji (star/review style).
+            icon_custom_emoji_id: '5780463361175066565',
           } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
         [
@@ -297,6 +309,10 @@ export class OrderAdminService {
     return data === `${CLIENT_ACTION_PREFIX}guide`;
   }
 
+  isClientReviewsCallback(data: string): boolean {
+    return data === `${CLIENT_ACTION_PREFIX}reviews`;
+  }
+
   isClientBackToWelcomeCallback(data: string): boolean {
     return data === `${CLIENT_ACTION_PREFIX}back_to_welcome`;
   }
@@ -325,6 +341,39 @@ export class OrderAdminService {
             url: 'https://telegra.ph/KAK-ZAKAZYVAT-s-POIZON-v-ROSSII-05-24',
             icon_custom_emoji_id: '5434144690511290129',
           } as InlineKeyboardMarkup['inline_keyboard'][number][number],
+        ],
+        [
+          {
+            text: '← Назад',
+            callback_data: `${CLIENT_ACTION_PREFIX}back_to_welcome`,
+          },
+        ],
+      ],
+    };
+  }
+
+  getReviewsText() {
+    return [
+      '⭐️ Отзывы и выкупы',
+      '',
+      'Реальные отзывы наших клиентов и примеры выкупленных заказов — в наших каналах ниже.',
+    ].join('\n');
+  }
+
+  buildReviewsKeyboard(): InlineKeyboardMarkup {
+    return {
+      inline_keyboard: [
+        [
+          {
+            text: '⭐️ Отзывы',
+            url: REVIEWS_CHANNEL_URL,
+          },
+        ],
+        [
+          {
+            text: '📦 Выкупы',
+            url: PURCHASES_CHANNEL_URL,
+          },
         ],
         [
           {

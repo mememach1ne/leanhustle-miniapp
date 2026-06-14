@@ -63,6 +63,32 @@ const FAQ_ITEMS = [
       </>
     ),
   },
+  {
+    question: 'Где почитать отзывы?',
+    answer: (
+      <>
+        Реальные отзывы наших клиентов и примеры выкупленных заказов — в наших каналах:{' '}
+        <a
+          href="https://t.me/lh_poizonreviews"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[var(--accent)] underline-offset-2 hover:underline"
+        >
+          Отзывы
+        </a>{' '}
+        и{' '}
+        <a
+          href="https://t.me/lh_poizonpurchases"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[var(--accent)] underline-offset-2 hover:underline"
+        >
+          Выкупы
+        </a>
+        .
+      </>
+    ),
+  },
 ];
 
 export default function ProfilePage() {
