@@ -67,25 +67,25 @@ const FAQ_ITEMS = [
     question: 'Где почитать отзывы?',
     answer: (
       <>
-        Реальные отзывы наших клиентов и примеры выкупленных заказов — в наших каналах:{' '}
-        <a
-          href="https://t.me/lh_poizonreviews"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[var(--accent)] underline-offset-2 hover:underline"
-        >
-          Отзывы
-        </a>{' '}
-        и{' '}
-        <a
-          href="https://t.me/lh_poizonpurchases"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[var(--accent)] underline-offset-2 hover:underline"
-        >
-          Выкупы
-        </a>
-        .
+        Реальные отзывы наших клиентов и примеры выкупленных заказов — в наших каналах:
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a
+            href="https://t.me/lh_poizonreviews"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent)]/40 bg-[var(--accent)]/15 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent)]/25 active:scale-95"
+          >
+            ⭐️ Отзывы
+          </a>
+          <a
+            href="https://t.me/lh_poizonpurchases"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent)]/40 bg-[var(--accent)]/15 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent)]/25 active:scale-95"
+          >
+            📦 Выкупы
+          </a>
+        </div>
       </>
     ),
   },
