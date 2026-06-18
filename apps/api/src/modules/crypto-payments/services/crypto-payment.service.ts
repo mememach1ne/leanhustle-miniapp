@@ -183,8 +183,10 @@ export class CryptoPaymentService {
   }
 
   /**
-   * Polling job. Runs every 30 seconds. For every distinct network with
-   * live PENDING payments, asks Bybit for new deposits and tries to match.
+   * Polling job. Runs every 30 seconds. Fetches all successful USDT
+   * deposits in the recent window and matches each against live PENDING
+   * intents by amount (amounts are globally unique — see
+   * generateUniqueAmount).
    *
    * Bybit gives us no webhooks, so this is the only path that flips an
    * order to PAID_AWAITING_PURCHASE.
@@ -202,57 +204,47 @@ export class CryptoPaymentService {
     });
     if (pending.length === 0) return;
 
-    // Group by network — one Bybit call per chain.
-    const byNetwork = new Map<string, typeof pending>();
-    for (const intent of pending) {
-      const group = byNetwork.get(intent.network) ?? [];
-      group.push(intent);
-      byNetwork.set(intent.network, group);
-    }
-
-    // Look back generously so a late-confirmed deposit still matches.
-    const startTime = Date.now() - 3 * 60 * 60 * 1000; // 3h
+    // Look back generously so a late-confirmed deposit still matches even if
+    // the customer paid a while before the intent expired.
+    const startTime = Date.now() - 6 * 60 * 60 * 1000; // 6h
     const endTime = Date.now();
 
-    for (const [network, intents] of byNetwork.entries()) {
-      const deposits = await this.bybit.listDeposits(
-        USDT_COIN,
-        network,
-        startTime,
-        endTime,
+    const deposits = await this.bybit.listSuccessfulDeposits(
+      USDT_COIN,
+      startTime,
+      endTime,
+    );
+    if (deposits.length === 0) return;
+
+    for (const deposit of deposits) {
+      // Already consumed? The unique index on bybitDepositId guards us, but
+      // skipping early saves a roundtrip.
+      const seen = await this.prisma.cryptoPayment.findFirst({
+        where: { bybitDepositId: deposit.id },
+        select: { id: true },
+      });
+      if (seen) continue;
+
+      const depositAmount = Number(deposit.amount);
+      if (!Number.isFinite(depositAmount) || depositAmount <= 0) continue;
+
+      const match = pending.find(
+        (intent) =>
+          Math.abs(Number(intent.expectedAmountUsdt) - depositAmount) < 0.0005,
       );
-      if (deposits.length === 0) continue;
+      if (!match) continue;
 
-      for (const deposit of deposits) {
-        // Already consumed? unique index on bybitDepositId will throw,
-        // but skipping early saves a roundtrip.
-        const seen = await this.prisma.cryptoPayment.findFirst({
-          where: { bybitDepositId: deposit.id },
-          select: { id: true },
-        });
-        if (seen) continue;
-
-        const depositAmount = Number(deposit.amount);
-        if (!Number.isFinite(depositAmount) || depositAmount <= 0) continue;
-
-        const match = intents.find(
-          (intent) =>
-            Math.abs(Number(intent.expectedAmountUsdt) - depositAmount) < 0.0005,
+      try {
+        await this.applyMatch(match.id, deposit.id, deposit.txID);
+        this.logger.log(
+          `Matched deposit ${deposit.id} (${deposit.chain}, ${deposit.amount}) -> order ${match.order.orderNumber}.`,
         );
-        if (!match) continue;
-
-        try {
-          await this.applyMatch(match.id, deposit.id, deposit.txID);
-          this.logger.log(
-            `Matched deposit ${deposit.id} -> order ${match.order.orderNumber} (${network}).`,
-          );
-        } catch (error) {
-          this.logger.error(
-            `Failed to apply match for deposit ${deposit.id}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
-        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to apply match for deposit ${deposit.id}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       }
     }
   }
@@ -279,37 +271,37 @@ export class CryptoPaymentService {
    * strategy. Uses the integer dollar part of totalUsd and a 2-digit
    * fractional unique suffix.
    *
-   * We pick a fractional from 0.10..0.99 that is currently NOT in use by
-   * any PENDING payment on this network. With 90 possible values this
-   * comfortably supports ~50 concurrent unpaid orders per network. If the
-   * unlikely happens and all slots are full we add +$1.00 and try again.
+   * The amount must be unique across ALL networks (not just the one being
+   * created) because the matcher reads every chain's deposits and matches
+   * purely by amount. We pick a fractional 0.10..0.99 not currently in use
+   * by any live PENDING payment. If all slots at this dollar floor are
+   * taken we bump the floor by $1 and retry.
    */
   private async generateUniqueAmount(
     network: PaymentNetwork,
     totalUsd: number,
   ): Promise<number> {
+    void network; // amounts are globally unique, not per-network
     const live = await this.prisma.cryptoPayment.findMany({
-      where: { network, status: CryptoPaymentStatus.PENDING },
+      where: { status: CryptoPaymentStatus.PENDING },
       select: { expectedAmountUsdt: true },
     });
     const taken = new Set(
       live.map((row) => Number(row.expectedAmountUsdt).toFixed(2)),
     );
 
-    const floor = Math.ceil(totalUsd); // round up to whole dollar
-    let candidate = floor;
-    let attempts = 0;
-    while (attempts < 100) {
-      // 10..99 — keep the cents non-zero so the suffix is unmistakable.
-      const cents = Math.floor(10 + Math.random() * 90);
-      candidate = floor + cents / 100;
-      const key = candidate.toFixed(2);
-      if (!taken.has(key)) return candidate;
-      attempts += 1;
+    let floor = Math.ceil(totalUsd); // round up to whole dollar
+    for (let bump = 0; bump < 20; bump += 1) {
+      // Try every cents slot at this floor in random order.
+      const cents = shuffle(range(10, 99));
+      for (const c of cents) {
+        const candidate = floor + c / 100;
+        if (!taken.has(candidate.toFixed(2))) return candidate;
+      }
+      floor += 1;
     }
-    // Fallback: extremely improbable. Bump the dollar floor and try the
-    // simple suffix 0.42 — gives every network another 100 slots.
-    return floor + 1 + 0.42;
+    // Astronomically improbable fallback.
+    return floor + 0.42;
   }
 
   /**
@@ -436,4 +428,21 @@ export class CryptoPaymentService {
 
 function isPaymentNetwork(value: string): value is PaymentNetwork {
   return (Object.values(PaymentNetwork) as string[]).includes(value);
+}
+
+/** Inclusive integer range [from, to]. */
+function range(from: number, to: number): number[] {
+  const out: number[] = [];
+  for (let i = from; i <= to; i += 1) out.push(i);
+  return out;
+}
+
+/** Fisher–Yates shuffle (returns a new array). */
+function shuffle<T>(input: T[]): T[] {
+  const arr = [...input];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }

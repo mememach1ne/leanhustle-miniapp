@@ -22,8 +22,9 @@ export interface BybitDepositRecord {
   /** External transaction hash on the chain. */
   txID: string;
   /**
-   * Bybit deposit status: 1=processing, 2=success, 3=failed.
-   * We only care about 2 (success); anything else is ignored.
+   * Bybit deposit status: 0=unknown, 1=toBeConfirmed, 2=processing,
+   * 3=success (finalised), 4=failed, 10012=credited to funding pool.
+   * We treat 3 and 10012 as a confirmed credit.
    */
   status: number;
 }
@@ -184,13 +185,20 @@ export class BybitClientService {
   }
 
   /**
-   * List successful deposits for (coin, chain) within a time window.
-   * `startTime`/`endTime` are milliseconds since epoch. Bybit returns all
-   * statuses; we filter for `status === 2` (success) below.
+   * List successful deposits for `coin` across ALL chains within a time
+   * window. `startTime`/`endTime` are milliseconds since epoch.
+   *
+   * We intentionally don't filter by chain here — the service matches a
+   * deposit to a pending intent by its (globally-unique) amount, which is
+   * more robust than relying on Bybit's chain-name spelling matching our
+   * enum value exactly.
+   *
+   * Bybit deposit `status`: 3 = success (finalised), 10012 = credited to
+   * funding pool. Anything else (1 toBeConfirmed, 2 processing, 4 failed)
+   * is not yet a confirmed credit, so we skip it.
    */
-  async listDeposits(
+  async listSuccessfulDeposits(
     coin: string,
-    chain: string,
     startTime: number,
     endTime: number,
   ): Promise<BybitDepositRecord[]> {
@@ -203,7 +211,7 @@ export class BybitClientService {
     const data = await this.signedGet<Resp>(
       '/v5/asset/deposit/query-record',
       { coin, startTime, endTime, limit: 50 },
-      `query-record ${coin}/${chain}`,
+      `query-record ${coin}`,
     );
     if (!data) return [];
     if (data.retCode !== 0) {
@@ -215,7 +223,7 @@ export class BybitClientService {
 
     const rows = data.result?.rows ?? [];
     return rows.filter(
-      (row) => row.status === 2 && row.coin === coin && row.chain === chain,
+      (row) => (row.status === 3 || row.status === 10012) && row.coin === coin,
     );
   }
 }
