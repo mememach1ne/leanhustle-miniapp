@@ -6,6 +6,7 @@ import type {
   BusinessSettingsDto,
   DewuResolvedProduct,
   ManualOrderClientLookupResponse,
+  ProfitReportDto,
   SettingsAuditLogItemDto,
   StaffOrderDetailsDto,
   StaffOrderListItemDto,
@@ -15,6 +16,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Inject,
   Logger,
@@ -26,7 +28,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { StaffAccount } from '@prisma/client';
+import { type StaffAccount, StaffRole } from '@prisma/client';
 import type { Response } from 'express';
 
 import { CancelOrderDto } from '../orders/dto/cancel-order.dto';
@@ -44,8 +46,10 @@ import { JwtStaffAuthGuard } from '../staff/guards/jwt-staff-auth.guard';
 import { AdminService } from './admin.service';
 import { AdminOrdersQueryDto, AdminOrdersSearchQueryDto } from './dto/admin-orders-query.dto';
 import { AdminUsersQueryDto } from './dto/admin-users-query.dto';
+import { ProfitReportQueryDto } from './dto/profit-report-query.dto';
 import { AnalyticsService } from './services/analytics.service';
 import { ExcelExportService } from './services/excel-export.service';
+import { ProfitReportService } from './services/profit-report.service';
 
 @Controller('admin')
 @UseGuards(JwtStaffAuthGuard)
@@ -57,6 +61,7 @@ export class AdminController {
   private readonly excelExportService: ExcelExportService;
   private readonly analyticsService: AnalyticsService;
   private readonly productsService: ProductsService;
+  private readonly profitReportService: ProfitReportService;
 
   constructor(
     @Inject(AdminService) adminService: AdminService,
@@ -65,13 +70,22 @@ export class AdminController {
     @Inject(ExcelExportService) excelExportService: ExcelExportService,
     @Inject(AnalyticsService) analyticsService: AnalyticsService,
     @Inject(ProductsService) productsService: ProductsService,
+    @Inject(ProfitReportService) profitReportService: ProfitReportService,
   ) {
+    this.profitReportService = profitReportService;
     this.adminService = adminService;
     this.ordersService = ordersService;
     this.settingsService = settingsService;
     this.excelExportService = excelExportService;
     this.analyticsService = analyticsService;
     this.productsService = productsService;
+  }
+
+  /** Financial data (profit split) is restricted to ADMIN, not MANAGER. */
+  private assertAdmin(staff?: StaffAccount): void {
+    if (!staff || staff.role !== StaffRole.ADMIN) {
+      throw new ForbiddenException('Отчёт о прибыли доступен только администратору.');
+    }
   }
 
   // ─── Analytics ─────────────────────────────────────────────
@@ -263,6 +277,43 @@ export class AdminController {
       'Content-Length': buffer.length,
     });
 
+    res.send(buffer);
+  }
+
+  // ─── Profit report (admin only) ────────────────────────────
+
+  @Get('profit-report')
+  async getProfitReport(
+    @Query() query: ProfitReportQueryDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<ProfitReportDto> {
+    this.assertAdmin(staff);
+    return this.profitReportService.computeReport(
+      new Date(query.from),
+      new Date(query.to),
+    );
+  }
+
+  @Get('profit-report/export-excel')
+  async exportProfitReport(
+    @Query() query: ProfitReportQueryDto,
+    @Res() res: Response,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<void> {
+    this.assertAdmin(staff);
+    const report = await this.profitReportService.computeReport(
+      new Date(query.from),
+      new Date(query.to),
+    );
+    const buffer = await this.profitReportService.generateExcel(report);
+    const filename = `profit_${report.from}_${report.to}.xlsx`;
+
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+    });
     res.send(buffer);
   }
 

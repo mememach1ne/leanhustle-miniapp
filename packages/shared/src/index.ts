@@ -14,6 +14,7 @@ export * from './interfaces/channel-subscription.interface';
 export * from './interfaces/order.interface';
 export * from './interfaces/pricing.interface';
 export * from './interfaces/product.interface';
+export * from './interfaces/profit-report.interface';
 export * from './interfaces/settings.interface';
 export * from './interfaces/user-profile.interface';
 export * from './interfaces/admin.interface';

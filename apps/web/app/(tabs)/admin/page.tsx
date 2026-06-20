@@ -17,12 +17,13 @@ import { FeedbackMessage } from '../../../components/ui/feedback-message';
 import { LoadingBlock } from '../../../components/ui/loading-block';
 import { ManualOrderForm } from '../../../components/ui/manual-order-form';
 import { PageSection } from '../../../components/ui/page-section';
+import { ProfitReportPanel } from '../../../components/ui/profit-report-panel';
 import { SectionCard } from '../../../components/ui/section-card';
 import { adminApi } from '../../../lib/api-client';
 import { extractAxiosMessage } from '../../../lib/error-utils';
 import { useAuthStore } from '../../../store/auth-store';
 
-type AdminTab = 'analytics' | 'orders' | 'settings' | 'users';
+type AdminTab = 'analytics' | 'orders' | 'settings' | 'users' | 'profit';
 
 const STATUS_COLORS: Record<string, string> = {
   CREATED: 'bg-blue-400/15 text-blue-300 border-blue-300/30',
@@ -50,11 +51,32 @@ export default function AdminPage() {
     );
   }
 
+  // The profit/earnings split is sensitive — admins only.
+  const tabs: AdminTab[] =
+    user.staffRole === 'ADMIN'
+      ? ['analytics', 'orders', 'settings', 'users', 'profit']
+      : ['analytics', 'orders', 'settings', 'users'];
+
+  const tabLabel = (tab: AdminTab): string => {
+    switch (tab) {
+      case 'analytics':
+        return '📊 Онлайн';
+      case 'orders':
+        return 'Заказы';
+      case 'settings':
+        return 'Настройки';
+      case 'users':
+        return 'Клиенты';
+      case 'profit':
+        return '💰 Прибыль';
+    }
+  };
+
   return (
     <PageSection>
       {/* Sub-navigation */}
       <div className="flex gap-2 overflow-x-auto">
-        {(['analytics', 'orders', 'settings', 'users'] as AdminTab[]).map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab}
             type="button"
@@ -66,13 +88,7 @@ export default function AdminPage() {
                 : 'border border-white/10 bg-white/5 text-white hover:bg-white/10',
             ].join(' ')}
           >
-            {tab === 'analytics'
-              ? '📊 Онлайн'
-              : tab === 'orders'
-                ? 'Заказы'
-                : tab === 'settings'
-                  ? 'Настройки'
-                  : 'Клиенты'}
+            {tabLabel(tab)}
           </button>
         ))}
       </div>
@@ -81,6 +97,9 @@ export default function AdminPage() {
       {activeTab === 'orders' ? <OrdersPanel /> : null}
       {activeTab === 'settings' ? <SettingsPanel /> : null}
       {activeTab === 'users' ? <UsersPanel /> : null}
+      {activeTab === 'profit' ? (
+        <ProfitReportPanel onClose={() => setActiveTab('analytics')} />
+      ) : null}
     </PageSection>
   );
 }

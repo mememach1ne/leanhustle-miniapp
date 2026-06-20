@@ -22,6 +22,7 @@ import type {
   OrderDetailsDto,
   OrderListItemDto,
   PaymentNetwork,
+  ProfitReportDto,
   PricingCalculationRequest,
   PricingCalculationResult,
   ResolveProductRequest,
@@ -310,6 +311,21 @@ export const adminApi = {
   },
   async exportUsersExcel(): Promise<Blob> {
     const response = await apiClient.get('/admin/users/export-excel', { responseType: 'blob' });
+    return response.data as Blob;
+  },
+
+  // Profit report (admin only)
+  async getProfitReport(from: string, to: string): Promise<ProfitReportDto> {
+    const response = await apiClient.get<ProfitReportDto>('/admin/profit-report', {
+      params: { from, to },
+    });
+    return response.data;
+  },
+  async exportProfitReportExcel(from: string, to: string): Promise<Blob> {
+    const response = await apiClient.get('/admin/profit-report/export-excel', {
+      params: { from, to },
+      responseType: 'blob',
+    });
     return response.data as Blob;
   },
   async exportUserExcel(id: string): Promise<Blob> {

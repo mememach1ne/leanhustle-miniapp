@@ -51,6 +51,13 @@ export default () => ({
   notifications: {
     managerTelegramIds: parseCsv(process.env.MANAGER_TELEGRAM_IDS),
   },
+  profit: {
+    // Investor's share of net profit, percent. Owner keeps the remainder.
+    investorSharePercent: Number(process.env.PROFIT_INVESTOR_SHARE_PERCENT ?? 50),
+    // Telegram IDs that receive the auto-generated monthly report file
+    // (e.g. you + the investor). Empty disables auto-send.
+    reportTelegramIds: parseCsv(process.env.PROFIT_REPORT_TELEGRAM_IDS),
+  },
   bot: {
     internalApiToken: process.env.BOT_INTERNAL_API_TOKEN ?? '',
   },

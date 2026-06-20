@@ -8,10 +8,11 @@ import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { AnalyticsService } from './services/analytics.service';
 import { ExcelExportService } from './services/excel-export.service';
+import { ProfitReportService } from './services/profit-report.service';
 
 @Module({
   imports: [OrdersModule, ProductsModule, SettingsModule, StaffModule],
   controllers: [AdminController],
-  providers: [AdminService, AnalyticsService, ExcelExportService],
+  providers: [AdminService, AnalyticsService, ExcelExportService, ProfitReportService],
 })
 export class AdminModule {}
