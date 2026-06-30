@@ -13,6 +13,7 @@ import { PageSection } from '../../../components/ui/page-section';
 import { SectionCard } from '../../../components/ui/section-card';
 import { authApi } from '../../../lib/api-client';
 import { extractAxiosMessage } from '../../../lib/error-utils';
+import { tokenStorage } from '../../../lib/token-storage';
 import { useAuthStore } from '../../../store/auth-store';
 
 const FAQ_ITEMS = [
@@ -266,6 +267,34 @@ export default function ProfilePage() {
           </div>
         </details>
       </div>
+
+      <LogoutButton />
     </PageSection>
+  );
+}
+
+/**
+ * Browser-only "Выйти" button. Hidden inside Telegram, where the session is
+ * managed by the Mini App and there's nothing to log out of.
+ */
+function LogoutButton() {
+  const isTelegramEnvironment = useAuthStore((state) => state.isTelegramEnvironment);
+  const logout = useAuthStore((state) => state.logout);
+
+  if (isTelegramEnvironment) return null;
+
+  const handleLogout = () => {
+    tokenStorage.clear();
+    logout();
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleLogout}
+      className="mt-4 w-full rounded-[18px] border border-rose-400/30 bg-rose-400/10 px-4 py-2.5 text-sm font-semibold text-rose-200 transition hover:bg-rose-400/20"
+    >
+      Выйти
+    </button>
   );
 }

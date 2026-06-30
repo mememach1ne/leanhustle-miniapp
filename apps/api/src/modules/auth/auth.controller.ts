@@ -7,6 +7,7 @@ import { mapUserToProfile } from '../users/mappers/user-profile.mapper';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { TelegramAuthDto } from './dto/telegram-auth.dto';
+import { TelegramLoginWidgetDto } from './dto/telegram-login-widget.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -23,6 +24,13 @@ export class AuthController {
   async authenticateTelegram(@Body() dto: TelegramAuthDto) {
     this.logger.log('POST /auth/telegram request received');
     return this.authService.authenticateTelegram(dto);
+  }
+
+  @Post('telegram-widget')
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  async authenticateTelegramWidget(@Body() dto: TelegramLoginWidgetDto) {
+    this.logger.log('POST /auth/telegram-widget request received');
+    return this.authService.authenticateTelegramWidget(dto);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -1,4 +1,8 @@
-import type { TelegramWebAppInitDataUnsafe, TelegramWebAppUser } from '@lean-poizon/shared';
+import type {
+  TelegramLoginWidgetPayload,
+  TelegramWebAppInitDataUnsafe,
+  TelegramWebAppUser,
+} from '@lean-poizon/shared';
 import {
   BadRequestException,
   Inject,
@@ -7,7 +11,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, timingSafeEqual } from 'crypto';
 
 @Injectable()
 export class TelegramAuthValidationService {
@@ -105,6 +109,69 @@ export class TelegramAuthValidationService {
     this.logger.log(`Telegram initData parsed user id=${parsedUser.id}`);
 
     return parsedUser;
+  }
+
+  /**
+   * Validate a Telegram Login Widget payload (browser login, not Mini App).
+   *
+   * The scheme is similar to initData but the secret key derivation differs:
+   *   secret = SHA256(botToken)            (raw 32 bytes)
+   *   dataCheckString = sorted "key=value" of every field except `hash`
+   *   expected = HMAC_SHA256(secret, dataCheckString) hex
+   * See https://core.telegram.org/widgets/login#checking-authorization
+   */
+  validateLoginWidget(payload: TelegramLoginWidgetPayload): TelegramWebAppUser {
+    const botToken =
+      this.configService.get<string>('telegram.botToken') ??
+      process.env.TELEGRAM_BOT_TOKEN ??
+      '';
+    if (!botToken) {
+      this.logger.error('TELEGRAM_BOT_TOKEN is missing for Login Widget validation');
+      throw new UnauthorizedException('Telegram auth is not configured');
+    }
+
+    const { hash, ...fields } = payload;
+    if (!hash || !payload.id || !payload.auth_date) {
+      throw new UnauthorizedException('Telegram login payload is incomplete');
+    }
+
+    // Login-widget links rarely live longer than a few minutes, but the JWT
+    // governs the real session, so allow a generous 1-day window to absorb
+    // clock skew and slow redirects while still preventing stale replays.
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+    if (payload.auth_date > nowInSeconds + 30) {
+      throw new UnauthorizedException('Telegram auth_date is invalid');
+    }
+    if (nowInSeconds - payload.auth_date > 86_400) {
+      throw new UnauthorizedException('Telegram login payload has expired');
+    }
+
+    const dataCheckString = Object.entries(fields)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => [key, String(value)] as const)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n');
+
+    const secretKey = createHash('sha256').update(botToken).digest();
+    const calculatedHash = createHmac('sha256', secretKey)
+      .update(dataCheckString)
+      .digest('hex');
+
+    if (!this.safeCompare(calculatedHash, hash)) {
+      this.logger.warn('Telegram login widget signature validation failed');
+      throw new UnauthorizedException('Telegram login signature is invalid');
+    }
+
+    this.logger.log(`Telegram login widget parsed user id=${payload.id}`);
+
+    return {
+      id: payload.id,
+      first_name: payload.first_name ?? '',
+      last_name: payload.last_name,
+      username: payload.username,
+      photo_url: payload.photo_url,
+    } as TelegramWebAppUser;
   }
 
   private safeCompare(left: string, right: string): boolean {

@@ -29,6 +29,7 @@ import type {
   SettingsAuditLogItemDto,
   StaffOrderDetailsDto,
   StaffOrderListItemDto,
+  TelegramLoginWidgetPayload,
   UpdateBusinessSettingsRequest,
   UpdateDeliveryAddressRequest,
   UserProfile,
@@ -63,6 +64,12 @@ apiClient.interceptors.request.use((config) => {
 export const authApi = {
   async authenticateTelegram(initData: string): Promise<AuthPayload> {
     const response = await apiClient.post<AuthPayload>('/auth/telegram', { initData });
+    return response.data;
+  },
+  async authenticateTelegramWidget(
+    payload: TelegramLoginWidgetPayload,
+  ): Promise<AuthPayload> {
+    const response = await apiClient.post<AuthPayload>('/auth/telegram-widget', payload);
     return response.data;
   },
   async getCurrentUser(): Promise<UserProfile> {

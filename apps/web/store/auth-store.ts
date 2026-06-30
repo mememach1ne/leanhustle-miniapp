@@ -2,7 +2,15 @@ import type { TelegramWebAppInitDataUnsafe, UserProfile } from '@lean-poizon/sha
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-type AuthStatus = 'idle' | 'loading' | 'authenticated' | 'fallback' | 'error';
+type AuthStatus =
+  | 'idle'
+  | 'loading'
+  | 'authenticated'
+  | 'fallback'
+  | 'error'
+  // Browser (not inside Telegram) and no valid session — show the
+  // "Log in with Telegram" widget instead of an error.
+  | 'needs-login';
 
 interface AuthDebugState {
   hasTelegramObject: boolean;
@@ -34,6 +42,8 @@ interface AuthState {
   setUser: (user: UserProfile) => void;
   setFallback: (message: string) => void;
   setError: (message: string) => void;
+  setNeedsLogin: () => void;
+  logout: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -101,6 +111,20 @@ export const useAuthStore = create<AuthState>()(
           status: 'error',
           error: message,
           accessToken: undefined,
+        }),
+      setNeedsLogin: () =>
+        set({
+          status: 'needs-login',
+          error: undefined,
+          accessToken: undefined,
+          user: undefined,
+        }),
+      logout: () =>
+        set({
+          status: 'needs-login',
+          error: undefined,
+          accessToken: undefined,
+          user: undefined,
         }),
     }),
     {
