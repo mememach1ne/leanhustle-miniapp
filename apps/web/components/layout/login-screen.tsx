@@ -59,7 +59,10 @@ export function LoginScreen() {
           Poizon
         </h1>
 
-        <p className="max-w-md text-sm leading-6 text-white/70">
+        <p
+          className="max-w-md text-sm font-medium leading-6 text-white"
+          style={{ textShadow: '0 1px 14px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,0.7)' }}
+        >
           Заказывай товары с Poizon в Россию: рассчитывай стоимость, собирай
           корзину и отслеживай заказы.
         </p>
@@ -68,7 +71,10 @@ export function LoginScreen() {
           <TelegramLoginButton />
         </div>
 
-        <p className="mt-2 text-[11px] leading-5 text-white/35">
+        <p
+          className="mt-2 text-xs leading-5 text-white/70"
+          style={{ textShadow: '0 1px 12px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,0.7)' }}
+        >
           Вход только через Telegram. Можно открыть и прямо в Telegram — там
           авторизация произойдёт автоматически.
         </p>
