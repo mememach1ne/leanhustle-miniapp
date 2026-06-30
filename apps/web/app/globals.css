@@ -207,9 +207,40 @@ select {
     0 5px 16px -4px rgba(41, 195, 197, 0.45);
 }
 
+/* =====================================================================
+ * Browser login hero wordmark — animated "chrome" gradient sweep, ported
+ * from the main site (leanhustle.net) but recoloured to the Poizon teal
+ * palette. Pairs with the WebGL liquid background.
+ * ===================================================================== */
+@keyframes lh-chrome {
+  to {
+    background-position: 280% 0;
+  }
+}
+
+.lh-wordmark {
+  background: linear-gradient(
+    115deg,
+    #ffffff 0%,
+    #bff4f4 18%,
+    #29c3c5 36%,
+    #7fe9ea 52%,
+    #1fa8aa 68%,
+    #5fd6d7 82%,
+    #ffffff 100%
+  );
+  background-size: 280% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lh-chrome 9s linear infinite;
+  filter: drop-shadow(0 10px 40px rgba(41, 195, 197, 0.45));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lg-accent-card,
-  .lg-accent-button {
+  .lg-accent-button,
+  .lh-wordmark {
     animation: none;
   }
 }

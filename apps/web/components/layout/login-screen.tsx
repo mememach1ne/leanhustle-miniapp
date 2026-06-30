@@ -1,81 +1,71 @@
 'use client';
 
+import { LiquidBackground } from '../ui/liquid-background';
 import { TelegramLoginButton } from '../ui/telegram-login-button';
 
 /**
- * Full-screen browser login gate, styled like the brand's main site hero:
- * a glowing centred logo, a spaced uppercase tagline, a large gradient
- * wordmark, then the Telegram login button. Uses the project's dark +
- * teal-accent palette rather than the site's purple.
- *
- * Inside Telegram this never renders (the Mini App auto-authenticates).
+ * Full-screen browser login gate, modelled on the main site (leanhustle.net)
+ * hero: a WebGL liquid background, a spaced mono kicker with hairlines, and a
+ * large animated "chrome" wordmark — recoloured to the Poizon teal palette
+ * (the site uses purple). Inside Telegram this never renders.
  */
 export function LoginScreen() {
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden px-5 py-12">
-      {/* Ambient background glows */}
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden px-5 py-12 text-center">
+      {/* Animated liquid background (opaque, covers the screen) */}
+      <LiquidBackground />
+
+      {/* Darkening + vignette overlay so the text stays legible, mirroring
+          the main site's #shade layer. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-[28%] h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px]"
+        className="pointer-events-none fixed inset-0 -z-10"
         style={{
           background:
-            'radial-gradient(circle, rgba(41,195,197,0.30) 0%, rgba(124,58,237,0.18) 45%, transparent 70%)',
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute bottom-0 left-1/2 h-[260px] w-[520px] -translate-x-1/2 translate-y-1/3 rounded-full blur-[120px]"
-        style={{
-          background:
-            'radial-gradient(circle, rgba(124,58,237,0.20) 0%, transparent 70%)',
+            'linear-gradient(180deg, rgba(5,10,20,0.82), rgba(5,10,20,0.42) 16%, rgba(5,10,20,0.42) 74%, rgba(5,10,20,0.92)), radial-gradient(125% 80% at 50% 38%, transparent 40%, rgba(5,10,20,0.7))',
         }}
       />
 
-      <div className="relative flex w-full max-w-sm flex-col items-center text-center">
-        {/* Hero logo with a soft glow ring */}
-        <div className="relative mb-7">
-          <div
-            aria-hidden
-            className="absolute inset-0 -z-10 rounded-full blur-2xl"
-            style={{ background: 'radial-gradient(circle, rgba(41,195,197,0.45), transparent 70%)' }}
-          />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand-avatar.png"
-            alt="LEAN HUSTLE POIZON"
-            width={132}
-            height={132}
-            className="h-[132px] w-[132px] object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
-          />
-        </div>
+      <div className="relative flex w-full max-w-2xl flex-col items-center gap-6">
+        {/* Kicker / tagline with hairlines */}
+        <span
+          className="inline-flex items-center gap-3 text-[0.72rem] font-semibold uppercase text-[var(--accent)]"
+          style={{
+            fontFamily: 'var(--font-mono-brand), ui-monospace, monospace',
+            letterSpacing: '0.22em',
+          }}
+        >
+          <span className="h-px w-7 bg-[var(--accent)] sm:w-10" />
+          Poizon в Россию
+          <span className="h-px w-7 bg-[var(--accent)] sm:w-10" />
+        </span>
 
-        {/* Tagline with dash decorations */}
-        <div className="mb-3 flex items-center gap-3">
-          <span className="h-px w-8 bg-gradient-to-r from-transparent to-[var(--accent)]/60" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[var(--accent)]">
-            Poizon в Россию
-          </span>
-          <span className="h-px w-8 bg-gradient-to-l from-transparent to-[var(--accent)]/60" />
-        </div>
-
-        {/* Gradient wordmark */}
-        <h1 className="bg-gradient-to-b from-white via-white to-[var(--accent)] bg-clip-text text-4xl font-extrabold leading-[1.05] tracking-tight text-transparent sm:text-5xl">
-          LEAN HUSTLE
+        {/* Animated chrome wordmark */}
+        <h1
+          className="lh-wordmark uppercase"
+          style={{
+            fontFamily: 'var(--font-display), sans-serif',
+            fontWeight: 800,
+            lineHeight: 0.9,
+            letterSpacing: '-0.01em',
+            fontSize: 'clamp(2.6rem, 11vw, 6.5rem)',
+          }}
+        >
+          Lean Hustle
           <br />
-          POIZON
+          Poizon
         </h1>
 
-        <p className="mt-4 max-w-xs text-sm leading-6 text-white/60">
+        <p className="max-w-md text-sm leading-6 text-white/70">
           Заказывай товары с Poizon в Россию: рассчитывай стоимость, собирай
           корзину и отслеживай заказы.
         </p>
 
-        {/* Login */}
-        <div className="mt-8 w-full">
+        <div className="mt-2 w-full max-w-xs">
           <TelegramLoginButton />
         </div>
 
-        <p className="mt-6 text-[11px] leading-5 text-white/30">
+        <p className="mt-2 text-[11px] leading-5 text-white/35">
           Вход только через Telegram. Можно открыть и прямо в Telegram — там
           авторизация произойдёт автоматически.
         </p>
