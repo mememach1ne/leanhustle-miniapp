@@ -11,7 +11,10 @@ import { TelegramLoginButton } from '../ui/telegram-login-button';
  */
 export function LoginScreen() {
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden px-5 py-12 text-center">
+    <div
+      className="relative isolate flex min-h-screen w-full flex-col items-center justify-center overflow-hidden px-5 py-12 text-center"
+      style={{ background: '#060c16' }}
+    >
       {/* Animated liquid background (opaque, covers the screen) */}
       <LiquidBackground />
 
@@ -19,14 +22,14 @@ export function LoginScreen() {
           the main site's #shade layer. */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10"
+        className="pointer-events-none absolute inset-0 z-[1]"
         style={{
           background:
-            'linear-gradient(180deg, rgba(5,10,20,0.82), rgba(5,10,20,0.42) 16%, rgba(5,10,20,0.42) 74%, rgba(5,10,20,0.92)), radial-gradient(125% 80% at 50% 38%, transparent 40%, rgba(5,10,20,0.7))',
+            'linear-gradient(180deg, rgba(6,12,22,0.78), rgba(6,12,22,0.34) 16%, rgba(6,12,22,0.34) 76%, rgba(6,12,22,0.90)), radial-gradient(125% 80% at 50% 38%, transparent 42%, rgba(6,12,22,0.66))',
         }}
       />
 
-      <div className="relative flex w-full max-w-2xl flex-col items-center gap-6">
+      <div className="relative z-10 flex w-full max-w-2xl flex-col items-center gap-6">
         {/* Kicker / tagline with hairlines */}
         <span
           className="inline-flex items-center gap-3 text-[0.72rem] font-semibold uppercase text-[var(--accent)]"
