@@ -13,9 +13,14 @@ export function LoginScreen() {
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10">
       <SectionCard>
         <div className="flex flex-col items-center gap-5 py-6 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--accent)]/15 text-3xl">
-            🧊
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand-avatar.png"
+            alt="LEAN HUSTLE POIZON"
+            width={80}
+            height={80}
+            className="h-20 w-20 rounded-2xl object-cover shadow-lg shadow-black/30"
+          />
           <div>
             <h1 className="text-lg font-semibold text-white">LEAN HUSTLE POIZON</h1>
             <p className="mt-1 text-sm text-white/60">
