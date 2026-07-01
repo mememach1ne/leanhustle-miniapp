@@ -381,7 +381,7 @@ export default function CalculatorPage() {
   );
 
   return (
-    <PageSection hasStickyFooter={hasStickyFooter} className="lg:mx-auto lg:max-w-2xl">
+    <PageSection hasStickyFooter={hasStickyFooter} className="lg:mx-auto lg:max-w-4xl">
       {/* --- Link input --- */}
       <SectionCard>
         <label className="block">
@@ -733,7 +733,8 @@ export default function CalculatorPage() {
       {/* === NORMAL API MODE ========== */}
       {/* ============================== */}
       {product ? (
-        <div className="space-y-4">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
+          <div className="space-y-4">
           <ProductMiniCard
             title={product.title}
             subtitle={product.brand ?? 'Poizon'}
@@ -795,7 +796,9 @@ export default function CalculatorPage() {
               })}
             </div>
           </SectionCard>
+          </div>
 
+          <div className="mt-4 lg:mt-0 lg:sticky lg:top-6">
           {selectedSku ? (
             <>
               <SectionCard>
@@ -854,6 +857,47 @@ export default function CalculatorPage() {
                 ) : null}
 
               </SectionCard>
+
+              {pricing ? (
+                <div className="mt-4 hidden lg:flex lg:items-center lg:gap-2">
+                  <div className="flex shrink-0 items-center rounded-full border border-white/10 bg-slate-950/40 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => { setAddQuantity((v) => Math.max(1, v - 1)); hapticSelection(); }}
+                      disabled={isAddingToCart || addQuantity <= 1}
+                      className="grid h-9 w-9 place-items-center rounded-full text-base font-semibold text-white transition disabled:opacity-35"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-8 text-center text-sm font-semibold text-white">{addQuantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setAddQuantity((v) => Math.min(20, v + 1)); hapticSelection(); }}
+                      disabled={isAddingToCart}
+                      className="grid h-9 w-9 place-items-center rounded-full bg-white/10 text-base font-semibold text-white transition disabled:opacity-35"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddToCart}
+                    disabled={isAddingToCart}
+                    className={[
+                      'flex-1 rounded-[16px] px-4 py-3 text-sm font-semibold transition disabled:opacity-50',
+                      addedSkuId === pricing.dwSkuId
+                        ? 'bg-emerald-400 text-slate-950'
+                        : 'bg-[var(--accent)] text-slate-950',
+                    ].join(' ')}
+                  >
+                    {isAddingToCart
+                      ? 'Добавляем...'
+                      : addedSkuId === pricing.dwSkuId
+                        ? `Добавлено • ${addQuantity} шт.`
+                        : `В корзину • $${(pricing.totalUsd * addQuantity).toFixed(2)}`}
+                  </button>
+                </div>
+              ) : null}
             </>
           ) : (
             <EmptyState
@@ -861,6 +905,7 @@ export default function CalculatorPage() {
               description="Нажмите на доступный SKU, чтобы увидеть расчёт и добавить товар в корзину."
             />
           )}
+          </div>
         </div>
       ) : null}
 
@@ -871,9 +916,9 @@ export default function CalculatorPage() {
         />
       ) : null}
 
-      {/* --- Sticky footer: API mode --- */}
+      {/* --- Sticky footer: API mode (mobile only; desktop uses the buy-box) --- */}
       {product && selectedSku && pricing ? (
-        <div className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] left-1/2 z-10 w-[calc(100%-24px)] max-w-md -translate-x-1/2 lg:bottom-6 lg:left-[calc(50%+8rem)] lg:max-w-xl">
+        <div className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] left-1/2 z-10 w-[calc(100%-24px)] max-w-md -translate-x-1/2 lg:hidden">
           <div className="flex items-center gap-2 rounded-[22px] border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-[0_-8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl">
             <div className="flex shrink-0 items-center rounded-full border border-white/10 bg-slate-950/40 p-0.5">
               <button
