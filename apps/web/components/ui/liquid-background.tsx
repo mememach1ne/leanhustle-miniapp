@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react';
  * it as flowing liquid metal. Falls back to hidden (transparent) when WebGL
  * is unavailable; respects prefers-reduced-motion by freezing time.
  */
-export function LiquidBackground() {
+export function LiquidBackground({ opacity = 1 }: { opacity?: number }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -290,6 +290,7 @@ export function LiquidBackground() {
       ref={canvasRef}
       aria-hidden
       className="pointer-events-none absolute inset-0 z-0 h-full w-full"
+      style={{ opacity }}
     />
   );
 }

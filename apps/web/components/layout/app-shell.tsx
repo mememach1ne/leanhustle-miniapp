@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 
 import { getAppTabs } from '../../lib/navigation';
 import { useAuthStore } from '../../store/auth-store';
+import { AmbientBackground } from './ambient-background';
 import { AuthStateBanner } from './auth-state-banner';
 import { BottomNavigation } from './bottom-navigation';
 import { DesktopSidebar } from './desktop-sidebar';
@@ -24,7 +25,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="lg:flex">
+    <div className="relative isolate lg:flex">
+      {/* Dim liquid background behind everything (desktop only). */}
+      <AmbientBackground />
+
       {/* Desktop-only left navigation rail. */}
       <DesktopSidebar />
 
