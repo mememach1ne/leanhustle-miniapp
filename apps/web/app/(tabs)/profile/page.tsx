@@ -167,6 +167,8 @@ export default function ProfilePage() {
       {refreshMessage ? <FeedbackMessage tone="success">{refreshMessage}</FeedbackMessage> : null}
       {refreshError ? <FeedbackMessage tone="error">{refreshError}</FeedbackMessage> : null}
 
+      <div className="lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
+        <div className="space-y-4">
       {/* Profile card */}
       <SectionCard>
         <div className="flex items-center gap-4">
@@ -255,7 +257,9 @@ export default function ProfilePage() {
           </button>
         </div>
       </div>
+        </div>
 
+        <div className="mt-4 lg:mt-0">
       <div className="mt-2">
         <details className="group">
           <summary className="flex cursor-pointer items-center gap-2 px-1 py-2 text-sm font-semibold text-[var(--muted)] transition hover:text-white [&::-webkit-details-marker]:hidden">
@@ -269,6 +273,8 @@ export default function ProfilePage() {
       </div>
 
       <LogoutButton />
+        </div>
+      </div>
     </PageSection>
   );
 }

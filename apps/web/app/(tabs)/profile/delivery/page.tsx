@@ -324,7 +324,7 @@ export default function DeliveryPage() {
   }
 
   return (
-    <PageSection>
+    <PageSection className="lg:mx-auto lg:max-w-2xl">
       <Link href="/profile" className="mb-2 inline-block text-xs text-[var(--muted)] transition hover:text-white">
         ← Назад к профилю
       </Link>

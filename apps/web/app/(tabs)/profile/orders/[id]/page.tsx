@@ -177,7 +177,7 @@ export default function OrderDetailsPage() {
   }
 
   return (
-    <PageSection>
+    <PageSection className="lg:mx-auto lg:max-w-3xl">
       <button
         type="button"
         onClick={handleBack}

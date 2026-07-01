@@ -141,7 +141,7 @@ function OrdersPageContent() {
               description="Попробуйте выбрать другой фильтр."
             />
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 xl:grid-cols-3">
               {filteredOrders.map((order) => (
                 <OrderCard key={order.id} order={order} />
               ))}

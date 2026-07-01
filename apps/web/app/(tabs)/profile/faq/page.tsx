@@ -120,7 +120,7 @@ export default function FaqPage() {
   }, [handleBack]);
 
   return (
-    <PageSection>
+    <PageSection className="lg:mx-auto lg:max-w-2xl">
       <button
         type="button"
         onClick={handleBack}

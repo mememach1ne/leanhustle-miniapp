@@ -216,7 +216,8 @@ export default function CartPage() {
           description="Добавьте товар из вкладки «Калькулятор», и он сразу появится здесь."
         />
       ) : (
-        <div className="space-y-4">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6">
+          <div className="space-y-4">
           {cart.items.map((item) => {
             const isBusy = busyItemId === item.id;
             const isExpanded = expandedItemId === item.id;
@@ -320,7 +321,9 @@ export default function CartPage() {
               </SectionCard>
             );
           })}
+          </div>
 
+          <div className="mt-4 space-y-4 lg:mt-0 lg:sticky lg:top-6">
           {user?.isChannelSubscriber && !user.hasUsedSubscriberBenefit ? (
             <div className="lg-accent-card rounded-[24px] p-4">
               <p className="text-sm font-semibold text-white">
@@ -423,6 +426,7 @@ export default function CartPage() {
               )
             }
           />
+          </div>
         </div>
       )}
     </PageSection>

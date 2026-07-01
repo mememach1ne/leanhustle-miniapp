@@ -381,7 +381,7 @@ export default function CalculatorPage() {
   );
 
   return (
-    <PageSection hasStickyFooter={hasStickyFooter}>
+    <PageSection hasStickyFooter={hasStickyFooter} className="lg:mx-auto lg:max-w-2xl">
       {/* --- Link input --- */}
       <SectionCard>
         <label className="block">
@@ -873,7 +873,7 @@ export default function CalculatorPage() {
 
       {/* --- Sticky footer: API mode --- */}
       {product && selectedSku && pricing ? (
-        <div className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] left-1/2 z-10 w-[calc(100%-24px)] max-w-md -translate-x-1/2">
+        <div className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] left-1/2 z-10 w-[calc(100%-24px)] max-w-md -translate-x-1/2 lg:bottom-6 lg:left-[calc(50%+8rem)] lg:max-w-xl">
           <div className="flex items-center gap-2 rounded-[22px] border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-[0_-8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl">
             <div className="flex shrink-0 items-center rounded-full border border-white/10 bg-slate-950/40 p-0.5">
               <button
@@ -918,7 +918,7 @@ export default function CalculatorPage() {
 
       {/* --- Sticky footer: Manual mode --- */}
       {manualMode && manualPricing ? (
-        <div className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] left-1/2 z-10 w-[calc(100%-24px)] max-w-md -translate-x-1/2">
+        <div className="fixed bottom-[calc(6.5rem+env(safe-area-inset-bottom))] left-1/2 z-10 w-[calc(100%-24px)] max-w-md -translate-x-1/2 lg:bottom-6 lg:left-[calc(50%+8rem)] lg:max-w-xl">
           <div className="flex items-center gap-2 rounded-[22px] border border-[var(--surface-border)] bg-[var(--surface)] p-2 shadow-[0_-8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl">
             <div className="flex shrink-0 items-center rounded-full border border-white/10 bg-slate-950/40 p-0.5">
               <button
