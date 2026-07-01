@@ -54,6 +54,7 @@ export function AnalyticsPanel() {
     <>
       {error ? <FeedbackMessage tone="error">{error}</FeedbackMessage> : null}
 
+      <div className="space-y-4 lg:grid lg:grid-cols-3 lg:items-start lg:gap-4 lg:space-y-0">
       {/* Live activity */}
       <SectionCard>
         <div className="flex items-center justify-between">
@@ -96,7 +97,9 @@ export function AnalyticsPanel() {
           <Stat label="Новых за сутки" value={data.newToday} accent={data.newToday > 0} />
         </div>
       </SectionCard>
+      </div>
 
+      <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
       {/* Hourly chart */}
       <SectionCard>
         <h3 className="text-sm font-semibold text-white">Активность по часам (24ч)</h3>
@@ -118,6 +121,7 @@ export function AnalyticsPanel() {
           <ActivityChart points={data.daily} labelFormat="day" />
         </div>
       </SectionCard>
+      </div>
     </>
   );
 }
