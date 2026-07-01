@@ -54,8 +54,11 @@ export default () => ({
   demo: {
     // Telegram IDs (owner + investor) that get a canned demo product when
     // resolving any link, so the flow can be shown while the paid Poizon
-    // API is down. Empty = feature off (everyone hits the real API).
-    productTelegramIds: parseCsv(process.env.DEMO_PRODUCT_TELEGRAM_IDS),
+    // API is down. Falls back to the profit-report recipients (already
+    // owner + investor) so there's nothing new to configure. Empty = off.
+    productTelegramIds: parseCsv(
+      process.env.DEMO_PRODUCT_TELEGRAM_IDS || process.env.PROFIT_REPORT_TELEGRAM_IDS,
+    ),
   },
   profit: {
     // Investor's share of net profit, percent. Owner keeps the remainder.
