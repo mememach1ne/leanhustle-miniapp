@@ -111,7 +111,6 @@ export default function ProfilePage() {
       .getOrders()
       .then((orders) => {
         if (cancelled) return;
-        // Cancelled orders don't count as real spending.
         const active = orders.filter((o) => o.status !== OrderStatus.CANCELLED);
         const sumUsd = active.reduce((sum, o) => sum + o.totalUsd, 0);
         setOrderStats({ count: active.length, sumUsd });
@@ -227,7 +226,7 @@ export default function ProfilePage() {
         </div>
       </SectionCard>
 
-      {/* Real stats — no overlap with the subscription panel below. */}
+      {/* Real stats — no overlap with the subscription panel. */}
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           label="Заказов"
@@ -240,116 +239,124 @@ export default function ProfilePage() {
         />
       </div>
 
-      {/* Two columns */}
-      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
-        <div className="space-y-4">
-          {/* Quick actions */}
-          <SectionCard>
+      {/* Subscription — mobile only; on desktop it lives in the sidebar. */}
+      <div className="lg:hidden">
+        <div className="lg-accent-card rounded-[28px] p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-white">Приватный канал</h3>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                {user.isChannelSubscriber
+                  ? 'Подписка активна — скидка на комиссию применяется автоматически при заказе.'
+                  : 'Подпишитесь и получайте скидку на комиссию при каждом заказе.'}
+              </p>
+            </div>
+            <span
+              className={[
+                'shrink-0 rounded-full border px-3 py-1 text-xs font-semibold',
+                user.isChannelSubscriber
+                  ? 'border-emerald-300/30 bg-emerald-400/15 text-emerald-200'
+                  : 'border-[var(--accent)]/30 bg-[var(--accent)]/15 text-[var(--accent)]',
+              ].join(' ')}
+            >
+              {user.isChannelSubscriber ? 'Активна' : 'Не активна'}
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-2">
+            {!user.isChannelSubscriber ? (
+              <a
+                href="https://t.me/lh_crypto1/8439"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="lg-accent-button w-full rounded-[18px] px-4 py-3 text-center text-sm font-semibold text-slate-950 transition active:scale-[0.98]"
+              >
+                Подписаться на канал
+              </a>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleRefreshSubscription}
+              disabled={isRefreshingSubscription}
+              className="w-full rounded-[18px] border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isRefreshingSubscription ? 'Проверяем...' : 'Обновить статус подписки'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Two equal-height columns: account actions | loyalty teaser. */}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-6">
+        {/* Quick actions */}
+        <SectionCard className="lg:h-full">
+          <h3 className="text-sm font-semibold text-white">Аккаунт</h3>
+          <p className="mt-1 text-xs text-white/40">Данные доставки и история заказов</p>
+          <div className="mt-4 space-y-2">
             <Link
               href="/profile/delivery"
-              className="flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-medium text-white transition hover:bg-white/5"
+              className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 px-4 py-3.5 transition hover:bg-white/10"
             >
-              <span>Мои данные</span>
+              <div>
+                <p className="text-sm font-medium text-white">Мои данные</p>
+                <p className="mt-0.5 text-xs text-white/40">ФИО, адрес СДЭК, телефон</p>
+              </div>
               <span className="text-white/30">→</span>
             </Link>
             <Link
               href="/profile/orders"
-              className="mt-1 flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-medium text-white transition hover:bg-white/5"
+              className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 px-4 py-3.5 transition hover:bg-white/10"
             >
-              <span>Мои заказы</span>
+              <div>
+                <p className="text-sm font-medium text-white">Мои заказы</p>
+                <p className="mt-0.5 text-xs text-white/40">История и статусы заказов</p>
+              </div>
               <span className="text-white/30">→</span>
             </Link>
-          </SectionCard>
-
-          {/* Subscription card — same glow treatment in both states */}
-          <div className="lg-accent-card rounded-[28px] p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-white">Приватный канал</h3>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  {user.isChannelSubscriber
-                    ? 'Подписка активна — скидка на комиссию применяется автоматически при заказе.'
-                    : 'Подпишитесь и получайте скидку на комиссию при каждом заказе.'}
-                </p>
-              </div>
-              <span
-                className={[
-                  'shrink-0 rounded-full border px-3 py-1 text-xs font-semibold',
-                  user.isChannelSubscriber
-                    ? 'border-emerald-300/30 bg-emerald-400/15 text-emerald-200'
-                    : 'border-[var(--accent)]/30 bg-[var(--accent)]/15 text-[var(--accent)]',
-                ].join(' ')}
-              >
-                {user.isChannelSubscriber ? 'Активна' : 'Не активна'}
-              </span>
-            </div>
-
-            <div className="mt-4 grid gap-2">
-              {!user.isChannelSubscriber ? (
-                <a
-                  href="https://t.me/lh_crypto1/8439"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="lg-accent-button w-full rounded-[18px] px-4 py-3 text-center text-sm font-semibold text-slate-950 transition active:scale-[0.98]"
-                >
-                  Подписаться на канал
-                </a>
-              ) : null}
-              <button
-                type="button"
-                onClick={handleRefreshSubscription}
-                disabled={isRefreshingSubscription}
-                className="w-full rounded-[18px] border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isRefreshingSubscription ? 'Проверяем...' : 'Обновить статус подписки'}
-              </button>
-            </div>
           </div>
-        </div>
+        </SectionCard>
 
-        <div className="mt-4 space-y-4 lg:mt-0">
-          {/* Loyalty program — teaser (not yet live) */}
-          <div className="overflow-hidden rounded-[28px] border border-[var(--accent)]/20 bg-white/5 p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🎁</span>
-                <h3 className="text-sm font-semibold text-white">Программа лояльности</h3>
-              </div>
-              <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-200">
-                Скоро
-              </span>
+        {/* Loyalty program — teaser (not yet live) */}
+        <div className="mt-4 overflow-hidden rounded-[28px] border border-[var(--accent)]/20 bg-white/5 p-5 lg:mt-0 lg:h-full">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🎁</span>
+              <h3 className="text-sm font-semibold text-white">Программа лояльности</h3>
             </div>
-            <p className="mt-2 text-xs leading-5 text-white/60">
-              Чем больше сумма ваших заказов — тем выше скидка на комиссию. Для
-              подписчиков приватного канала. Функция в разработке — скоро включим.
+            <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-200">
+              Скоро
+            </span>
+          </div>
+          <p className="mt-2 text-xs leading-5 text-white/60">
+            Чем больше сумма ваших заказов — тем выше скидка на комиссию. Для
+            подписчиков приватного канала. Функция в разработке — скоро включим.
+          </p>
+          <div className="pointer-events-none mt-4 select-none rounded-2xl bg-slate-950/40 p-4 opacity-60">
+            <div className="flex items-center justify-between text-xs text-white/50">
+              <span>Ваш прогресс</span>
+              <span className="font-semibold text-white/70">—</span>
+            </div>
+            <div className="mt-2 h-2 rounded-full bg-white/10">
+              <div className="h-full w-2/5 rounded-full bg-[var(--accent)]/50" />
+            </div>
+            <p className="mt-2 text-[10px] text-white/30">
+              До следующей скидки на комиссию — скоро
             </p>
-            <div className="pointer-events-none mt-4 select-none rounded-2xl bg-slate-950/40 p-4 opacity-60">
-              <div className="flex items-center justify-between text-xs text-white/50">
-                <span>Ваш прогресс</span>
-                <span className="font-semibold text-white/70">—</span>
-              </div>
-              <div className="mt-2 h-2 rounded-full bg-white/10">
-                <div className="h-full w-2/5 rounded-full bg-[var(--accent)]/50" />
-              </div>
-              <p className="mt-2 text-[10px] text-white/30">
-                До следующей скидки на комиссию — скоро
-              </p>
-            </div>
-          </div>
-
-          {/* FAQ */}
-          <div>
-            <details className="group">
-              <summary className="flex cursor-pointer items-center gap-2 px-1 py-2 text-sm font-semibold text-[var(--muted)] transition hover:text-white [&::-webkit-details-marker]:hidden">
-                <span className="flex-shrink-0 text-xs transition-transform group-open:rotate-90">▶</span>
-                Часто задаваемые вопросы
-              </summary>
-              <div className="mt-2">
-                <FaqAccordion items={FAQ_ITEMS} />
-              </div>
-            </details>
           </div>
         </div>
+      </div>
+
+      {/* FAQ — centered */}
+      <div className="lg:mx-auto lg:w-full lg:max-w-2xl">
+        <details className="group">
+          <summary className="flex cursor-pointer items-center gap-2 px-1 py-2 text-sm font-semibold text-[var(--muted)] transition hover:text-white [&::-webkit-details-marker]:hidden">
+            <span className="flex-shrink-0 text-xs transition-transform group-open:rotate-90">▶</span>
+            Часто задаваемые вопросы
+          </summary>
+          <div className="mt-2">
+            <FaqAccordion items={FAQ_ITEMS} />
+          </div>
+        </details>
       </div>
 
       {/* Logout — mobile browser only (desktop uses the sidebar). */}
@@ -364,22 +371,17 @@ function StatCard({
   label,
   value,
   accent = false,
-  hint,
 }: {
   label: string;
   value: string;
   accent?: boolean;
-  hint?: string;
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
       <p className={['text-lg font-bold', accent ? 'text-[var(--accent)]' : 'text-white'].join(' ')}>
         {value}
       </p>
-      <p className="mt-0.5 text-[11px] text-white/40">
-        {label}
-        {hint ? <span className="ml-1 text-amber-300/70">· {hint}</span> : null}
-      </p>
+      <p className="mt-0.5 text-[11px] text-white/40">{label}</p>
     </div>
   );
 }
