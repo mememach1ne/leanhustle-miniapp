@@ -8,6 +8,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { EmptyState } from '../../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../../components/ui/feedback-message';
 import { OrderCard } from '../../../../components/ui/order-card';
+import { OrdersTable } from '../../../../components/ui/orders-table';
 import { PageSection } from '../../../../components/ui/page-section';
 import { OrderCardSkeleton } from '../../../../components/ui/skeleton';
 import { ordersApi } from '../../../../lib/api-client';
@@ -141,11 +142,14 @@ function OrdersPageContent() {
               description="Попробуйте выбрать другой фильтр."
             />
           ) : (
-            <div className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 xl:grid-cols-3">
-              {filteredOrders.map((order) => (
-                <OrderCard key={order.id} order={order} />
-              ))}
-            </div>
+            <>
+              <div className="space-y-4 lg:hidden">
+                {filteredOrders.map((order) => (
+                  <OrderCard key={order.id} order={order} />
+                ))}
+              </div>
+              <OrdersTable orders={filteredOrders} className="hidden lg:block" />
+            </>
           )}
         </>
       )}
