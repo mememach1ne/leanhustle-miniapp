@@ -1,6 +1,6 @@
 'use client';
 
-import { SubscriptionVerificationStatus } from '@lean-poizon/shared';
+import { OrderStatus, SubscriptionVerificationStatus } from '@lean-poizon/shared';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -101,17 +101,23 @@ export default function ProfilePage() {
   const [isRefreshingSubscription, setIsRefreshingSubscription] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  const [ordersCount, setOrdersCount] = useState<number | null>(null);
+  const [orderStats, setOrderStats] = useState<{ count: number; sumUsd: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
     ordersApi
       .getOrders()
       .then((orders) => {
-        if (!cancelled) setOrdersCount(orders.length);
+        if (cancelled) return;
+        // Cancelled orders don't count as real spending.
+        const active = orders.filter((o) => o.status !== OrderStatus.CANCELLED);
+        const sumUsd = active.reduce((sum, o) => sum + o.totalUsd, 0);
+        setOrderStats({ count: active.length, sumUsd });
       })
       .catch(() => {
-        // Non-critical — the stat card just shows a dash.
+        // Non-critical — the stat cards just show a dash.
       });
     return () => {
       cancelled = true;
@@ -221,25 +227,17 @@ export default function ProfilePage() {
         </div>
       </SectionCard>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Заказов" value={ordersCount === null ? '—' : String(ordersCount)} />
+      {/* Real stats — no overlap with the subscription panel below. */}
+      <div className="grid grid-cols-2 gap-3">
         <StatCard
-          label="Подписка"
-          value={user.isChannelSubscriber ? 'Активна' : 'Нет'}
-          accent={user.isChannelSubscriber}
+          label="Заказов"
+          value={orderStats === null ? '—' : String(orderStats.count)}
         />
         <StatCard
-          label="Бонус подписчика"
-          value={
-            user.hasUsedSubscriberBenefit
-              ? 'Использован'
-              : user.isChannelSubscriber
-                ? 'Доступен'
-                : '—'
-          }
+          label="Сумма заказов"
+          value={orderStats === null ? '—' : `$${orderStats.sumUsd.toFixed(2)}`}
+          accent
         />
-        <StatCard label="Баллы лояльности" value="—" hint="скоро" />
       </div>
 
       {/* Two columns */}
@@ -322,18 +320,20 @@ export default function ProfilePage() {
               </span>
             </div>
             <p className="mt-2 text-xs leading-5 text-white/60">
-              Копите баллы за каждый заказ и обменивайте их на скидки. Функция в
-              разработке — скоро включим.
+              Чем больше сумма ваших заказов — тем выше скидка на комиссию. Для
+              подписчиков приватного канала. Функция в разработке — скоро включим.
             </p>
             <div className="pointer-events-none mt-4 select-none rounded-2xl bg-slate-950/40 p-4 opacity-60">
               <div className="flex items-center justify-between text-xs text-white/50">
-                <span>Ваши баллы</span>
+                <span>Ваш прогресс</span>
                 <span className="font-semibold text-white/70">—</span>
               </div>
               <div className="mt-2 h-2 rounded-full bg-white/10">
-                <div className="h-full w-1/3 rounded-full bg-[var(--accent)]/50" />
+                <div className="h-full w-2/5 rounded-full bg-[var(--accent)]/50" />
               </div>
-              <p className="mt-2 text-[10px] text-white/30">До следующего уровня — скоро</p>
+              <p className="mt-2 text-[10px] text-white/30">
+                До следующей скидки на комиссию — скоро
+              </p>
             </div>
           </div>
 
