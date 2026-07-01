@@ -315,7 +315,7 @@ export default function ProfilePage() {
         </SectionCard>
 
         {/* Loyalty program — compact teaser (not yet live) */}
-        <div className="mt-4 overflow-hidden rounded-[28px] border border-[var(--accent)]/20 bg-white/5 p-5 lg:mt-0">
+        <SectionCard className="mt-4 lg:mt-0">
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-sm font-semibold text-white">Программа лояльности</h3>
             <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-200">
@@ -329,7 +329,7 @@ export default function ProfilePage() {
           <div className="pointer-events-none mt-4 h-2 select-none rounded-full bg-white/10 opacity-70">
             <div className="h-full w-2/5 rounded-full bg-[var(--accent)]/50" />
           </div>
-        </div>
+        </SectionCard>
       </div>
 
       {/* FAQ — full-width, left aligned, two columns on desktop */}
@@ -364,12 +364,12 @@ function StatCard({
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+    <SectionCard className="!px-4 !py-3">
       <p className={['text-lg font-bold', accent ? 'text-[var(--accent)]' : 'text-white'].join(' ')}>
         {value}
       </p>
       <p className="mt-0.5 text-[11px] text-white/40">{label}</p>
-    </div>
+    </SectionCard>
   );
 }
 
