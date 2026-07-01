@@ -224,7 +224,7 @@ export default function AdminOrderDetailPage() {
   const showMarkDelivered = order.status === OrderStatus.TRACK_CODE_RECEIVED;
 
   return (
-    <PageSection>
+    <PageSection className="lg:mx-auto lg:max-w-3xl">
       {/* Back link */}
       <Link
         href="/admin"
