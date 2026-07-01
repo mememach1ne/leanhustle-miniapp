@@ -1,8 +1,10 @@
 import type { DewuResolvedProduct } from '@lean-poizon/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { User } from '@prisma/client';
 
 import { ResolveProductDto } from './dto/resolve-product.dto';
+import { DEMO_PRODUCT_FIXTURE } from './fixtures/demo-product.fixture';
 import { DewuApiClientService } from './services/dewu-api-client.service';
 import { DewuLinkResolverService } from './services/dewu-link-resolver.service';
 import { DewuProductMapperService } from './services/dewu-product-mapper.service';
@@ -17,6 +19,7 @@ export class ProductsService {
   private readonly dewuProductMapperService: DewuProductMapperService;
   private readonly cacheService: ProductCacheService;
   private readonly rateLimitService: ProductRateLimitService;
+  private readonly demoTelegramIds: string[];
 
   constructor(
     @Inject(DewuLinkResolverService)
@@ -26,15 +29,29 @@ export class ProductsService {
     dewuProductMapperService: DewuProductMapperService,
     @Inject(ProductCacheService) cacheService: ProductCacheService,
     @Inject(ProductRateLimitService) rateLimitService: ProductRateLimitService,
+    @Inject(ConfigService) configService: ConfigService,
   ) {
     this.dewuLinkResolverService = dewuLinkResolverService;
     this.dewuApiClientService = dewuApiClientService;
     this.dewuProductMapperService = dewuProductMapperService;
     this.cacheService = cacheService;
     this.rateLimitService = rateLimitService;
+    this.demoTelegramIds =
+      configService.get<string[]>('demo.productTelegramIds') ?? [];
   }
 
   async resolveProduct(dto: ResolveProductDto, user: User): Promise<DewuResolvedProduct> {
+    // Demo mode: allow-listed users (owner + investor) get a canned product
+    // for any link while the paid Poizon API is unavailable.
+    if (this.demoTelegramIds.includes(String(user.telegramId))) {
+      this.logger.log(`Demo product served to telegramId=${user.telegramId}`);
+      return this.dewuProductMapperService.mapProduct(DEMO_PRODUCT_FIXTURE, {
+        originalLink: dto.link,
+        resolvedUrl: dto.link,
+        dwSpuId: '2827430',
+      });
+    }
+
     const resolvedLink = await this.dewuLinkResolverService.resolve(dto.link);
     const cacheKey = resolvedLink.dwSpuId;
 

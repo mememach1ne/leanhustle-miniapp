@@ -51,6 +51,12 @@ export default () => ({
   notifications: {
     managerTelegramIds: parseCsv(process.env.MANAGER_TELEGRAM_IDS),
   },
+  demo: {
+    // Telegram IDs (owner + investor) that get a canned demo product when
+    // resolving any link, so the flow can be shown while the paid Poizon
+    // API is down. Empty = feature off (everyone hits the real API).
+    productTelegramIds: parseCsv(process.env.DEMO_PRODUCT_TELEGRAM_IDS),
+  },
   profit: {
     // Investor's share of net profit, percent. Owner keeps the remainder.
     investorSharePercent: Number(process.env.PROFIT_INVESTOR_SHARE_PERCENT ?? 50),
