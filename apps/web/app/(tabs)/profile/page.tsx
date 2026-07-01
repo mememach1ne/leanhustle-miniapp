@@ -2,7 +2,7 @@
 
 import { SubscriptionVerificationStatus } from '@lean-poizon/shared';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { AuthDebugBlock } from '../../../components/debug/auth-debug-block';
 import { EmptyState } from '../../../components/ui/empty-state';
@@ -11,7 +11,7 @@ import { FeedbackMessage } from '../../../components/ui/feedback-message';
 import { LoadingBlock } from '../../../components/ui/loading-block';
 import { PageSection } from '../../../components/ui/page-section';
 import { SectionCard } from '../../../components/ui/section-card';
-import { authApi } from '../../../lib/api-client';
+import { authApi, ordersApi } from '../../../lib/api-client';
 import { extractAxiosMessage } from '../../../lib/error-utils';
 import { tokenStorage } from '../../../lib/token-storage';
 import { useAuthStore } from '../../../store/auth-store';
@@ -101,6 +101,22 @@ export default function ProfilePage() {
   const [isRefreshingSubscription, setIsRefreshingSubscription] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [ordersCount, setOrdersCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    ordersApi
+      .getOrders()
+      .then((orders) => {
+        if (!cancelled) setOrdersCount(orders.length);
+      })
+      .catch(() => {
+        // Non-critical — the stat card just shows a dash.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleRefreshSubscription = async () => {
     setIsRefreshingSubscription(true);
@@ -161,15 +177,19 @@ export default function ProfilePage() {
     );
   }
 
+  const roleLabel = user.staffRole
+    ? user.staffRole === 'ADMIN'
+      ? 'Администратор'
+      : 'Менеджер'
+    : 'Клиент';
+
   return (
     <PageSection>
       <AuthDebugBlock />
       {refreshMessage ? <FeedbackMessage tone="success">{refreshMessage}</FeedbackMessage> : null}
       {refreshError ? <FeedbackMessage tone="error">{refreshError}</FeedbackMessage> : null}
 
-      <div className="lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
-        <div className="space-y-4">
-      {/* Profile card */}
+      {/* Account header */}
       <SectionCard>
         <div className="flex items-center gap-4">
           {user.photoUrl ? (
@@ -194,88 +214,173 @@ export default function ProfilePage() {
               {user.username ? `@${user.username}` : 'Без username'}
             </p>
           </div>
-        </div>
 
-        <div className="mt-5 grid gap-3">
-          <Link
-            href="/profile/delivery"
-            className="w-full rounded-[20px] bg-[var(--accent)] px-4 py-3 text-center text-sm font-semibold text-slate-950 transition-opacity"
-          >
-            Мои данные
-          </Link>
-
-          <Link
-            href="/profile/orders"
-            className="w-full rounded-[20px] border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-white/10"
-          >
-            Мои заказы
-          </Link>
+          <span className="hidden shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/60 sm:inline-block">
+            {roleLabel}
+          </span>
         </div>
       </SectionCard>
 
-      {/* Subscription card — same glow treatment in both states */}
-      <div className="lg-accent-card rounded-[28px] p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-white">Приватный канал</h3>
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              {user.isChannelSubscriber
-                ? 'Подписка активна — скидка на комиссию применяется автоматически при заказе.'
-                : 'Подпишитесь и получайте скидку на комиссию при каждом заказе.'}
-            </p>
-          </div>
-          <span
-            className={[
-              'shrink-0 rounded-full border px-3 py-1 text-xs font-semibold',
-              user.isChannelSubscriber
-                ? 'border-emerald-300/30 bg-emerald-400/15 text-emerald-200'
-                : 'border-[var(--accent)]/30 bg-[var(--accent)]/15 text-[var(--accent)]',
-            ].join(' ')}
-          >
-            {user.isChannelSubscriber ? 'Активна' : 'Не активна'}
-          </span>
-        </div>
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Заказов" value={ordersCount === null ? '—' : String(ordersCount)} />
+        <StatCard
+          label="Подписка"
+          value={user.isChannelSubscriber ? 'Активна' : 'Нет'}
+          accent={user.isChannelSubscriber}
+        />
+        <StatCard
+          label="Бонус подписчика"
+          value={
+            user.hasUsedSubscriberBenefit
+              ? 'Использован'
+              : user.isChannelSubscriber
+                ? 'Доступен'
+                : '—'
+          }
+        />
+        <StatCard label="Баллы лояльности" value="—" hint="скоро" />
+      </div>
 
-        <div className="mt-4 grid gap-2">
-          {!user.isChannelSubscriber ? (
-            <a
-              href="https://t.me/lh_crypto1/8439"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="lg-accent-button w-full rounded-[18px] px-4 py-3 text-center text-sm font-semibold text-slate-950 transition active:scale-[0.98]"
+      {/* Two columns */}
+      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+        <div className="space-y-4">
+          {/* Quick actions */}
+          <SectionCard>
+            <Link
+              href="/profile/delivery"
+              className="flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-medium text-white transition hover:bg-white/5"
             >
-              Подписаться на канал
-            </a>
-          ) : null}
-          <button
-            type="button"
-            onClick={handleRefreshSubscription}
-            disabled={isRefreshingSubscription}
-            className="w-full rounded-[18px] border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isRefreshingSubscription ? 'Проверяем...' : 'Обновить статус подписки'}
-          </button>
-        </div>
-      </div>
-        </div>
+              <span>Мои данные</span>
+              <span className="text-white/30">→</span>
+            </Link>
+            <Link
+              href="/profile/orders"
+              className="mt-1 flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-medium text-white transition hover:bg-white/5"
+            >
+              <span>Мои заказы</span>
+              <span className="text-white/30">→</span>
+            </Link>
+          </SectionCard>
 
-        <div className="mt-4 lg:mt-0">
-      <div className="mt-2">
-        <details className="group">
-          <summary className="flex cursor-pointer items-center gap-2 px-1 py-2 text-sm font-semibold text-[var(--muted)] transition hover:text-white [&::-webkit-details-marker]:hidden">
-            <span className="flex-shrink-0 text-xs transition-transform group-open:rotate-90">▶</span>
-            Часто задаваемые вопросы
-          </summary>
-          <div className="mt-2">
-            <FaqAccordion items={FAQ_ITEMS} />
+          {/* Subscription card — same glow treatment in both states */}
+          <div className="lg-accent-card rounded-[28px] p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Приватный канал</h3>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  {user.isChannelSubscriber
+                    ? 'Подписка активна — скидка на комиссию применяется автоматически при заказе.'
+                    : 'Подпишитесь и получайте скидку на комиссию при каждом заказе.'}
+                </p>
+              </div>
+              <span
+                className={[
+                  'shrink-0 rounded-full border px-3 py-1 text-xs font-semibold',
+                  user.isChannelSubscriber
+                    ? 'border-emerald-300/30 bg-emerald-400/15 text-emerald-200'
+                    : 'border-[var(--accent)]/30 bg-[var(--accent)]/15 text-[var(--accent)]',
+                ].join(' ')}
+              >
+                {user.isChannelSubscriber ? 'Активна' : 'Не активна'}
+              </span>
+            </div>
+
+            <div className="mt-4 grid gap-2">
+              {!user.isChannelSubscriber ? (
+                <a
+                  href="https://t.me/lh_crypto1/8439"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="lg-accent-button w-full rounded-[18px] px-4 py-3 text-center text-sm font-semibold text-slate-950 transition active:scale-[0.98]"
+                >
+                  Подписаться на канал
+                </a>
+              ) : null}
+              <button
+                type="button"
+                onClick={handleRefreshSubscription}
+                disabled={isRefreshingSubscription}
+                className="w-full rounded-[18px] border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isRefreshingSubscription ? 'Проверяем...' : 'Обновить статус подписки'}
+              </button>
+            </div>
           </div>
-        </details>
+        </div>
+
+        <div className="mt-4 space-y-4 lg:mt-0">
+          {/* Loyalty program — teaser (not yet live) */}
+          <div className="overflow-hidden rounded-[28px] border border-[var(--accent)]/20 bg-white/5 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🎁</span>
+                <h3 className="text-sm font-semibold text-white">Программа лояльности</h3>
+              </div>
+              <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-200">
+                Скоро
+              </span>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-white/60">
+              Копите баллы за каждый заказ и обменивайте их на скидки. Функция в
+              разработке — скоро включим.
+            </p>
+            <div className="pointer-events-none mt-4 select-none rounded-2xl bg-slate-950/40 p-4 opacity-60">
+              <div className="flex items-center justify-between text-xs text-white/50">
+                <span>Ваши баллы</span>
+                <span className="font-semibold text-white/70">—</span>
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-white/10">
+                <div className="h-full w-1/3 rounded-full bg-[var(--accent)]/50" />
+              </div>
+              <p className="mt-2 text-[10px] text-white/30">До следующего уровня — скоро</p>
+            </div>
+          </div>
+
+          {/* FAQ */}
+          <div>
+            <details className="group">
+              <summary className="flex cursor-pointer items-center gap-2 px-1 py-2 text-sm font-semibold text-[var(--muted)] transition hover:text-white [&::-webkit-details-marker]:hidden">
+                <span className="flex-shrink-0 text-xs transition-transform group-open:rotate-90">▶</span>
+                Часто задаваемые вопросы
+              </summary>
+              <div className="mt-2">
+                <FaqAccordion items={FAQ_ITEMS} />
+              </div>
+            </details>
+          </div>
+        </div>
       </div>
 
-      <LogoutButton />
-        </div>
+      {/* Logout — mobile browser only (desktop uses the sidebar). */}
+      <div className="lg:hidden">
+        <LogoutButton />
       </div>
     </PageSection>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  accent = false,
+  hint,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+      <p className={['text-lg font-bold', accent ? 'text-[var(--accent)]' : 'text-white'].join(' ')}>
+        {value}
+      </p>
+      <p className="mt-0.5 text-[11px] text-white/40">
+        {label}
+        {hint ? <span className="ml-1 text-amber-300/70">· {hint}</span> : null}
+      </p>
+    </div>
   );
 }
 
