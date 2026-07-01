@@ -509,10 +509,42 @@ export default function CalculatorPage() {
 
       {/* --- Empty state (no product, no manual mode) --- */}
       {!product && !isLoadingProduct && !manualMode ? (
-        <EmptyState
-          title="Начните с ссылки"
-          description="Вставьте ссылку Poizon, чтобы увидеть карточку товара, доступные размеры и предварительный расчёт."
-        />
+        <>
+          <EmptyState
+            title="Начните с ссылки"
+            description="Вставьте ссылку Poizon, чтобы увидеть карточку товара, доступные размеры и предварительный расчёт."
+          />
+
+          {/* Desktop "how it works" strip — fills the wide canvas and reads
+              like a real landing section. Hidden on mobile. */}
+          <div className="hidden lg:grid lg:grid-cols-3 lg:gap-4">
+            {[
+              {
+                n: '1',
+                title: 'Вставьте ссылку',
+                text: 'Скопируйте ссылку товара из приложения Poizon и вставьте выше.',
+              },
+              {
+                n: '2',
+                title: 'Выберите размер',
+                text: 'Покажем карточку, доступные размеры и точную стоимость с доставкой.',
+              },
+              {
+                n: '3',
+                title: 'Оформите заказ',
+                text: 'Добавьте в корзину, оплатите USDT — привезём товар в Россию.',
+              },
+            ].map((step) => (
+              <SectionCard key={step.n}>
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent)]/15 text-sm font-semibold text-[var(--accent)]">
+                  {step.n}
+                </div>
+                <h4 className="mt-3 text-sm font-semibold text-white">{step.title}</h4>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{step.text}</p>
+              </SectionCard>
+            ))}
+          </div>
+        </>
       ) : null}
 
       {/* ============================== */}
