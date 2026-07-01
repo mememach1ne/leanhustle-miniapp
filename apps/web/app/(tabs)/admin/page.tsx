@@ -9,6 +9,7 @@ import type {
 } from '@lean-poizon/shared';
 import { ORDER_STATUS_LABELS, OrderStatus } from '@lean-poizon/shared';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { AnalyticsPanel } from '../../../components/ui/analytics-panel';
@@ -253,11 +254,14 @@ function OrdersPanel() {
       ) : orders.length === 0 ? (
         <EmptyState title="Нет заказов" description="Заказы не найдены" />
       ) : (
-        <div className="space-y-3">
-          {orders.map((order) => (
-            <AdminOrderCard key={order.id} order={order} />
-          ))}
-        </div>
+        <>
+          <div className="space-y-3 lg:hidden">
+            {orders.map((order) => (
+              <AdminOrderCard key={order.id} order={order} />
+            ))}
+          </div>
+          <AdminOrdersTable orders={orders} className="hidden lg:block" />
+        </>
       )}
 
       {/* Pagination */}
@@ -285,6 +289,67 @@ function OrdersPanel() {
         </div>
       ) : null}
     </>
+  );
+}
+
+function AdminOrdersTable({
+  orders,
+  className = '',
+}: {
+  orders: StaffOrderListItemDto[];
+  className?: string;
+}) {
+  const router = useRouter();
+
+  return (
+    <div className={`overflow-hidden rounded-2xl border border-white/10 ${className}`}>
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="bg-white/[0.03] text-left text-[11px] uppercase tracking-wide text-white/40">
+            <th className="px-4 py-3 font-medium">№</th>
+            <th className="px-4 py-3 font-medium">Клиент</th>
+            <th className="px-4 py-3 font-medium">Дата</th>
+            <th className="px-4 py-3 text-center font-medium">Товаров</th>
+            <th className="px-4 py-3 text-right font-medium">Сумма</th>
+            <th className="px-4 py-3 font-medium">Статус</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((order) => {
+            const statusLabel =
+              ORDER_STATUS_LABELS[order.status as OrderStatus] ?? order.status;
+            const statusColor =
+              STATUS_COLORS[order.status] ?? 'bg-white/10 text-white border-white/20';
+            return (
+              <tr
+                key={order.id}
+                onClick={() => router.push(`/admin/orders/${order.id}`)}
+                className="cursor-pointer border-t border-white/5 transition hover:bg-white/[0.04]"
+              >
+                <td className="px-4 py-3 font-semibold text-white">{order.orderNumber}</td>
+                <td className="px-4 py-3 text-white/80">
+                  {order.user.username ? `@${order.user.username}` : order.user.firstName}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-white/60">
+                  {new Date(order.createdAt).toLocaleDateString('ru-RU')}
+                </td>
+                <td className="px-4 py-3 text-center text-white/70">{order.itemsCount}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-white">
+                  ${order.totalUsd}
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusColor}`}
+                  >
+                    {statusLabel}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -317,6 +382,62 @@ function AdminOrderCard({ order }: { order: StaffOrderListItemDto }) {
         </div>
       </SectionCard>
     </Link>
+  );
+}
+
+function AdminUsersTable({
+  users,
+  className = '',
+}: {
+  users: AdminUsersResponse['data'];
+  className?: string;
+}) {
+  const router = useRouter();
+
+  return (
+    <div className={`overflow-hidden rounded-2xl border border-white/10 ${className}`}>
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="bg-white/[0.03] text-left text-[11px] uppercase tracking-wide text-white/40">
+            <th className="px-4 py-3 font-medium">Клиент</th>
+            <th className="px-4 py-3 font-medium">Регистрация</th>
+            <th className="px-4 py-3 text-center font-medium">Заказов</th>
+            <th className="px-4 py-3 text-right font-medium">Ср. чек</th>
+            <th className="px-4 py-3 text-right font-medium">Прибыль</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((u) => (
+            <tr
+              key={u.id}
+              onClick={() => router.push(`/admin/users/${u.id}`)}
+              className="cursor-pointer border-t border-white/5 transition hover:bg-white/[0.04]"
+            >
+              <td className="px-4 py-3">
+                <span className="font-semibold text-white">
+                  {u.username ? `@${u.username}` : 'Без username'}
+                </span>
+                {u.isChannelSubscriber ? (
+                  <span className="ml-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-200">
+                    Подписчик
+                  </span>
+                ) : null}
+              </td>
+              <td className="whitespace-nowrap px-4 py-3 text-white/60">
+                {new Date(u.createdAt).toLocaleDateString('ru-RU')}
+              </td>
+              <td className="px-4 py-3 text-center text-white/70">{u.ordersCount}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-right text-white">
+                {u.averageCheckRub.toLocaleString('ru-RU')} ₽
+              </td>
+              <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-emerald-300">
+                {u.totalProfitRub.toLocaleString('ru-RU')} ₽
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -649,7 +770,7 @@ function UsersPanel() {
         <EmptyState title="Нет клиентов" description="Пользователи не найдены" />
       ) : (
         <>
-          <div className="space-y-2">
+          <div className="space-y-2 lg:hidden">
             {data.data.map((u) => (
               <Link key={u.id} href={`/admin/users/${u.id}`}>
                 <SectionCard className="!p-4 transition hover:border-white/20">
@@ -686,6 +807,7 @@ function UsersPanel() {
               </Link>
             ))}
           </div>
+          <AdminUsersTable users={data.data} className="hidden lg:block" />
 
           {/* Pagination */}
           {data.total > data.pageSize ? (
