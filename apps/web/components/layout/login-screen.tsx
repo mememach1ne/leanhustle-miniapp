@@ -75,8 +75,16 @@ export function LoginScreen() {
           className="mt-2 text-xs leading-5 text-white/70"
           style={{ textShadow: '0 1px 12px rgba(0,0,0,0.9), 0 0 3px rgba(0,0,0,0.7)' }}
         >
-          Вход только через Telegram. Можно открыть и прямо в Telegram — там
-          авторизация произойдёт автоматически.
+          Вход только через Telegram. Можно открыть и{' '}
+          <a
+            href="https://t.me/lh_poizonbot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-[var(--accent)] underline-offset-2 hover:underline"
+          >
+            прямо в Telegram
+          </a>{' '}
+          — там авторизация произойдёт автоматически.
         </p>
       </div>
     </div>
