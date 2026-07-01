@@ -76,7 +76,7 @@ export function TelegramLoginButton() {
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <div ref={containerRef} className="min-h-[48px]" />
+      <div ref={containerRef} className="tg-login min-h-[48px]" />
       {submitting ? (
         <p className="text-xs text-white/50">Входим…</p>
       ) : null}
