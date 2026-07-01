@@ -111,7 +111,7 @@ function SidebarSubscription() {
   };
 
   return (
-    <div className="rounded-2xl border border-[var(--accent)]/20 bg-white/5 p-3">
+    <div className="lg-accent-card rounded-2xl p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold text-white">Приватный канал</span>
         <span

@@ -289,10 +289,8 @@ export default function ProfilePage() {
       {/* Two equal-height columns: account actions | loyalty teaser. */}
       <div className="lg:grid lg:grid-cols-2 lg:gap-6">
         {/* Quick actions */}
-        <SectionCard className="lg:h-full">
-          <h3 className="text-sm font-semibold text-white">Аккаунт</h3>
-          <p className="mt-1 text-xs text-white/40">Данные доставки и история заказов</p>
-          <div className="mt-4 space-y-2">
+        <SectionCard>
+          <div className="space-y-2">
             <Link
               href="/profile/delivery"
               className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 px-4 py-3.5 transition hover:bg-white/10"
@@ -316,48 +314,37 @@ export default function ProfilePage() {
           </div>
         </SectionCard>
 
-        {/* Loyalty program — teaser (not yet live) */}
-        <div className="mt-4 overflow-hidden rounded-[28px] border border-[var(--accent)]/20 bg-white/5 p-5 lg:mt-0 lg:h-full">
+        {/* Loyalty program — compact teaser (not yet live) */}
+        <div className="mt-4 overflow-hidden rounded-[28px] border border-[var(--accent)]/20 bg-white/5 p-5 lg:mt-0">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">🎁</span>
-              <h3 className="text-sm font-semibold text-white">Программа лояльности</h3>
-            </div>
+            <h3 className="text-sm font-semibold text-white">Программа лояльности</h3>
             <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-200">
               Скоро
             </span>
           </div>
           <p className="mt-2 text-xs leading-5 text-white/60">
             Чем больше сумма ваших заказов — тем выше скидка на комиссию. Для
-            подписчиков приватного канала. Функция в разработке — скоро включим.
+            подписчиков приватного канала.
           </p>
-          <div className="pointer-events-none mt-4 select-none rounded-2xl bg-slate-950/40 p-4 opacity-60">
-            <div className="flex items-center justify-between text-xs text-white/50">
-              <span>Ваш прогресс</span>
-              <span className="font-semibold text-white/70">—</span>
-            </div>
-            <div className="mt-2 h-2 rounded-full bg-white/10">
-              <div className="h-full w-2/5 rounded-full bg-[var(--accent)]/50" />
-            </div>
-            <p className="mt-2 text-[10px] text-white/30">
-              До следующей скидки на комиссию — скоро
-            </p>
+          <div className="pointer-events-none mt-4 h-2 select-none rounded-full bg-white/10 opacity-70">
+            <div className="h-full w-2/5 rounded-full bg-[var(--accent)]/50" />
           </div>
         </div>
       </div>
 
-      {/* FAQ — centered */}
-      <div className="lg:mx-auto lg:w-full lg:max-w-2xl">
-        <details className="group">
-          <summary className="flex cursor-pointer items-center gap-2 px-1 py-2 text-sm font-semibold text-[var(--muted)] transition hover:text-white [&::-webkit-details-marker]:hidden">
-            <span className="flex-shrink-0 text-xs transition-transform group-open:rotate-90">▶</span>
-            Часто задаваемые вопросы
-          </summary>
-          <div className="mt-2">
-            <FaqAccordion items={FAQ_ITEMS} />
-          </div>
-        </details>
-      </div>
+      {/* FAQ — full-width, left aligned, two columns on desktop */}
+      <details className="group">
+        <summary className="flex cursor-pointer items-center gap-2 py-2 text-base font-semibold text-white [&::-webkit-details-marker]:hidden">
+          <span className="flex-shrink-0 text-xs text-[var(--muted)] transition-transform group-open:rotate-90">▶</span>
+          Часто задаваемые вопросы
+        </summary>
+        <div className="mt-3">
+          <FaqAccordion
+            items={FAQ_ITEMS}
+            className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0"
+          />
+        </div>
+      </details>
 
       {/* Logout — mobile browser only (desktop uses the sidebar). */}
       <div className="lg:hidden">

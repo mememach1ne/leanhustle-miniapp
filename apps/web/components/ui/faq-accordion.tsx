@@ -4,11 +4,13 @@ import { SectionCard } from './section-card';
 
 export function FaqAccordion({
   items,
+  className = 'space-y-3',
 }: {
   items: Array<{ question: string; answer: ReactNode }>;
+  className?: string;
 }) {
   return (
-    <div className="space-y-3">
+    <div className={className}>
       {items.map((item) => (
         <SectionCard key={item.question}>
           <details className="group">
