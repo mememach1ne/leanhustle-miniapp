@@ -250,9 +250,18 @@ select {
 }
 
 /* Telegram Login Widget renders in an iframe. On our dark page its
- * transparent canvas paints black at the button's rounded corners because
- * the iframe inherits color-scheme: dark. Force a light scheme so the
- * transparent background renders cleanly (no black corners). */
+ * transparent canvas paints black at the button's rounded corners. Force a
+ * light color-scheme (fixes desktop) AND physically clip the iframe to the
+ * button's radius (fixes mobile Safari, which ignores color-scheme here).
+ * The wrapper's overflow:hidden guarantees the corners are cut off. */
+.tg-login {
+  display: inline-block;
+  overflow: hidden;
+  border-radius: 12px;
+  line-height: 0;
+}
 .tg-login iframe {
-  color-scheme: light;
+  color-scheme: light !important;
+  border-radius: 12px;
+  display: block;
 }
