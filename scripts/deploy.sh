@@ -63,6 +63,16 @@ if [ "$SKIP_SHARED" = false ]; then
   "
 fi
 
+if [ "$RESTART_TARGET" != "web" ]; then
+  echo "==> build api"
+  pnpm --filter @lean-poizon/api build
+fi
+
+if [ "$RESTART_TARGET" = "all" ]; then
+  echo "==> build bot"
+  pnpm --filter @lean-poizon/bot build
+fi
+
 if [ "$SKIP_WEB" = false ] && [ "$RESTART_TARGET" != "api" ]; then
   echo "==> build web"
   pnpm --filter @lean-poizon/web build
