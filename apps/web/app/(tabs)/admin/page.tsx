@@ -640,7 +640,7 @@ function SettingsPanel() {
           </button>
         </div>
         <p className="mb-4 text-xs leading-5 text-white/50">
-          Уровни для подписчиков приватного канала. Скидка в п.п. вычитается из комиссии при
+          Уровни для подписчиков приватного канала. Скидка в % вычитается из комиссии при
           достижении суммы выкупов (за всё время).
         </p>
 
@@ -679,7 +679,7 @@ function SettingsPanel() {
                   />
                 </label>
                 <label className="flex-1">
-                  <span className="mb-1 block text-[10px] text-white/40">Скидка (п.п.)</span>
+                  <span className="mb-1 block text-[10px] text-white/40">Скидка (%)</span>
                   <input
                     type="number"
                     step="any"

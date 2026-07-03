@@ -241,10 +241,89 @@ select {
   filter: drop-shadow(0 10px 40px rgba(41, 195, 197, 0.45));
 }
 
+/* =====================================================================
+ * Loyalty tier glow. A persistent thin ring + soft aura in the tier's
+ * signature colour, gently pulsing. The colour is driven by inline
+ * custom properties (--tier-ring / --tier-glow-*) set per tier, so one
+ * animation serves Серебро / Золото / Платина.
+ * ===================================================================== */
+@keyframes lg-tier-pulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      0 0 0 1px var(--tier-ring),
+      0 0 22px var(--tier-glow-soft),
+      0 10px 30px -12px rgba(0, 0, 0, 0.55);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 0 0 1px var(--tier-ring-strong),
+      0 0 36px var(--tier-glow-strong),
+      0 10px 30px -12px rgba(0, 0, 0, 0.55);
+  }
+}
+
+.lg-tier-glow {
+  border: 1px solid transparent;
+  animation: lg-tier-pulse 3.2s ease-in-out infinite;
+}
+
+/* Celebration: a bright burst on the card the moment a new tier is
+ * reached, plus a floating "Новый уровень" banner. Runs once. */
+@keyframes lg-tier-burst {
+  0% {
+    box-shadow:
+      0 0 0 0 var(--tier-ring-strong),
+      0 0 0 0 var(--tier-glow-strong);
+  }
+  35% {
+    box-shadow:
+      0 0 0 3px var(--tier-ring-strong),
+      0 0 48px 10px var(--tier-glow-strong);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px var(--tier-ring),
+      0 0 22px var(--tier-glow-soft);
+  }
+}
+
+.lg-tier-burst {
+  animation: lg-tier-burst 2.4s ease-out forwards;
+}
+
+@keyframes lg-tier-banner {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  14% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  82% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+.lg-tier-banner {
+  animation: lg-tier-banner 2.6s ease-in-out forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lg-accent-card,
   .lg-accent-button,
-  .lh-wordmark {
+  .lh-wordmark,
+  .lg-tier-glow,
+  .lg-tier-burst,
+  .lg-tier-banner {
     animation: none;
   }
 }
