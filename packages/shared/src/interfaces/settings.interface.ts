@@ -1,3 +1,5 @@
+import type { LoyaltyTier } from './loyalty.interface';
+
 export interface BusinessSettingsDto {
   id: string;
   cnyToUsd: number;
@@ -8,6 +10,8 @@ export interface BusinessSettingsDto {
   dutyThresholdEur: number;
   dutyPercent: number;
   dutyProcessingFeeRub: number;
+  loyaltyEnabled: boolean;
+  loyaltyTiers: LoyaltyTier[];
   updatedAt: string;
 }
 
@@ -17,6 +21,8 @@ export interface UpdateBusinessSettingsRequest {
   eurToRub?: number;
   commissionPercent?: number;
   deliveryPricePerKgRub?: number;
+  loyaltyEnabled?: boolean;
+  loyaltyTiers?: LoyaltyTier[];
 }
 
 export interface SettingsAuditActorDto {

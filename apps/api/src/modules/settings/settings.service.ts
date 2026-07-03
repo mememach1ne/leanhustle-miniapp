@@ -1,9 +1,11 @@
 import type {
   BusinessSettingsDto,
+  LoyaltyTier,
   SettingsAuditActorDto,
   SettingsAuditLogItemDto,
   UpdateBusinessSettingsRequest,
 } from '@lean-poizon/shared';
+import { DEFAULT_LOYALTY_TIERS } from '@lean-poizon/shared';
 import {
   BadRequestException,
   ForbiddenException,
@@ -60,8 +62,9 @@ export class SettingsService {
     this.assertStaff(staff);
 
     const patch = this.pickAllowedPatch(dto);
+    const loyaltyPatch = this.pickLoyaltyPatch(dto);
 
-    if (Object.keys(patch).length === 0) {
+    if (Object.keys(patch).length === 0 && Object.keys(loyaltyPatch).length === 0) {
       throw new BadRequestException('Не передано ни одного допустимого поля для обновления.');
     }
 
@@ -80,6 +83,7 @@ export class SettingsService {
         where: { id: existing.id },
         data: {
           ...patch,
+          ...loyaltyPatch,
           updatedByStaffId: staff?.id ?? null,
         },
       });
@@ -179,6 +183,83 @@ export class SettingsService {
     return patch;
   }
 
+  private pickLoyaltyPatch(dto: UpdateBusinessSettingsRequest) {
+    const patch: { loyaltyEnabled?: boolean; loyaltyTiers?: Prisma.InputJsonValue } = {};
+
+    if (typeof dto.loyaltyEnabled === 'boolean') {
+      patch.loyaltyEnabled = dto.loyaltyEnabled;
+    }
+
+    if (dto.loyaltyTiers !== undefined) {
+      patch.loyaltyTiers = this.sanitizeTiers(dto.loyaltyTiers) as unknown as Prisma.InputJsonValue;
+    }
+
+    return patch;
+  }
+
+  /** Validate + normalize an incoming tier ladder, sorted ascending by threshold. */
+  private sanitizeTiers(tiers: LoyaltyTier[]): LoyaltyTier[] {
+    if (!Array.isArray(tiers)) {
+      throw new BadRequestException('loyaltyTiers должен быть массивом уровней.');
+    }
+
+    const normalized = tiers.map((tier, index) => {
+      const key = typeof tier.key === 'string' ? tier.key.trim() : '';
+      const name = typeof tier.name === 'string' ? tier.name.trim() : '';
+      const thresholdUsd = Number(tier.thresholdUsd);
+      const discountPercentPoints = Number(tier.discountPercentPoints);
+
+      if (!key || !name) {
+        throw new BadRequestException(`Уровень #${index + 1}: нужны ключ и название.`);
+      }
+
+      if (!Number.isFinite(thresholdUsd) || thresholdUsd < 0) {
+        throw new BadRequestException(`Уровень «${name}»: некорректный порог.`);
+      }
+
+      if (!Number.isFinite(discountPercentPoints) || discountPercentPoints < 0) {
+        throw new BadRequestException(`Уровень «${name}»: некорректная скидка.`);
+      }
+
+      return { key, name, thresholdUsd, discountPercentPoints };
+    });
+
+    return normalized.sort((a, b) => a.thresholdUsd - b.thresholdUsd);
+  }
+
+  /** Parse the JSONB ladder from storage, falling back to defaults if malformed. */
+  private parseTiers(value: Prisma.JsonValue | null | undefined): LoyaltyTier[] {
+    if (!Array.isArray(value)) {
+      return DEFAULT_LOYALTY_TIERS;
+    }
+
+    const tiers: LoyaltyTier[] = [];
+
+    for (const entry of value) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        continue;
+      }
+
+      const record = entry as Record<string, unknown>;
+      const key = typeof record.key === 'string' ? record.key : '';
+      const name = typeof record.name === 'string' ? record.name : '';
+      const thresholdUsd = Number(record.thresholdUsd);
+      const discountPercentPoints = Number(record.discountPercentPoints);
+
+      if (!key || !name || !Number.isFinite(thresholdUsd) || !Number.isFinite(discountPercentPoints)) {
+        continue;
+      }
+
+      tiers.push({ key, name, thresholdUsd, discountPercentPoints });
+    }
+
+    if (tiers.length === 0) {
+      return DEFAULT_LOYALTY_TIERS;
+    }
+
+    return tiers.sort((a, b) => a.thresholdUsd - b.thresholdUsd);
+  }
+
   private extractValues(
     settings: BusinessSettings,
     keys: UpdatableSettingKey[],
@@ -203,6 +284,8 @@ export class SettingsService {
       dutyThresholdEur: this.toNumber(settings.dutyThresholdEur),
       dutyPercent: this.toNumber(settings.dutyPercent),
       dutyProcessingFeeRub: this.toNumber(settings.dutyProcessingFeeRub),
+      loyaltyEnabled: settings.loyaltyEnabled,
+      loyaltyTiers: this.parseTiers(settings.loyaltyTiers),
       updatedAt: settings.updatedAt.toISOString(),
     };
   }

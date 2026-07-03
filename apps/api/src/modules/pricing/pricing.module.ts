@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
+import { LoyaltyModule } from '../loyalty/loyalty.module';
 import { SettingsModule } from '../settings/settings.module';
 import { StaffModule } from '../staff/staff.module';
 import { PricingController } from './pricing.controller';
@@ -15,7 +16,7 @@ import { NewCategoryNotificationService } from './services/new-category-notifica
 import { ProductCategoryClassifierService } from './services/product-category-classifier.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, SettingsModule, StaffModule],
+  imports: [PrismaModule, AuthModule, LoyaltyModule, SettingsModule, StaffModule],
   controllers: [PricingController, StaffDeliveryCategoriesController],
   providers: [
     PricingService,

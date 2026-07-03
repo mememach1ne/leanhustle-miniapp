@@ -15,6 +15,7 @@ import type {
   CryptoPaymentIntentDto,
   DeliveryAddressDto,
   DewuResolvedProduct,
+  LoyaltyStatusDto,
   ManagerHelpRequest,
   ManualOrderClientLookupResponse,
   ManualPricingRequest,
@@ -160,6 +161,13 @@ export const ordersApi = {
   },
   async cancelOrder(id: string, reason?: string): Promise<OrderDetailsDto> {
     const response = await apiClient.post<OrderDetailsDto>(`/orders/${id}/cancel`, { reason });
+    return response.data;
+  },
+};
+
+export const loyaltyApi = {
+  async getStatus(): Promise<LoyaltyStatusDto> {
+    const response = await apiClient.get<LoyaltyStatusDto>('/loyalty/me');
     return response.data;
   },
 };

@@ -9,6 +9,7 @@ export * from './enums/subscription-verification-status.enum';
 export * from './interfaces/cart.interface';
 export * from './interfaces/crypto-payment.interface';
 export * from './interfaces/delivery-address.interface';
+export * from './interfaces/loyalty.interface';
 export * from './interfaces/auth.interface';
 export * from './interfaces/channel-subscription.interface';
 export * from './interfaces/order.interface';

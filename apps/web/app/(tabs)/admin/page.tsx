@@ -4,8 +4,10 @@ import type {
   AdminOrdersResponse,
   AdminUsersResponse,
   BusinessSettingsDto,
+  LoyaltyTier,
   SettingsAuditLogItemDto,
   StaffOrderListItemDto,
+  UpdateBusinessSettingsRequest,
 } from '@lean-poizon/shared';
 import { ORDER_STATUS_LABELS, OrderStatus } from '@lean-poizon/shared';
 import Link from 'next/link';
@@ -451,6 +453,8 @@ function SettingsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(true);
+  const [tiers, setTiers] = useState<LoyaltyTier[]>([]);
 
   useEffect(() => {
     void loadSettings();
@@ -472,6 +476,8 @@ function SettingsPanel() {
         commissionPercent: String(s.commissionPercent),
         deliveryPricePerKgRub: String(s.deliveryPricePerKgRub),
       });
+      setLoyaltyEnabled(s.loyaltyEnabled);
+      setTiers(s.loyaltyTiers);
     } catch (err) {
       setError(extractAxiosMessage(err) ?? 'Не удалось загрузить настройки');
     } finally {
@@ -484,12 +490,32 @@ function SettingsPanel() {
     setError(null);
     setSuccess(null);
     try {
-      const dto: Record<string, number> = {};
+      const dto: UpdateBusinessSettingsRequest = {};
       for (const [key, value] of Object.entries(editValues)) {
         const num = parseFloat(value);
         if (!isNaN(num) && settings && num !== (settings as unknown as Record<string, number>)[key]) {
-          dto[key] = num;
+          (dto as unknown as Record<string, number>)[key] = num;
         }
+      }
+
+      if (settings && loyaltyEnabled !== settings.loyaltyEnabled) {
+        dto.loyaltyEnabled = loyaltyEnabled;
+      }
+
+      if (settings && JSON.stringify(tiers) !== JSON.stringify(settings.loyaltyTiers)) {
+        // Validate before sending.
+        for (const tier of tiers) {
+          if (!tier.name.trim()) {
+            throw new Error('У каждого уровня должно быть название.');
+          }
+          if (!Number.isFinite(tier.thresholdUsd) || tier.thresholdUsd < 0) {
+            throw new Error(`Уровень «${tier.name}»: некорректный порог.`);
+          }
+          if (!Number.isFinite(tier.discountPercentPoints) || tier.discountPercentPoints < 0) {
+            throw new Error(`Уровень «${tier.name}»: некорректная скидка.`);
+          }
+        }
+        dto.loyaltyTiers = tiers;
       }
 
       if (Object.keys(dto).length === 0) {
@@ -499,14 +525,43 @@ function SettingsPanel() {
 
       const updated = await adminApi.updateSettings(dto);
       setSettings(updated);
+      setLoyaltyEnabled(updated.loyaltyEnabled);
+      setTiers(updated.loyaltyTiers);
       setSuccess('Настройки сохранены');
       const freshAudit = await adminApi.getSettingsAudit();
       setAudit(freshAudit);
     } catch (err) {
-      setError(extractAxiosMessage(err) ?? 'Не удалось сохранить');
+      const message =
+        err instanceof Error && !extractAxiosMessage(err)
+          ? err.message
+          : extractAxiosMessage(err);
+      setError(message ?? 'Не удалось сохранить');
     } finally {
       setSaving(false);
     }
+  };
+
+  const updateTier = (index: number, patch: Partial<LoyaltyTier>) => {
+    setTiers((prev) => prev.map((tier, i) => (i === index ? { ...tier, ...patch } : tier)));
+  };
+
+  const removeTier = (index: number) => {
+    setTiers((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addTier = () => {
+    setTiers((prev) => {
+      const nextThreshold = prev.length > 0 ? prev[prev.length - 1].thresholdUsd + 500 : 500;
+      return [
+        ...prev,
+        {
+          key: `tier_${Date.now()}`,
+          name: 'Новый уровень',
+          thresholdUsd: nextThreshold,
+          discountPercentPoints: 1,
+        },
+      ];
+    });
   };
 
   if (loading) {
@@ -561,6 +616,104 @@ function SettingsPanel() {
         <p className="mt-2 text-center text-[10px] text-white/30">
           Обновлено: {new Date(settings.updatedAt).toLocaleString('ru-RU')}
         </p>
+      </SectionCard>
+
+      {/* Loyalty program */}
+      <SectionCard>
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <h3 className="text-sm font-semibold text-white">Программа лояльности</h3>
+          <button
+            type="button"
+            onClick={() => setLoyaltyEnabled((v) => !v)}
+            className={[
+              'relative h-6 w-11 shrink-0 rounded-full transition',
+              loyaltyEnabled ? 'bg-[var(--accent)]' : 'bg-white/15',
+            ].join(' ')}
+            aria-pressed={loyaltyEnabled}
+          >
+            <span
+              className={[
+                'absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all',
+                loyaltyEnabled ? 'left-[22px]' : 'left-0.5',
+              ].join(' ')}
+            />
+          </button>
+        </div>
+        <p className="mb-4 text-xs leading-5 text-white/50">
+          Уровни для подписчиков приватного канала. Скидка в п.п. вычитается из комиссии при
+          достижении суммы выкупов (за всё время).
+        </p>
+
+        <div className="space-y-3">
+          {tiers.map((tier, index) => (
+            <div key={tier.key} className="rounded-2xl border border-white/5 bg-white/[0.03] p-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={tier.name}
+                  onChange={(e) => updateTier(index, { name: e.target.value })}
+                  placeholder="Название"
+                  className="min-w-0 flex-1 rounded-xl bg-white/5 px-3 py-2 text-sm font-medium text-white outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeTier(index)}
+                  className="shrink-0 rounded-xl border border-white/10 px-2.5 py-2 text-xs text-white/50 transition hover:border-red-400/40 hover:text-red-300"
+                  aria-label="Удалить уровень"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="mt-2 flex gap-2">
+                <label className="flex-1">
+                  <span className="mb-1 block text-[10px] text-white/40">Порог (выкупы, $)</span>
+                  <input
+                    type="number"
+                    step="any"
+                    min={0}
+                    value={tier.thresholdUsd}
+                    onChange={(e) =>
+                      updateTier(index, { thresholdUsd: parseFloat(e.target.value) || 0 })
+                    }
+                    className="w-full rounded-xl bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  />
+                </label>
+                <label className="flex-1">
+                  <span className="mb-1 block text-[10px] text-white/40">Скидка (п.п.)</span>
+                  <input
+                    type="number"
+                    step="any"
+                    min={0}
+                    value={tier.discountPercentPoints}
+                    onChange={(e) =>
+                      updateTier(index, {
+                        discountPercentPoints: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full rounded-xl bg-white/5 px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  />
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={addTier}
+          className="mt-3 w-full rounded-[18px] border border-dashed border-white/15 px-4 py-2.5 text-xs font-semibold text-white/60 transition hover:border-white/30 hover:text-white"
+        >
+          + Добавить уровень
+        </button>
+
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="mt-3 w-full rounded-[18px] bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-slate-950 transition disabled:opacity-50"
+        >
+          {saving ? 'Сохранение...' : 'Сохранить настройки лояльности'}
+        </button>
       </SectionCard>
 
       {/* Audit log */}

@@ -26,6 +26,7 @@ import {
 } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import { PricingService } from '../pricing/pricing.service';
 import { SettingsService } from '../settings/settings.service';
 import { mapUserToProfile } from '../users/mappers/user-profile.mapper';
@@ -85,6 +86,7 @@ export class OrdersService {
   private readonly orderNumberService: OrderNumberService;
   private readonly orderNotificationsService: OrderNotificationsService;
   private readonly subscriberBenefitService: SubscriberBenefitService;
+  private readonly loyaltyService: LoyaltyService;
 
   constructor(
     @Inject(PrismaService) prisma: PrismaService,
@@ -96,6 +98,7 @@ export class OrdersService {
     orderNotificationsService: OrderNotificationsService,
     @Inject(SubscriberBenefitService)
     subscriberBenefitService: SubscriberBenefitService,
+    @Inject(LoyaltyService) loyaltyService: LoyaltyService,
   ) {
     this.prisma = prisma;
     this.settingsService = settingsService;
@@ -104,6 +107,7 @@ export class OrdersService {
     this.orderNumberService = orderNumberService;
     this.orderNotificationsService = orderNotificationsService;
     this.subscriberBenefitService = subscriberBenefitService;
+    this.loyaltyService = loyaltyService;
   }
 
   async checkout(user: User, deliveryAddressId: string): Promise<CheckoutOrderResponse> {
@@ -141,12 +145,25 @@ export class OrdersService {
           user.isChannelSubscriber,
         );
 
+        // Loyalty discount (percentage points off commission) for subscribers,
+        // based on lifetime spend before this order.
+        const loyaltyDiscount = await this.loyaltyService.getDiscountPercentPoints(
+          user,
+          settings,
+          tx,
+        );
+        const effectiveCommissionPercent = this.pricingService.effectiveCommissionPercent(
+          settings.commissionPercent,
+          loyaltyDiscount,
+        );
+
         // Recalculate prices server-side to prevent client-side price manipulation
         const recalculatedItems = cart.items.map((item) => {
           const result = this.pricingService.recalculateFromYuan(
             item.priceYuan,
             item.deliveryCategory ?? 'OTHER',
             settings,
+            loyaltyDiscount,
           );
           return {
             ...item,
@@ -186,7 +203,7 @@ export class OrdersService {
             dutyRub,
             pricingCnyToUsd: settings.cnyToUsd,
             pricingCnyToRub: settings.cnyToRub,
-            pricingCommissionPercent: settings.commissionPercent,
+            pricingCommissionPercent: effectiveCommissionPercent,
             deliveryAddressId: deliveryAddress.id,
             deliveryFullName: deliveryAddress.fullName,
             deliveryCdekAddress: deliveryAddress.cdekAddress,
@@ -364,13 +381,27 @@ export class OrdersService {
 
     const settings = await this.settingsService.getCurrentSettings();
 
+    // Apply the client's loyalty tier (percentage points off commission) if
+    // they qualify — same rule as a self-service checkout.
+    const loyaltyDiscount = await this.loyaltyService.getDiscountPercentPoints(
+      client,
+      settings,
+    );
+    const effectiveCommissionPercent = this.pricingService.effectiveCommissionPercent(
+      settings.commissionPercent,
+      loyaltyDiscount,
+    );
+
     // Compute pricing for each item using the existing manual-pricing logic.
     const pricedItems = await Promise.all(
       dto.items.map(async (item) => {
-        const pricing = await this.pricingService.calculateManual({
-          priceYuan: item.priceYuan,
-          deliveryCategory: item.deliveryCategory,
-        });
+        const pricing = await this.pricingService.calculateManual(
+          {
+            priceYuan: item.priceYuan,
+            deliveryCategory: item.deliveryCategory,
+          },
+          loyaltyDiscount,
+        );
         return { input: item, pricing };
       }),
     );
@@ -419,7 +450,7 @@ export class OrdersService {
             dutyRub,
             pricingCnyToUsd: settings.cnyToUsd,
             pricingCnyToRub: settings.cnyToRub,
-            pricingCommissionPercent: settings.commissionPercent,
+            pricingCommissionPercent: effectiveCommissionPercent,
             deliveryAddressId: null,
             deliveryFullName: dto.delivery.fullName,
             deliveryCdekAddress: dto.delivery.cdekAddress,

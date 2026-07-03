@@ -160,13 +160,36 @@ export class PricingService {
     };
   }
 
-  async calculateManual(dto: ManualPricingDto): Promise<ManualPricingResult> {
+  /**
+   * Commission left after subtracting the customer's loyalty discount
+   * (in percentage points), floored at 0.
+   */
+  effectiveCommissionPercent(
+    commissionPercent: Prisma.Decimal,
+    discountPercentPoints = 0,
+  ): Prisma.Decimal {
+    if (!discountPercentPoints || discountPercentPoints <= 0) {
+      return commissionPercent;
+    }
+
+    const discounted = commissionPercent.minus(discountPercentPoints);
+    return discounted.greaterThan(0) ? discounted : new Prisma.Decimal(0);
+  }
+
+  async calculateManual(
+    dto: ManualPricingDto,
+    discountPercentPoints = 0,
+  ): Promise<ManualPricingResult> {
     const settings = await this.settingsService.getCurrentSettings();
     const priceYuan = new Prisma.Decimal(dto.priceYuan);
+    const commissionPercent = this.effectiveCommissionPercent(
+      settings.commissionPercent,
+      discountPercentPoints,
+    );
 
     const subtotalUsd = priceYuan.mul(settings.cnyToUsd);
     const totalUsd = subtotalUsd
-      .mul(new Prisma.Decimal(1).plus(settings.commissionPercent.div(100)))
+      .mul(new Prisma.Decimal(1).plus(commissionPercent.div(100)))
       .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
     const categoryGroup = getCategoryGroupFromDeliveryCategory(dto.deliveryCategory);
@@ -210,10 +233,15 @@ export class PricingService {
       dutyPercent: Prisma.Decimal;
       dutyProcessingFeeRub: Prisma.Decimal;
     },
+    discountPercentPoints = 0,
   ): { totalUsd: Prisma.Decimal; deliveryRub: number; dutyRub: number } {
+    const commissionPercent = this.effectiveCommissionPercent(
+      settings.commissionPercent,
+      discountPercentPoints,
+    );
     const subtotalUsd = priceYuan.mul(settings.cnyToUsd);
     const totalUsd = subtotalUsd
-      .mul(new Prisma.Decimal(1).plus(settings.commissionPercent.div(100)))
+      .mul(new Prisma.Decimal(1).plus(commissionPercent.div(100)))
       .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
     const { deliveryRub } = this.deliveryEstimationService.estimateDeliveryRub({
@@ -233,7 +261,10 @@ export class PricingService {
     return { totalUsd, deliveryRub, dutyRub };
   }
 
-  async calculate(dto: CalculatePricingDto): Promise<PricingCalculationResult> {
+  async calculate(
+    dto: CalculatePricingDto,
+    discountPercentPoints = 0,
+  ): Promise<PricingCalculationResult> {
     const sku = dto.product.skus.find((item) => item.dwSkuId === dto.dwSkuId);
 
     if (!sku) {
@@ -246,10 +277,14 @@ export class PricingService {
 
     const settings = await this.settingsService.getCurrentSettings();
     const priceYuan = new Prisma.Decimal(sku.priceYuan);
+    const commissionPercent = this.effectiveCommissionPercent(
+      settings.commissionPercent,
+      discountPercentPoints,
+    );
 
     const subtotalUsd = priceYuan.mul(settings.cnyToUsd);
     const totalUsd = subtotalUsd
-      .mul(new Prisma.Decimal(1).plus(settings.commissionPercent.div(100)))
+      .mul(new Prisma.Decimal(1).plus(commissionPercent.div(100)))
       .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
     const delivery = await this.resolveDelivery({

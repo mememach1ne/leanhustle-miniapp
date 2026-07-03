@@ -1,3 +1,4 @@
+import type { LoyaltyStatusDto } from '@lean-poizon/shared';
 import { Controller, Get, Inject, UseGuards } from '@nestjs/common';
 import type { User } from '@prisma/client';
 
@@ -14,8 +15,8 @@ export class LoyaltyController {
     this.loyaltyService = loyaltyService;
   }
 
-  @Get()
-  getStatus(@CurrentUser() user: User) {
-    return this.loyaltyService.getStatus({ userId: user.id });
+  @Get('me')
+  getMyStatus(@CurrentUser() user: User): Promise<LoyaltyStatusDto> {
+    return this.loyaltyService.getStatus(user);
   }
 }

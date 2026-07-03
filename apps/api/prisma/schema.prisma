@@ -316,6 +316,11 @@ model BusinessSettings {
   dutyThresholdEur      Decimal       @map("duty_threshold_eur") @db.Decimal(12, 2)
   dutyPercent           Decimal       @map("duty_percent") @db.Decimal(5, 2)
   dutyProcessingFeeRub  Decimal       @map("duty_processing_fee_rub") @db.Decimal(12, 2)
+  /// Loyalty program: reduce commission by tier once a subscriber's
+  /// cumulative goods spend crosses a threshold.
+  loyaltyEnabled        Boolean       @default(true) @map("loyalty_enabled")
+  /// Array of { key, name, thresholdUsd, discountPercentPoints }.
+  loyaltyTiers          Json          @default("[{\"key\":\"silver\",\"name\":\"Серебро\",\"thresholdUsd\":500,\"discountPercentPoints\":2},{\"key\":\"gold\",\"name\":\"Золото\",\"thresholdUsd\":1500,\"discountPercentPoints\":4},{\"key\":\"platinum\",\"name\":\"Платина\",\"thresholdUsd\":3000,\"discountPercentPoints\":6}]") @map("loyalty_tiers")
   updatedByStaffId      String?       @map("updated_by_staff_id") @db.Uuid
   createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)

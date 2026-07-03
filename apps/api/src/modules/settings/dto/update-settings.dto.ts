@@ -1,4 +1,31 @@
-import { IsNumber, IsOptional, Max, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+
+export class LoyaltyTierInputDto {
+  @IsString()
+  key!: string;
+
+  @IsString()
+  name!: string;
+
+  @IsNumber()
+  @Min(0)
+  thresholdUsd!: number;
+
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  discountPercentPoints!: number;
+}
 
 export class UpdateSettingsDto {
   @IsOptional()
@@ -26,4 +53,14 @@ export class UpdateSettingsDto {
   @IsNumber()
   @Min(0.01)
   deliveryPricePerKgRub?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  loyaltyEnabled?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LoyaltyTierInputDto)
+  loyaltyTiers?: LoyaltyTierInputDto[];
 }

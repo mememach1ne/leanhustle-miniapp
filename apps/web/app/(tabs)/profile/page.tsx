@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { AuthDebugBlock } from '../../../components/debug/auth-debug-block';
+import { LoyaltyCard } from '../../../components/profile/loyalty-card';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { FaqAccordion } from '../../../components/ui/faq-accordion';
 import { FeedbackMessage } from '../../../components/ui/feedback-message';
@@ -314,22 +315,8 @@ export default function ProfilePage() {
           </div>
         </SectionCard>
 
-        {/* Loyalty program — compact teaser (not yet live) */}
-        <SectionCard className="mt-4 lg:mt-0">
-          <div className="flex items-start justify-between gap-3">
-            <h3 className="text-sm font-semibold text-white">Программа лояльности</h3>
-            <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-200">
-              Скоро
-            </span>
-          </div>
-          <p className="mt-2 text-xs leading-5 text-white/60">
-            Чем больше сумма ваших заказов — тем выше скидка на комиссию. Для
-            подписчиков приватного канала.
-          </p>
-          <div className="pointer-events-none mt-4 h-2 select-none rounded-full bg-white/10 opacity-70">
-            <div className="h-full w-2/5 rounded-full bg-[var(--accent)]/50" />
-          </div>
-        </SectionCard>
+        {/* Loyalty program — live tier / discount / progress. */}
+        <LoyaltyCard className="mt-4 lg:mt-0" />
       </div>
 
       {/* FAQ — full-width, left aligned, two columns on desktop */}
