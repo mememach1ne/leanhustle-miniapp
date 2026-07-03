@@ -17,6 +17,7 @@ type BenefitOrder = {
   };
   items: Array<{
     id: string;
+    quantity: number;
     priceYuan: Prisma.Decimal;
     originalTotalUsd: Prisma.Decimal;
     totalUsd: Prisma.Decimal;
@@ -47,28 +48,35 @@ export class SubscriberBenefitService {
 
     const usdToRub = order.pricingCnyToRub.div(order.pricingCnyToUsd);
 
+    // Per-unit amounts. `originalTotalUsd` / `totalUsd` on an order item are
+    // stored per unit; the line total is the per-unit value × quantity, so the
+    // benefit must be scaled by quantity when rolled up to the order.
     const itemUpdates = order.items.map((item) => {
-      const subtotalUsd = item.priceYuan
+      const perUnitSubtotalUsd = item.priceYuan
         .mul(order.pricingCnyToUsd)
         .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
-      const originalTotalUsd = item.originalTotalUsd;
-      const benefitDiscountUsd = Prisma.Decimal.max(
-        originalTotalUsd.sub(subtotalUsd),
+      const perUnitOriginalUsd = item.originalTotalUsd;
+      const perUnitBenefitUsd = Prisma.Decimal.max(
+        perUnitOriginalUsd.sub(perUnitSubtotalUsd),
         new Prisma.Decimal(0),
       ).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
-      const adjustedTotalUsd = originalTotalUsd
-        .sub(benefitDiscountUsd)
+      const perUnitAdjustedUsd = perUnitOriginalUsd
+        .sub(perUnitBenefitUsd)
         .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+      const quantity = new Prisma.Decimal(item.quantity);
 
       return {
         itemId: item.id,
-        adjustedTotalUsd,
-        benefitDiscountUsd,
+        // Stored back on the order item — keep the per-unit convention.
+        perUnitAdjustedUsd,
+        // Rolled up to the order — scaled by quantity.
+        lineBenefitUsd: perUnitBenefitUsd.mul(quantity),
+        lineAdjustedUsd: perUnitAdjustedUsd.mul(quantity),
       };
     });
 
     const benefitDiscountUsd = itemUpdates.reduce(
-      (sum, item) => sum.add(item.benefitDiscountUsd),
+      (sum, item) => sum.add(item.lineBenefitUsd),
       new Prisma.Decimal(0),
     );
 
@@ -77,7 +85,7 @@ export class SubscriberBenefitService {
     }
 
     const adjustedTotalUsd = itemUpdates.reduce(
-      (sum, item) => sum.add(item.adjustedTotalUsd),
+      (sum, item) => sum.add(item.lineAdjustedUsd),
       new Prisma.Decimal(0),
     );
     const benefitDiscountRub = benefitDiscountUsd
@@ -103,7 +111,7 @@ export class SubscriberBenefitService {
         prisma.orderItem.update({
           where: { id: item.itemId },
           data: {
-            totalUsd: item.adjustedTotalUsd,
+            totalUsd: item.perUnitAdjustedUsd,
           },
         }),
       ),

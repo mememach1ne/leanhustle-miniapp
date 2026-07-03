@@ -520,6 +520,7 @@ export class OrdersService {
               items: {
                 select: {
                   id: true,
+                  quantity: true,
                   priceYuan: true,
                   originalTotalUsd: true,
                   totalUsd: true,
@@ -767,6 +768,7 @@ export class OrdersService {
           items: {
             select: {
               id: true,
+              quantity: true,
               priceYuan: true,
               originalTotalUsd: true,
               totalUsd: true,
