@@ -140,7 +140,7 @@ const ORDERS_PER_PAGE = 8;
 export const POIZON_IOS_URL = 'https://apps.apple.com/app/id1012871328';
 // Poizon is not on Google Play. We host the official APK ourselves and
 // serve it directly via nginx (see infra/nginx).
-export const POIZON_ANDROID_URL = 'https://leanhustle.ru/poizon.apk';
+export const POIZON_ANDROID_URL = 'https://china.leanhustle.net/poizon.apk';
 
 // Mandatory news channel. The bot must be an administrator of this
 // channel (otherwise getChatMember fails).
