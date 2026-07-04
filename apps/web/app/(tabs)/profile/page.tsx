@@ -288,10 +288,10 @@ export default function ProfilePage() {
       </div>
 
       {/* Two equal-height columns: account actions | loyalty teaser. */}
-      <div className="lg:grid lg:grid-cols-2 lg:gap-6">
+      <div className="lg:grid lg:grid-cols-2 lg:items-stretch lg:gap-6">
         {/* Quick actions */}
-        <SectionCard>
-          <div className="space-y-2">
+        <SectionCard className="flex flex-col">
+          <div className="flex flex-1 flex-col justify-center gap-2">
             <Link
               href="/profile/delivery"
               className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 px-4 py-3.5 transition hover:bg-white/10"

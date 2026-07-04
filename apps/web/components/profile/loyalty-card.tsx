@@ -1,8 +1,8 @@
 'use client';
 
-import type { LoyaltyStatusDto } from '@lean-poizon/shared';
+import type { LoyaltyStatusDto, LoyaltyTier } from '@lean-poizon/shared';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 
 import { loyaltyApi } from '../../lib/api-client';
 import { formatDiscount, formatUsd, tierGlowVars, tierVisual } from '../../lib/loyalty';
@@ -97,7 +97,7 @@ export function LoyaltyCard({ className = '' }: { className?: string }) {
   const v = currentTier ? tierVisual(currentTier.key) : null;
 
   const cardClasses = [
-    'relative overflow-hidden transition active:scale-[0.99]',
+    'relative flex h-full flex-col overflow-hidden transition active:scale-[0.99]',
     currentTier ? 'lg-tier-glow' : '',
     celebrating ? 'lg-tier-burst' : '',
   ]
@@ -108,7 +108,7 @@ export function LoyaltyCard({ className = '' }: { className?: string }) {
     <Link
       href="/profile/loyalty"
       aria-label="Открыть программу лояльности"
-      className={['block', className].filter(Boolean).join(' ')}
+      className={['block lg:h-full', className].filter(Boolean).join(' ')}
     >
       <SectionCard className={cardClasses} style={glow}>
         {/* Header row */}
@@ -184,6 +184,62 @@ function EligibleTeaser({ status }: { status: LoyaltyStatusDto }) {
           ? `Ещё ${formatUsd(amountToNextUsd)} до «${nextTier.name}» · подробнее →`
           : 'Максимальный уровень · подробнее →'}
       </p>
+
+      <TierStepper tiers={status.tiers} currentKey={currentTier?.key ?? null} />
+    </div>
+  );
+}
+
+/** Compact horizontal tier ladder: Серебро → Золото → Платина, current node lit. */
+function TierStepper({ tiers, currentKey }: { tiers: LoyaltyTier[]; currentKey: string | null }) {
+  const currentIndex = currentKey ? tiers.findIndex((tier) => tier.key === currentKey) : -1;
+
+  return (
+    <div className="mt-3 border-t border-white/5 pt-3">
+      <div className="flex items-start">
+        {tiers.map((tier, index) => {
+          const reached = index <= currentIndex;
+          const isCurrent = index === currentIndex;
+          const v = tierVisual(tier.key);
+
+          return (
+            <Fragment key={tier.key}>
+              {index > 0 ? (
+                <div
+                  className="mt-3.5 h-0.5 flex-1 rounded-full"
+                  style={{
+                    background:
+                      index <= currentIndex ? 'var(--accent)' : 'rgba(255,255,255,0.1)',
+                  }}
+                />
+              ) : null}
+              <div className="flex flex-col items-center">
+                <div
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-sm"
+                  style={
+                    isCurrent
+                      ? {
+                          background: v.glowStrong,
+                          boxShadow: `0 0 0 1px ${v.ringStrong}, 0 0 12px ${v.glowStrong}`,
+                        }
+                      : reached
+                        ? { background: 'rgba(41,195,197,0.15)' }
+                        : { background: 'rgba(255,255,255,0.05)', opacity: 0.5 }
+                  }
+                >
+                  {v.icon}
+                </div>
+                <span
+                  className="mt-1 text-[10px]"
+                  style={{ color: isCurrent ? v.text : 'rgba(255,255,255,0.4)' }}
+                >
+                  {formatUsd(tier.thresholdUsd)}
+                </span>
+              </div>
+            </Fragment>
+          );
+        })}
+      </div>
     </div>
   );
 }
