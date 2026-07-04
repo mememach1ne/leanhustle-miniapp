@@ -19,6 +19,7 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   OrderStatus,
+  PaymentSource,
   Prisma,
   type StaffAccount,
   StaffRole,
@@ -434,6 +435,39 @@ export class OrdersService {
           client.isChannelSubscriber,
         );
 
+        // Persist the manager-typed delivery data to the client's profile so
+        // it's saved for next time. Reuse an identical existing address;
+        // otherwise create one (default if it's their first).
+        const deliveryFullName = dto.delivery.fullName.trim();
+        const deliveryCdekAddress = dto.delivery.cdekAddress.trim();
+        const deliveryPhone = dto.delivery.phone.trim();
+
+        const existingAddress = await tx.deliveryAddress.findFirst({
+          where: {
+            userId: client.id,
+            fullName: deliveryFullName,
+            cdekAddress: deliveryCdekAddress,
+            phone: deliveryPhone,
+          },
+        });
+
+        let deliveryAddressId = existingAddress?.id ?? null;
+        if (!existingAddress) {
+          const addressCount = await tx.deliveryAddress.count({
+            where: { userId: client.id },
+          });
+          const createdAddress = await tx.deliveryAddress.create({
+            data: {
+              userId: client.id,
+              fullName: deliveryFullName,
+              cdekAddress: deliveryCdekAddress,
+              phone: deliveryPhone,
+              isDefault: addressCount === 0,
+            },
+          });
+          deliveryAddressId = createdAddress.id;
+        }
+
         const order = await tx.order.create({
           data: {
             orderNumber,
@@ -451,10 +485,10 @@ export class OrdersService {
             pricingCnyToUsd: settings.cnyToUsd,
             pricingCnyToRub: settings.cnyToRub,
             pricingCommissionPercent: effectiveCommissionPercent,
-            deliveryAddressId: null,
-            deliveryFullName: dto.delivery.fullName,
-            deliveryCdekAddress: dto.delivery.cdekAddress,
-            deliveryPhone: dto.delivery.phone,
+            deliveryAddressId,
+            deliveryFullName,
+            deliveryCdekAddress,
+            deliveryPhone,
             customerComment: dto.delivery.comment ?? null,
           },
         });
@@ -790,17 +824,20 @@ export class OrdersService {
         );
       }
 
+      const enteringPaid = prismaNextStatus === OrderStatus.PAID_AWAITING_PURCHASE;
+
       await tx.order.update({
         where: { id: order.id },
         data: {
           status: prismaNextStatus,
+          // Manager manually marked it paid (vs. auto crypto detection).
+          ...(enteringPaid ? { paidVia: PaymentSource.MANUAL, paidAt: new Date() } : {}),
         },
       });
 
-      const benefitResult =
-        prismaNextStatus === OrderStatus.PAID_AWAITING_PURCHASE
-          ? await this.subscriberBenefitService.applyIfEligible(tx, order)
-          : null;
+      const benefitResult = enteringPaid
+        ? await this.subscriberBenefitService.applyIfEligible(tx, order)
+        : null;
 
       await tx.orderStatusHistory.create({
         data: {
@@ -1044,6 +1081,76 @@ export class OrdersService {
         .catch((err) =>
           this.logger.warn(
             `Failed to notify user about staff cancellation: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          ),
+        );
+    }
+
+    return this.getOrderForStaff(orderId);
+  }
+
+  /**
+   * Restore a mistakenly-cancelled order. Staff-only. Returns it to the
+   * status it held right before cancellation (from status history), clearing
+   * the cancellation. Falls back to CREATED if the previous status is unknown.
+   */
+  async restoreByStaff(
+    orderId: string,
+    staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff || (staff.role !== StaffRole.ADMIN && staff.role !== StaffRole.MANAGER)) {
+      throw new ForbiddenException('Восстановление заказов доступно только сотрудникам.');
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { user: { select: { telegramId: true } } },
+    });
+    if (!order) throw new NotFoundException('Заказ не найден.');
+
+    if (order.status !== OrderStatus.CANCELLED) {
+      throw new BadRequestException('Восстановить можно только отменённый заказ.');
+    }
+
+    // Find the status the order held immediately before it was cancelled.
+    const lastCancel = await this.prisma.orderStatusHistory.findFirst({
+      where: { orderId: order.id, toStatus: OrderStatus.CANCELLED },
+      orderBy: { createdAt: 'desc' },
+    });
+    const restoredStatus =
+      (lastCancel?.fromStatus as OrderStatus | null) ?? OrderStatus.CREATED;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: restoredStatus,
+          cancelledAt: null,
+          cancelReason: null,
+        },
+      });
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          fromStatus: OrderStatus.CANCELLED,
+          toStatus: restoredStatus,
+          changedByStaffId: staff.id,
+          comment: 'Заказ восстановлен из отмены.',
+        },
+      });
+    });
+
+    if (order.user?.telegramId) {
+      await this.orderNotificationsService
+        .notifyUserAboutStatusChange(
+          order.user.telegramId,
+          order.orderNumber,
+          restoredStatus as unknown as SharedOrderStatus,
+        )
+        .catch((err) =>
+          this.logger.warn(
+            `Failed to notify user about restore: ${
               err instanceof Error ? err.message : String(err)
             }`,
           ),

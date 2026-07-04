@@ -182,6 +182,14 @@ export default function AdminOrderDetailPage() {
     );
   };
 
+  const handleRestoreOrder = async () => {
+    const confirmed = window.confirm(
+      'Восстановить заказ из отмены? Он вернётся к статусу до отмены.',
+    );
+    if (!confirmed) return;
+    await runAction(() => adminApi.restoreOrder(id), 'Заказ восстановлен.');
+  };
+
   if (loading) {
     return (
       <PageSection>
@@ -249,6 +257,24 @@ export default function AdminOrderDetailPage() {
             {statusLabel}
           </span>
         </div>
+
+        {/* Payment source — self-paid via crypto vs. manager-marked. */}
+        {order.paidVia ? (
+          <div className="mt-2">
+            <span
+              className={[
+                'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
+                order.paidVia === 'CRYPTO_AUTO'
+                  ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
+                  : 'border-white/15 bg-white/5 text-white/70',
+              ].join(' ')}
+            >
+              {order.paidVia === 'CRYPTO_AUTO'
+                ? '⚡ Автооплата клиента (крипта)'
+                : '✍️ Оплату отметил менеджер'}
+            </span>
+          </div>
+        ) : null}
 
         {/* Customer info */}
         <div className="mt-4 rounded-xl bg-white/5 p-3">
@@ -488,7 +514,20 @@ export default function AdminOrderDetailPage() {
           </button>
         ) : null}
 
-        {/* Hard-delete — clean up test / spam orders. Skips analytics. */}
+        {/* Restore — undo an accidental cancellation. */}
+        {order.status === OrderStatus.CANCELLED ? (
+          <button
+            type="button"
+            onClick={handleRestoreOrder}
+            disabled={actionLoading}
+            className="mt-3 w-full rounded-[18px] border border-emerald-400/30 bg-emerald-400/10 px-4 py-2.5 text-sm font-semibold text-emerald-200 transition disabled:opacity-50"
+          >
+            ↩ Восстановить заказ
+          </button>
+        ) : null}
+
+        {/* Hard-delete — available on every order. Removes it from the DB so
+            the client's purchase total drops. Admin/manager only. */}
         <button
           type="button"
           onClick={handleDeleteOrder}

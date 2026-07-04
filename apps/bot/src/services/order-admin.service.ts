@@ -1877,6 +1877,15 @@ export class OrderAdminService {
       `Заявка ${order.orderNumber}`,
       '',
       `Статус: ${this.getStatusLabel(order.status, order.trackCode)}`,
+      ...(order.paidVia
+        ? [
+            `Оплата: ${
+              order.paidVia === 'CRYPTO_AUTO'
+                ? '⚡ автооплата клиента (крипта)'
+                : '✍️ отметил менеджер'
+            }`,
+          ]
+        : []),
       `Пользователь: ${userLine}`,
       `Telegram ID: ${order.user.telegramId}`,
       `Создан: ${this.formatDateTime(order.createdAt)}`,
@@ -2060,8 +2069,22 @@ export class OrderAdminService {
       ]);
     }
 
-    // Hard-delete: clean up test / spam orders. Bot has no confirmation
-    // dialog so the label is intentionally explicit.
+    // Restore a mistakenly-cancelled order back to its pre-cancel status.
+    if (order.status === OrderStatus.CANCELLED) {
+      buttons.push([
+        {
+          text: '↩️ Восстановить заказ',
+          callback_data: encodeManagerOrderCallback(
+            MANAGER_ORDER_ACTIONS.RESTORE,
+            order.id,
+          ),
+        },
+      ]);
+    }
+
+    // Hard-delete: available on every order. Removes it from the DB so the
+    // client's purchase total drops. Bot has no confirmation dialog so the
+    // label is intentionally explicit.
     buttons.push([
       {
         text: '🗑 Удалить заказ безвозвратно',

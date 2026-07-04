@@ -83,10 +83,15 @@ export interface OrderDeliveryDto {
   phone: string;
 }
 
+/** How the goods payment was registered. */
+export type PaymentSource = 'MANUAL' | 'CRYPTO_AUTO';
+
 export interface OrderDetailsDto {
   id: string;
   orderNumber: string;
   status: OrderStatus;
+  /** Null until the order is paid. Distinguishes self-paid (crypto) vs manual. */
+  paidVia?: PaymentSource | null;
   createdAt: string;
   updatedAt: string;
   trackCode?: string | null;

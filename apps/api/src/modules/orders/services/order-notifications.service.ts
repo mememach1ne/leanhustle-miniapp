@@ -244,6 +244,48 @@ export class OrderNotificationsService {
     }
   }
 
+  /** Managers get pinged when a customer's crypto payment is auto-detected. */
+  async notifyManagersAboutAutoPayment(
+    orderNumber: string,
+    amountUsdt: number,
+    network: string,
+  ): Promise<void> {
+    const botToken = this.configService.get<string>('telegram.botToken');
+    const managerTelegramIds =
+      this.configService.get<string[]>('notifications.managerTelegramIds') ?? [];
+
+    if (!botToken || managerTelegramIds.length === 0) return;
+
+    const text = [
+      `💸 Клиент произвёл автооплату по заказу ${orderNumber}.`,
+      '',
+      `Крипто-депозит USDT · ${network} на ${amountUsdt.toFixed(2)} получен и подтверждён сервером.`,
+      'Заказ переведён в «Оплачен, ожидает выкупа».',
+    ].join('\n');
+
+    await Promise.allSettled(
+      managerTelegramIds.map(async (chatId) => {
+        const response = await fetch(
+          `https://api.telegram.org/bot${botToken}/sendMessage`,
+          {
+            method: 'POST',
+            signal: AbortSignal.timeout(10_000),
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text,
+              disable_web_page_preview: true,
+            }),
+          },
+        );
+        const payload = (await response.json()) as { ok?: boolean; description?: string };
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.description ?? 'Telegram sendMessage failed');
+        }
+      }),
+    );
+  }
+
   async notifyManagersAboutCancellation(
     orderNumber: string,
     cancelledBy: string,

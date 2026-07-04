@@ -21,6 +21,13 @@ enum OrderStatus {
   CANCELLED
 }
 
+/// How the goods payment was registered: the customer paid via crypto and the
+/// server auto-detected it, or a manager manually marked the order as paid.
+enum PaymentSource {
+  MANUAL
+  CRYPTO_AUTO
+}
+
 enum StaffRole {
   ADMIN
   MANAGER
@@ -120,6 +127,7 @@ model Order {
   userId                       String       @map("user_id") @db.Uuid
   assignedStaffId              String?      @map("assigned_staff_id") @db.Uuid
   status                       OrderStatus  @default(CREATED)
+  paidVia                      PaymentSource? @map("paid_via")
   isChannelSubscriberAtCheckout Boolean     @default(false) @map("is_channel_subscriber_at_checkout")
   subscriberBenefitApplied     Boolean      @default(false) @map("subscriber_benefit_applied")
   subscriberBenefitAmountRub   Decimal      @default(0) @map("subscriber_benefit_amount_rub") @db.Decimal(12, 2)

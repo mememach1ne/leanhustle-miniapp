@@ -212,6 +212,13 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
           await refreshOrderMessage(ctx, payload.orderId);
           return;
         }
+        case MANAGER_ORDER_ACTIONS.RESTORE: {
+          const order = await apiService.restoreOrder(payload.orderId, getActor(ctx));
+          await ctx.answerCbQuery('Заказ восстановлен');
+          await ctx.reply(`↩️ Заказ ${order.orderNumber} восстановлен из отмены.`);
+          await refreshOrderMessage(ctx, payload.orderId);
+          return;
+        }
         case MANAGER_ORDER_ACTIONS.DELETE: {
           const result = await apiService.deleteOrder(payload.orderId, getActor(ctx));
           await ctx.answerCbQuery('Заказ удалён');

@@ -269,6 +269,18 @@ export class ApiService {
     return response.data;
   }
 
+  async restoreOrder(
+    orderId: string,
+    actor: BotActorIdentity,
+  ): Promise<StaffOrderDetailsDto> {
+    const response = await this.http.post<StaffOrderDetailsDto>(
+      `/staff/orders/${orderId}/restore`,
+      {},
+      { headers: this.buildHeaders(actor) },
+    );
+    return response.data;
+  }
+
   async deleteOrder(
     orderId: string,
     actor: BotActorIdentity,

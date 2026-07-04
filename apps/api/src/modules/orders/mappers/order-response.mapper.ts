@@ -19,6 +19,7 @@ type OrderWithItems = {
   id: string;
   orderNumber: string;
   status: string;
+  paidVia: string | null;
   createdAt: Date;
   updatedAt: Date;
   trackCode: string | null;
@@ -134,6 +135,7 @@ export const mapOrderToDetailsDto = (order: OrderWithItems): OrderDetailsDto => 
     id: order.id,
     orderNumber: order.orderNumber,
     status: order.status as OrderDetailsDto['status'],
+    paidVia: (order.paidVia as OrderDetailsDto['paidVia']) ?? null,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
     trackCode: order.trackCode,

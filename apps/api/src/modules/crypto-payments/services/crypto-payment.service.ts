@@ -11,6 +11,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import {
   CryptoPaymentStatus,
   OrderStatus as PrismaOrderStatus,
+  PaymentSource,
   Prisma,
 } from '@prisma/client';
 import type { CryptoPaymentIntentDto } from '@lean-poizon/shared';
@@ -352,6 +353,8 @@ export class CryptoPaymentService {
           data: {
             status: PrismaOrderStatus.PAID_AWAITING_PURCHASE,
             paidAt: new Date(),
+            // Customer paid via crypto — server auto-detected it.
+            paidVia: PaymentSource.CRYPTO_AUTO,
           },
         });
         await tx.orderStatusHistory.create({
@@ -359,7 +362,7 @@ export class CryptoPaymentService {
             orderId: intent.order.id,
             fromStatus: intent.order.status,
             toStatus: PrismaOrderStatus.PAID_AWAITING_PURCHASE,
-            comment: `Депозит USDT · ${intent.network} получен. Сумма ${Number(
+            comment: `Автооплата: депозит USDT · ${intent.network} получен. Сумма ${Number(
               intent.expectedAmountUsdt,
             ).toFixed(2)}. tx: ${txHash}`,
           },
@@ -370,6 +373,8 @@ export class CryptoPaymentService {
         orderId: intent.order.id,
         orderNumber: intent.order.orderNumber,
         userTelegramId: intent.order.user.telegramId,
+        network: intent.network,
+        amountUsdt: Number(intent.expectedAmountUsdt),
         transitioned:
           intent.order.status === PrismaOrderStatus.PAYMENT_PENDING ||
           intent.order.status === PrismaOrderStatus.CREATED,
@@ -387,6 +392,21 @@ export class CryptoPaymentService {
     } catch (error) {
       this.logger.warn(
         `Failed to notify customer about matched crypto payment: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    // Ping managers so they know the client self-paid via crypto.
+    try {
+      await this.orderNotifications.notifyManagersAboutAutoPayment(
+        result.orderNumber,
+        result.amountUsdt,
+        result.network,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to notify managers about auto crypto payment: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );

@@ -166,6 +166,14 @@ export class StaffOrdersController {
     return this.ordersService.cancelByStaff(id, staff, dto.reason);
   }
 
+  @Post(':id/restore')
+  async restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.ordersService.restoreByStaff(id, staff);
+  }
+
   @Delete(':id')
   async deleteOrder(
     @Param('id', ParseUUIDPipe) id: string,
