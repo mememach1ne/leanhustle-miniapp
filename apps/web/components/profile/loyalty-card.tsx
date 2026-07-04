@@ -7,6 +7,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { loyaltyApi } from '../../lib/api-client';
 import { formatDiscount, formatUsd, tierGlowVars, tierVisual } from '../../lib/loyalty';
 import { SectionCard } from '../ui/section-card';
+import { TierIcon } from './tier-icon';
 
 const LAST_TIER_STORAGE_KEY = 'loyalty:lastTierKey';
 
@@ -116,10 +117,10 @@ export function LoyaltyCard({ className = '' }: { className?: string }) {
           <h3 className="text-sm font-semibold text-white">Программа лояльности</h3>
           {currentTier && v ? (
             <span
-              className="shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
               style={{ color: v.text, borderColor: v.ring, background: v.glowSoft }}
             >
-              {v.icon} {currentTier.name}
+              <TierIcon tierKey={currentTier.key} size={13} /> {currentTier.name}
             </span>
           ) : (
             <span className="shrink-0 text-white/30">→</span>
@@ -138,10 +139,10 @@ export function LoyaltyCard({ className = '' }: { className?: string }) {
         {celebrating && currentTier && v ? (
           <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center">
             <span
-              className="lg-tier-banner mt-2 rounded-full border px-3 py-1 text-[11px] font-semibold shadow-lg"
+              className="lg-tier-banner mt-2 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold shadow-lg"
               style={{ color: v.text, borderColor: v.ringStrong, background: v.glowStrong }}
             >
-              ✨ Новый уровень — {v.icon} {currentTier.name} ✨
+              ✨ Новый уровень — <TierIcon tierKey={currentTier.key} size={13} /> {currentTier.name} ✨
             </span>
           </div>
         ) : null}
@@ -215,7 +216,7 @@ function TierStepper({ tiers, currentKey }: { tiers: LoyaltyTier[]; currentKey: 
               ) : null}
               <div className="flex flex-col items-center">
                 <div
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-sm"
+                  className="flex h-7 w-7 items-center justify-center rounded-full"
                   style={
                     isCurrent
                       ? {
@@ -224,10 +225,10 @@ function TierStepper({ tiers, currentKey }: { tiers: LoyaltyTier[]; currentKey: 
                         }
                       : reached
                         ? { background: 'rgba(41,195,197,0.15)' }
-                        : { background: 'rgba(255,255,255,0.05)', opacity: 0.5 }
+                        : { background: 'rgba(255,255,255,0.05)', opacity: 0.45 }
                   }
                 >
-                  {v.icon}
+                  <TierIcon tierKey={tier.key} size={16} />
                 </div>
                 <span
                   className="mt-1 text-[10px]"

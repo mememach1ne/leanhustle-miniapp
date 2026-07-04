@@ -4,10 +4,11 @@ import type { LoyaltyStatusDto, LoyaltyTier } from '@lean-poizon/shared';
 import { useEffect, useState } from 'react';
 
 import { loyaltyApi } from '../../lib/api-client';
-import { formatDiscount, formatUsd, tierGlowVars, tierIcon, tierVisual } from '../../lib/loyalty';
+import { formatDiscount, formatUsd, tierGlowVars, tierVisual } from '../../lib/loyalty';
 import { EmptyState } from '../ui/empty-state';
 import { LoadingBlock } from '../ui/loading-block';
 import { SectionCard } from '../ui/section-card';
+import { TierIcon } from './tier-icon';
 
 const SUBSCRIBE_URL = 'https://t.me/lh_crypto1/8439';
 
@@ -76,10 +77,10 @@ function TierBadge({ tierKey, name }: { tierKey: string; name: string }) {
   const v = tierVisual(tierKey);
   return (
     <span
-      className="shrink-0 rounded-full border px-3 py-1 text-xs font-semibold"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
       style={{ color: v.text, borderColor: v.ring, background: v.glowSoft }}
     >
-      {v.icon} {name}
+      <TierIcon tierKey={tierKey} size={14} /> {name}
     </span>
   );
 }
@@ -122,8 +123,8 @@ function EligibleBody({ status }: { status: LoyaltyStatusDto }) {
       {nextTier && amountToNextUsd !== null ? (
         <p className="mt-2 text-sm leading-6 text-white/60">
           Ещё <span className="font-semibold text-white">{formatUsd(amountToNextUsd)}</span> до уровня{' '}
-          <span className="font-semibold text-white">
-            {tierIcon(nextTier.key)} {nextTier.name}
+          <span className="inline-flex items-center gap-1 font-semibold text-white">
+            <TierIcon tierKey={nextTier.key} size={14} /> {nextTier.name}
           </span>{' '}
           ({formatDiscount(nextTier.discountPercentPoints)}).
         </p>
@@ -181,10 +182,13 @@ function TierLadder({ tiers, currentKey }: { tiers: LoyaltyTier[]; currentKey: s
             }
           >
             <span
-              className={active ? 'font-semibold' : 'text-white/70'}
+              className={[
+                'inline-flex items-center gap-1.5',
+                active ? 'font-semibold' : 'text-white/70',
+              ].join(' ')}
               style={active ? { color: v.text } : undefined}
             >
-              {v.icon} {tier.name}
+              <TierIcon tierKey={tier.key} size={15} /> {tier.name}
             </span>
             <span className="flex items-center gap-2.5">
               <span className="text-white/40">от {formatUsd(tier.thresholdUsd)}</span>
