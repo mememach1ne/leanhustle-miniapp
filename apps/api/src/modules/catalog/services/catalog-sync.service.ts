@@ -90,9 +90,20 @@ export class CatalogSyncService {
       for (const item of items) {
         const spuId = String(item.spuId ?? '').trim();
         if (!spuId || seenSpuIds.has(spuId)) continue;
-        seenSpuIds.add(spuId);
 
-        const priceCny = new Prisma.Decimal(item.priceCny);
+        // The engine returns priceCny: null for items it couldn't price
+        // (observed: ~2/60, likely sold out) — skip rather than crash the
+        // whole sync. Not marking spuId as seen means a previously-active
+        // row for it gets deactivated below, which is the right outcome
+        // for something we can no longer show a price for.
+        const priceCnyValue = Number(item.priceCny);
+        if (!item.priceCny || !Number.isFinite(priceCnyValue) || priceCnyValue <= 0) {
+          this.logger.warn(`Catalog item spuId=${spuId} has no valid priceCny — skipped`);
+          continue;
+        }
+
+        seenSpuIds.add(spuId);
+        const priceCny = new Prisma.Decimal(priceCnyValue);
         // Match the detail-card formula (GLOBAL + ¥2, same FX rate) so the
         // "от ₽…" shown on the shelf equals the number the customer sees
         // once they open the card — see docs/SHOP_MVP_PLAN.md §6.
