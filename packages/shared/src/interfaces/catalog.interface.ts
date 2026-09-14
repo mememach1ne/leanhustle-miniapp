@@ -4,10 +4,13 @@ export interface CatalogProductDto {
   title: string;
   article: string | null;
   imageUrl: string;
-  priceRub: number;
+  /** USD — конвертация в рубли пока отложена, см. docs/SHOP_MVP_PLAN.md §6. */
+  priceUsd: number;
   priceCny: number;
   /** Сырой текст с движка, напр. "64w+". Может отсутствовать. */
   soldText: string | null;
+  /** Распарсенное число продаж (напр. 640000) — для человекочитаемой метки на фронте. */
+  soldRank: number;
 }
 
 export interface CatalogListResponse {

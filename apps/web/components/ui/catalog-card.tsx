@@ -1,6 +1,22 @@
 import type { CatalogProductDto } from '@lean-poizon/shared';
 
-const formatRub = (value: number) => `${Math.round(value).toLocaleString('ru-RU')} ₽`;
+const formatUsd = (value: number) => `$${value.toFixed(2)}`;
+
+/**
+ * The engine's raw soldText ("64w+", 'w' = 万 = 10 000) means nothing to a
+ * Russian-speaking customer. Format the parsed soldRank into a plain
+ * Russian label instead — "640 тыс.+", "1.4 млн+".
+ */
+const formatSoldLabel = (soldRank: number): string | null => {
+  if (!soldRank || soldRank <= 0) return null;
+  if (soldRank >= 1_000_000) {
+    return `${(soldRank / 1_000_000).toFixed(1).replace(/\.0$/, '')} млн+`;
+  }
+  if (soldRank >= 1_000) {
+    return `${Math.round(soldRank / 1_000)} тыс.+`;
+  }
+  return `${soldRank}+`;
+};
 
 export function CatalogCard({
   product,
@@ -32,11 +48,11 @@ export function CatalogCard({
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-1">
           <span className="truncate text-sm font-semibold text-[var(--accent)]">
-            от {formatRub(product.priceRub)}
+            от {formatUsd(product.priceUsd)}
           </span>
-          {product.soldText ? (
+          {formatSoldLabel(product.soldRank) ? (
             <span className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-[var(--muted)]">
-              {product.soldText}
+              Продано: {formatSoldLabel(product.soldRank)}
             </span>
           ) : null}
         </div>

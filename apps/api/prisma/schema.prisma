@@ -416,7 +416,10 @@ model CatalogProduct {
   article         String?  @db.VarChar(64)
   imageUrl        String   @map("image_url") @db.Text
   priceCny        Decimal  @map("price_cny") @db.Decimal(10, 2)
-  priceRub        Decimal  @map("price_rub") @db.Decimal(10, 2)
+  /// USD — same (GLOBAL+¥2)×cnyToUsd×(1+commission) formula as the detail
+  /// card's totalUsd, so the "от $…" on the shelf matches. RUB conversion
+  /// is deferred (see docs/SHOP_MVP_PLAN.md §6) — TODO once that lands.
+  priceUsd        Decimal  @map("price_usd") @db.Decimal(10, 2)
   /// Сырой текст с движка, напр. "64w+".
   soldText        String?  @map("sold_text") @db.VarChar(32)
   /// Распарсенное значение soldText для сортировки по популярности, напр. 640000.

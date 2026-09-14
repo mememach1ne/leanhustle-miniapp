@@ -104,12 +104,14 @@ export class CatalogSyncService {
 
         seenSpuIds.add(spuId);
         const priceCny = new Prisma.Decimal(priceCnyValue);
-        // Match the detail-card formula (GLOBAL + ¥2, same FX rate) so the
-        // "от ₽…" shown on the shelf equals the number the customer sees
-        // once they open the card — see docs/SHOP_MVP_PLAN.md §6.
-        const priceRub = priceCny
+        // Match the detail-card formula exactly (GLOBAL + ¥2, ×cnyToUsd,
+        // ×(1+commission)) so the "от $…" shown on the shelf equals the
+        // totalUsd the customer sees once they open the card — see
+        // docs/SHOP_MVP_PLAN.md §6. RUB conversion is deferred for now.
+        const priceUsd = priceCny
           .plus(2)
-          .mul(settings.cnyToRub)
+          .mul(settings.cnyToUsd)
+          .mul(new Prisma.Decimal(1).plus(settings.commissionPercent.div(100)))
           .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
         const data = {
@@ -117,7 +119,7 @@ export class CatalogSyncService {
           article: item.article ?? null,
           imageUrl: item.image,
           priceCny,
-          priceRub,
+          priceUsd,
           soldText: item.soldText ?? null,
           soldRank: parseSoldRank(item.soldText),
           popularityOrder,

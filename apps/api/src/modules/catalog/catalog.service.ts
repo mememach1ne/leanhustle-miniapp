@@ -63,8 +63,9 @@ function mapCatalogProduct(row: CatalogProduct): CatalogProductDto {
     title: row.title,
     article: row.article,
     imageUrl: row.imageUrl,
-    priceRub: Number(row.priceRub),
+    priceUsd: Number(row.priceUsd),
     priceCny: Number(row.priceCny),
     soldText: row.soldText,
+    soldRank: row.soldRank,
   };
 }
