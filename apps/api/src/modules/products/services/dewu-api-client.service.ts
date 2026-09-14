@@ -54,7 +54,13 @@ export class DewuApiClientService {
     params: Record<string, string>,
   ): Promise<DewuApiRawProductResponse> {
     const engineUrl = process.env.DEWU_ENGINE_URL ?? 'http://127.0.0.1:3777';
-    const engineToken = process.env.DEWU_ENGINE_TOKEN ?? 'lh-dewu-eng-7f3a91c2b8';
+    const engineToken = process.env.DEWU_ENGINE_TOKEN;
+    if (!engineToken) {
+      this.logger.error('DEWU_ENGINE_TOKEN is not configured');
+      throw new ServiceUnavailableException(
+        'Сервис товаров временно недоступен. Введите данные товара вручную или попробуйте позже.',
+      );
+    }
     const spuId = params.dwSpuId ?? '';
     const url = `${engineUrl}/raw/${encodeURIComponent(spuId)}`;
 
