@@ -44,34 +44,30 @@ export class DewuApiClientService {
   }
 
   /**
-   * Calls the Dewu/Poizon OpenAPI gateway (currently dajisaas.com).
-   * Auth is appKey + appSecret as URL query parameters — no headers.
+   * Fetches the product from our own price engine (lh-dewu-engine) running
+   * on this VPS. The engine drives a headless browser through a proxy with
+   * the operator's distribute.poizon.com session and returns the exact
+   * DewuApiRawProductResponse shape the paid gateway used to return — so the
+   * mapper and frontend need no changes. Replaces the paid dajisaas.com API.
    */
   private async request(
     params: Record<string, string>,
   ): Promise<DewuApiRawProductResponse> {
-    const host = this.configService.get<string>('integrations.dewuApiHost');
-    const appKey = this.configService.get<string>('integrations.dewuApiAppKey');
-    const appSecret = this.configService.get<string>('integrations.dewuApiAppSecret');
-    const endpoint = this.configService.get<string>('integrations.dewuApiProductEndpoint');
-
-    if (!host || !appKey || !appSecret || !endpoint) {
-      throw new ServiceUnavailableException('Dewu API не настроен на сервере.');
-    }
-
-    const query = new URLSearchParams({ appKey, appSecret, ...params }).toString();
-    const url = `https://${host}${endpoint}?${query}`;
+    const engineUrl = process.env.DEWU_ENGINE_URL ?? 'http://127.0.0.1:3777';
+    const engineToken = process.env.DEWU_ENGINE_TOKEN ?? 'lh-dewu-eng-7f3a91c2b8';
+    const spuId = params.dwSpuId ?? '';
+    const url = `${engineUrl}/raw/${encodeURIComponent(spuId)}`;
 
     try {
       const response = await fetch(url, {
         method: 'GET',
-        headers: { Accept: 'application/json' },
+        headers: { Accept: 'application/json', 'x-api-token': engineToken },
       });
 
       if (!response.ok) {
-        this.logger.warn(`Dewu API HTTP ${response.status} for ${params.dwSpuId ?? ''}`);
+        this.logger.warn(`Dewu engine HTTP ${response.status} for ${spuId}`);
         throw new ServiceUnavailableException(
-          'Не удалось получить товар через Dewu API. Попробуйте позже.',
+          'Не удалось получить товар. Попробуйте позже.',
         );
       }
 
@@ -79,27 +75,24 @@ export class DewuApiClientService {
 
       if (body.code !== 200) {
         this.logger.warn(
-          `Dewu API returned code=${body.code} msg="${body.msg}" for ${params.dwSpuId ?? ''}`,
+          `Dewu engine returned code=${body.code} msg="${body.msg}" for ${spuId}`,
         );
-        // Non-200 codes mean upstream is in some failure mode — quota
-        // exhausted, account not activated, rate limit, internal error,
-        // etc. Treat them all as "service unavailable" so the frontend
-        // falls through to the manual-input mode with a Russian message
-        // (rather than showing the raw Chinese msg field to the user).
+        // Session expired / portal error → let the frontend fall through to
+        // manual-input mode with a Russian message.
         throw new ServiceUnavailableException(
-          'Dewu API временно недоступен. Введите данные товара вручную или попробуйте позже.',
+          'Сервис товаров временно недоступен. Введите данные товара вручную или попробуйте позже.',
         );
       }
 
       return body;
     } catch (error) {
       if (error instanceof ServiceUnavailableException) throw error;
-      this.logger.warn('Dewu API request failed', {
+      this.logger.warn('Dewu engine request failed', {
         params,
         error: error instanceof Error ? error.message : String(error),
       });
       throw new ServiceUnavailableException(
-        'Dewu API временно недоступен. Попробуйте позже.',
+        'Сервис товаров временно недоступен. Попробуйте позже.',
       );
     }
   }
