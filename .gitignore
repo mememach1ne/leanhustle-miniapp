@@ -12,3 +12,7 @@ coverage
 apps/api/prisma/generated
 apps/api/prisma/dev.db
 *.log
+
+# build/deploy artifacts
+*.tar.gz
+.tmp-*
