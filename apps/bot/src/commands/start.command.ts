@@ -111,6 +111,7 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
     if (orderAdminService.isClientOtherMarketplacesCallback(data)) {
       await ctx.answerCbQuery();
       await ctx.editMessageText(orderAdminService.getOtherMarketplacesText(), {
+        parse_mode: 'HTML',
         reply_markup: orderAdminService.buildOtherMarketplacesKeyboard(),
       });
       return;
