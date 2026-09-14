@@ -50,6 +50,8 @@ export function validateEnv(config: EnvShape) {
 
   if (!botInternalApiToken) {
     errors.push('BOT_INTERNAL_API_TOKEN is required');
+  } else if (botInternalApiToken.length < 32) {
+    errors.push('BOT_INTERNAL_API_TOKEN must be at least 32 characters long');
   }
 
   if (Number.isNaN(port) || port <= 0) {
