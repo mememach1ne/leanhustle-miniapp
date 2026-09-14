@@ -40,13 +40,9 @@ export function validateEnv(config: EnvShape) {
     errors.push('JWT_SECRET must not contain default placeholder value');
   }
 
-  if (!dewuApiAppKey) {
-    errors.push('DEWU_API_APP_KEY is required');
-  }
-
-  if (!dewuApiAppSecret) {
-    errors.push('DEWU_API_APP_SECRET is required');
-  }
+  // DEWU_API_APP_KEY / DEWU_API_APP_SECRET are the legacy dajisaas gateway
+  // credentials. Product resolution now runs through the self-hosted engine
+  // (DEWU_ENGINE_URL / DEWU_ENGINE_TOKEN), so these are no longer required.
 
   if (!managerTelegramIds) {
     errors.push('MANAGER_TELEGRAM_IDS is required');

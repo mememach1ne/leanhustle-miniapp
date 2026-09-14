@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'crypto';
+
 import {
   CanActivate,
   ExecutionContext,
@@ -43,7 +45,7 @@ export class StaffBotAuthGuard implements CanActivate {
       process.env.BOT_INTERNAL_API_TOKEN ??
       '';
 
-    if (!expectedBotToken || internalBotToken !== expectedBotToken) {
+    if (!expectedBotToken || !this.tokensMatch(internalBotToken, expectedBotToken)) {
       throw new UnauthorizedException('Invalid internal bot token.');
     }
 
@@ -58,6 +60,19 @@ export class StaffBotAuthGuard implements CanActivate {
 
     request.staff = staff;
     return true;
+  }
+
+  /** Constant-time comparison to avoid leaking the token via response timing. */
+  private tokensMatch(provided: string | undefined, expected: string): boolean {
+    if (!provided) {
+      return false;
+    }
+    const providedBuffer = Buffer.from(provided);
+    const expectedBuffer = Buffer.from(expected);
+    if (providedBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+    return timingSafeEqual(providedBuffer, expectedBuffer);
   }
 
   private readHeader(request: StaffBotRequest, headerName: string): string | undefined {
