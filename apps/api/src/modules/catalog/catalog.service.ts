@@ -17,10 +17,20 @@ export class CatalogService {
    * the price engine. CatalogSyncService is the only writer.
    */
   async list(
-    page: number,
-    limit: number,
+    pageInput: number,
+    limitInput: number,
     sort: 'popular' | 'sold',
   ): Promise<CatalogListResponse> {
+    // class-transformer's @Transform on CatalogQueryDto doesn't fire under
+    // tsx/esbuild (no emitDecoratorMetadata → Nest can't resolve the DTO's
+    // design:paramtypes, so ValidationPipe treats it as a plain Object and
+    // skips transformation) — query.page/limit arrive as raw strings. Coerce
+    // defensively here, same pattern as AdminService.getOrders.
+    // DTO-level @Min/@Max validation is skipped for the same reason (see
+    // above), so also clamp here — a client-supplied limit shouldn't be
+    // able to force an unbounded findMany().
+    const page = Math.max(1, Number(pageInput) || 1);
+    const limit = Math.min(60, Math.max(1, Number(limitInput) || 30));
     const skip = (page - 1) * limit;
     const orderBy: Prisma.CatalogProductOrderByWithRelationInput =
       sort === 'sold' ? { soldRank: 'desc' } : { popularityOrder: 'asc' };
