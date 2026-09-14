@@ -46,13 +46,13 @@ export function CatalogCard({
           {product.title}
         </h3>
 
-        <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+        <div className="mt-auto flex flex-col gap-0.5 pt-1">
           <span className="truncate text-sm font-semibold text-[var(--accent)]">
             от {formatUsd(product.priceUsd)}
           </span>
           {formatSoldLabel(product.soldRank) ? (
-            <span className="shrink-0 rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-[var(--muted)]">
-              Продано: {formatSoldLabel(product.soldRank)}
+            <span className="truncate text-[10px] text-[var(--muted)]">
+              Продано {formatSoldLabel(product.soldRank)}
             </span>
           ) : null}
         </div>
