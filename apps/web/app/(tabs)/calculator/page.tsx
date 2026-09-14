@@ -1,7 +1,8 @@
 'use client';
 
 import type { DeliveryCategory } from '@lean-poizon/shared';
-import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useRef, useState } from 'react';
 
 import { DutyRow } from '../../../components/ui/duty-row';
 import { EmptyState } from '../../../components/ui/empty-state';
@@ -73,7 +74,11 @@ const validatePoizonLink = (rawLink: string): string | null => {
   return null;
 };
 
-export default function CalculatorPage() {
+function CalculatorPageContent() {
+  const searchParams = useSearchParams();
+  const spuIdParam = searchParams.get('spuId');
+  const resolvedSpuIdRef = useRef<string | null>(null);
+
   const linkInputRef = useRef<HTMLInputElement>(null);
   const [pasteHint, setPasteHint] = useState<string | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -117,6 +122,32 @@ export default function CalculatorPage() {
   const setManualPricing = useCalculatorStore((state) => state.setManualPricing);
   const clearManualPricing = useCalculatorStore((state) => state.clearManualPricing);
   const setCart = useCartStore((state) => state.setCart);
+
+  // --- Resolve product opened from the "Магазин" storefront (?spuId=) ---
+  const resolveCatalogProduct = async (spuId: string) => {
+    setHasSubmitted(true);
+    setCartMessage(null);
+    setCartError(null);
+    setProductLoading(true);
+
+    try {
+      const resolvedProduct = await productsApi.resolveBySpuId(spuId);
+      setResolvedProduct(resolvedProduct);
+    } catch (requestError) {
+      setError(
+        extractAxiosMessage(requestError) ??
+          'Не удалось загрузить товар. Попробуйте ещё раз позже.',
+      );
+      hapticNotification('error');
+    }
+  };
+
+  useEffect(() => {
+    if (!spuIdParam || resolvedSpuIdRef.current === spuIdParam) return;
+    resolvedSpuIdRef.current = spuIdParam;
+    void resolveCatalogProduct(spuIdParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spuIdParam]);
 
   // --- Auto pricing for API mode ---
   useEffect(() => {
@@ -495,7 +526,14 @@ export default function CalculatorPage() {
       </SectionCard>
 
       {/* --- Feedback messages --- */}
-      {error && hasSubmitted && !manualMode ? <FeedbackMessage tone="error" onRetry={handleResolveProduct}>{error}</FeedbackMessage> : null}
+      {error && hasSubmitted && !manualMode ? (
+        <FeedbackMessage
+          tone="error"
+          onRetry={spuIdParam ? () => void resolveCatalogProduct(spuIdParam) : handleResolveProduct}
+        >
+          {error}
+        </FeedbackMessage>
+      ) : null}
       {cartMessage ? <FeedbackMessage tone="success">{cartMessage}</FeedbackMessage> : null}
       {cartError ? <FeedbackMessage tone="error">{cartError}</FeedbackMessage> : null}
 
@@ -1038,5 +1076,22 @@ export default function CalculatorPage() {
         </div>
       ) : null}
     </PageSection>
+  );
+}
+
+export default function CalculatorPage() {
+  return (
+    <Suspense
+      fallback={
+        <PageSection>
+          <LoadingBlock
+            title="Загружаем карточку товара"
+            description="Проверяем ссылку, получаем карточку Poizon и готовим размеры."
+          />
+        </PageSection>
+      }
+    >
+      <CalculatorPageContent />
+    </Suspense>
   );
 }

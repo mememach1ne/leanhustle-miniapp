@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { getDewuEngineCredentials } from '../../../common/dewu-engine.config';
+
 interface DewuApiRawSku {
   dwSkuId: number | string;
   minBidPrice?: number;
@@ -53,14 +55,7 @@ export class DewuApiClientService {
   private async request(
     params: Record<string, string>,
   ): Promise<DewuApiRawProductResponse> {
-    const engineUrl = process.env.DEWU_ENGINE_URL ?? 'http://127.0.0.1:3777';
-    const engineToken = process.env.DEWU_ENGINE_TOKEN;
-    if (!engineToken) {
-      this.logger.error('DEWU_ENGINE_TOKEN is not configured');
-      throw new ServiceUnavailableException(
-        'Сервис товаров временно недоступен. Введите данные товара вручную или попробуйте позже.',
-      );
-    }
+    const { engineUrl, engineToken } = getDewuEngineCredentials();
     const spuId = params.dwSpuId ?? '';
     const url = `${engineUrl}/raw/${encodeURIComponent(spuId)}`;
 

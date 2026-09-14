@@ -14,10 +14,12 @@ export function BottomNavigation() {
   return (
     <nav className="lg-surface-strong fixed bottom-4 left-1/2 z-20 w-[calc(100%-24px)] max-w-md -translate-x-1/2 rounded-[28px] p-2 lg:hidden">
       {/* grid-cols auto-adapts to the tab count so we never get empty
-          dead space when /cart is hidden. */}
+          dead space when a tab is hidden. */}
       <ul
         className={`grid gap-2 ${
-          tabs.length === 4
+          tabs.length >= 5
+            ? 'grid-cols-5'
+            : tabs.length === 4
             ? 'grid-cols-4'
             : tabs.length === 3
             ? 'grid-cols-3'

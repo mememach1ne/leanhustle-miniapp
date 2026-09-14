@@ -1,5 +1,5 @@
 import type { DewuResolvedProduct } from '@lean-poizon/shared';
-import { Body, Controller, Inject, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, UseGuards } from '@nestjs/common';
 import type { User } from '@prisma/client';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -24,5 +24,14 @@ export class ProductsController {
     @CurrentUser() user: User,
   ): Promise<DewuResolvedProduct> {
     return this.productsService.resolveProduct(dto, user);
+  }
+
+  /** Opens a card from the "Магазин" storefront — spuId is already known, no link to parse. */
+  @Get('by-spu-id/:spuId')
+  async resolveBySpuId(
+    @Param('spuId') spuId: string,
+    @CurrentUser() user: User,
+  ): Promise<DewuResolvedProduct> {
+    return this.productsService.resolveBySpuId(spuId, user);
   }
 }

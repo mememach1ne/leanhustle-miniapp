@@ -4,6 +4,7 @@ import type {
   AdminUserDetailDto,
   AdminUsersResponse,
   BusinessSettingsDto,
+  CatalogSyncResultDto,
   DewuResolvedProduct,
   ManualOrderClientLookupResponse,
   ProfitReportDto,
@@ -31,6 +32,7 @@ import {
 import { type StaffAccount, StaffRole } from '@prisma/client';
 import type { Response } from 'express';
 
+import { CatalogSyncService } from '../catalog/services/catalog-sync.service';
 import { CancelOrderDto } from '../orders/dto/cancel-order.dto';
 import { CreateManualOrderDto } from '../orders/dto/create-manual-order.dto';
 import { SetActualDeliveryDto, SetActualDutyDto } from '../orders/dto/set-actual-amount.dto';
@@ -62,6 +64,7 @@ export class AdminController {
   private readonly analyticsService: AnalyticsService;
   private readonly productsService: ProductsService;
   private readonly profitReportService: ProfitReportService;
+  private readonly catalogSyncService: CatalogSyncService;
 
   constructor(
     @Inject(AdminService) adminService: AdminService,
@@ -71,6 +74,7 @@ export class AdminController {
     @Inject(AnalyticsService) analyticsService: AnalyticsService,
     @Inject(ProductsService) productsService: ProductsService,
     @Inject(ProfitReportService) profitReportService: ProfitReportService,
+    @Inject(CatalogSyncService) catalogSyncService: CatalogSyncService,
   ) {
     this.profitReportService = profitReportService;
     this.adminService = adminService;
@@ -79,6 +83,7 @@ export class AdminController {
     this.excelExportService = excelExportService;
     this.analyticsService = analyticsService;
     this.productsService = productsService;
+    this.catalogSyncService = catalogSyncService;
   }
 
   /** Financial data (profit split) is restricted to ADMIN, not MANAGER. */
@@ -93,6 +98,13 @@ export class AdminController {
   @Get('analytics')
   async getAnalytics(): Promise<AdminAnalyticsResponse> {
     return this.analyticsService.getActivity();
+  }
+
+  // ─── Catalog (storefront) ───────────────────────────────────
+
+  @Post('catalog/sync')
+  async syncCatalog(): Promise<CatalogSyncResultDto> {
+    return this.catalogSyncService.sync();
   }
 
   // ─── Orders ────────────────────────────────────────────────

@@ -406,3 +406,29 @@ model DeliveryCategoryWeight {
   @@index([categoryL1, categoryL2, categoryL3], map: "delivery_category_weights_lookup_idx")
   @@map("delivery_category_weights")
 }
+
+/// Витрина «Магазин»: снапшот популярных товаров с движка (GET /catalog),
+/// обновляется джобом CatalogSyncService. Клиентские запросы витрины читают
+/// только эту таблицу — движок дёргает исключительно синк.
+model CatalogProduct {
+  spuId           String   @id @map("spu_id") @db.VarChar(32)
+  title           String   @db.Text
+  article         String?  @db.VarChar(64)
+  imageUrl        String   @map("image_url") @db.Text
+  priceCny        Decimal  @map("price_cny") @db.Decimal(10, 2)
+  priceRub        Decimal  @map("price_rub") @db.Decimal(10, 2)
+  /// Сырой текст с движка, напр. "64w+".
+  soldText        String?  @map("sold_text") @db.VarChar(32)
+  /// Распарсенное значение soldText для сортировки по популярности, напр. 640000.
+  soldRank        Int      @default(0) @map("sold_rank")
+  /// Позиция в ленте движка на момент последнего синка (стабильный порядок).
+  popularityOrder Int      @map("popularity_order")
+  /// На будущее — категории каталога (пока не приходят с движка).
+  category        String?  @db.VarChar(64)
+  isActive        Boolean  @default(true) @map("is_active")
+  lastSyncedAt    DateTime @map("last_synced_at") @db.Timestamptz(6)
+
+  @@index([isActive, popularityOrder], map: "catalog_products_active_order_idx")
+  @@index([soldRank], map: "catalog_products_sold_rank_idx")
+  @@map("catalog_products")
+}

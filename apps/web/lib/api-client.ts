@@ -7,6 +7,8 @@ import type {
   AuthPayload,
   BusinessSettingsDto,
   CartResponse,
+  CatalogListResponse,
+  CatalogSyncResultDto,
   ChannelSubscriptionRefreshResponse,
   CheckoutOrderResponse,
   CreateCryptoPaymentIntentRequest,
@@ -88,6 +90,19 @@ export const authApi = {
 export const productsApi = {
   async resolveProduct(payload: ResolveProductRequest): Promise<DewuResolvedProduct> {
     const response = await apiClient.post<DewuResolvedProduct>('/products/resolve', payload);
+    return response.data;
+  },
+  async resolveBySpuId(spuId: string): Promise<DewuResolvedProduct> {
+    const response = await apiClient.get<DewuResolvedProduct>(
+      `/products/by-spu-id/${encodeURIComponent(spuId)}`,
+    );
+    return response.data;
+  },
+};
+
+export const catalogApi = {
+  async list(params: { page?: number; limit?: number } = {}): Promise<CatalogListResponse> {
+    const response = await apiClient.get<CatalogListResponse>('/catalog', { params });
     return response.data;
   },
 };
@@ -350,6 +365,12 @@ export const adminApi = {
   async exportUserExcel(id: string): Promise<Blob> {
     const response = await apiClient.get(`/admin/users/${id}/export-excel`, { responseType: 'blob' });
     return response.data as Blob;
+  },
+
+  // Catalog (storefront) sync
+  async syncCatalog(): Promise<CatalogSyncResultDto> {
+    const response = await apiClient.post<CatalogSyncResultDto>('/admin/catalog/sync');
+    return response.data;
   },
 };
 

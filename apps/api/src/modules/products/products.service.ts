@@ -78,6 +78,48 @@ export class ProductsService {
   }
 
   /**
+   * Opens a product straight from a known dwSpuId — used by the "Магазин"
+   * storefront, whose cards already carry the spuId from our own DB
+   * (CatalogProduct), so there's no link to resolve. Bypasses
+   * DewuLinkResolverService and the per-user rate limit: catalog items are
+   * curated by us (synced from the engine), not arbitrary user-submitted
+   * links, so this traffic doesn't burn the same quota. Cache still applies.
+   */
+  async resolveBySpuId(spuId: string, user: User): Promise<DewuResolvedProduct> {
+    // Catalog items have no original share link (we only have the spuId from
+    // the engine's /catalog feed). Synthesize a canonical, valid Poizon URL
+    // so downstream code (add-to-cart's dewuLink, shown to staff on the
+    // order) has something real to store — no special-casing needed there.
+    const syntheticLink = `https://www.poizon.com/product/detail?spuId=${encodeURIComponent(spuId)}`;
+
+    if (this.demoTelegramIds.includes(String(user.telegramId))) {
+      this.logger.log(`Demo product served (catalog) to telegramId=${user.telegramId}`);
+      return this.dewuProductMapperService.mapProduct(DEMO_PRODUCT_FIXTURE, {
+        originalLink: syntheticLink,
+        resolvedUrl: syntheticLink,
+        dwSpuId: '2827430',
+      });
+    }
+
+    const cached = await this.cacheService.get(spuId);
+    if (cached) {
+      this.logger.debug(`[catalog] Cache hit for dwSpuId=${spuId}`);
+      return { ...cached, originalLink: syntheticLink };
+    }
+
+    const rawProduct = await this.dewuApiClientService.queryProductDetail(spuId);
+    const product = this.dewuProductMapperService.mapProduct(rawProduct, {
+      originalLink: syntheticLink,
+      resolvedUrl: syntheticLink,
+      dwSpuId: spuId,
+    });
+
+    await this.cacheService.set(spuId, product);
+
+    return product;
+  }
+
+  /**
    * Same as `resolveProduct` but for staff (bot / admin panel manual order flow).
    * Bypasses per-user rate limiting because staff aren't subject to it.
    */

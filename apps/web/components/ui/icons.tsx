@@ -1,3 +1,15 @@
+export function StorefrontIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M4 9V4a1 1 0 011-1h14a1 1 0 011 1v5" />
+      <path d="M3 9l1.5-4.5A2 2 0 016.4 3h11.2a2 2 0 011.9 1.5L21 9" />
+      <path d="M3 9a2 2 0 002 2 2 2 0 002-2 2 2 0 002 2 2 2 0 002-2 2 2 0 002 2 2 2 0 002-2 2 2 0 002 2 2 2 0 002-2" />
+      <path d="M5 11v9a1 1 0 001 1h12a1 1 0 001-1v-9" />
+      <path d="M9 21v-5a2 2 0 012-2h2a2 2 0 012 2v5" />
+    </svg>
+  );
+}
+
 export function CalculatorIcon({ className }: { className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>

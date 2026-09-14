@@ -11,6 +11,7 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { AdminModule } from '../admin/admin.module';
 import { AuthModule } from '../auth/auth.module';
 import { CartModule } from '../cart/cart.module';
+import { CatalogModule } from '../catalog/catalog.module';
 import { CryptoPaymentsModule } from '../crypto-payments/crypto-payments.module';
 import { DeliveryAddressesModule } from '../delivery-addresses/delivery-addresses.module';
 import { HealthModule } from '../health/health.module';
@@ -50,6 +51,7 @@ import { UsersModule } from '../users/users.module';
     UsersModule,
     ProductsModule,
     CartModule,
+    CatalogModule,
     DeliveryAddressesModule,
     OrdersModule,
     CryptoPaymentsModule,
