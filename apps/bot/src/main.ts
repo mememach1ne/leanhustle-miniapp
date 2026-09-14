@@ -6,6 +6,7 @@ import { registerOrderManagementCommands } from './commands/order-management.com
 import { registerSettingsCommands } from './commands/settings.command';
 import { registerStartCommand } from './commands/start.command';
 import { accessMiddleware } from './middlewares/access.middleware';
+import { messageLogMiddleware } from './middlewares/message-log.middleware';
 import type { BotContext } from './types/bot-context';
 import { botEnv } from './utils/env';
 import { logger } from './utils/logger';
@@ -18,6 +19,7 @@ async function bootstrap() {
 
   const bot = new Telegraf<BotContext>(botEnv.token);
 
+  bot.use(messageLogMiddleware);
   bot.use(accessMiddleware);
 
   registerStartCommand(bot);
