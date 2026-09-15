@@ -1,125 +1,141 @@
 'use client';
 
-import type { CatalogProductDto } from '@lean-poizon/shared';
+import type { CatalogTypeOption } from '@lean-poizon/shared';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { CatalogCard } from '../../../components/ui/catalog-card';
+import { CatalogFilters } from '../../../components/ui/catalog-filters';
+import { CatalogGrid } from '../../../components/ui/catalog-grid';
 import { EmptyState } from '../../../components/ui/empty-state';
-import { FeedbackMessage } from '../../../components/ui/feedback-message';
-import { LoadingBlock } from '../../../components/ui/loading-block';
 import { PageSection } from '../../../components/ui/page-section';
 import { catalogApi } from '../../../lib/api-client';
-import { extractAxiosMessage } from '../../../lib/error-utils';
-import { hapticImpact } from '../../../lib/telegram-web-app';
+import { hapticImpact, hapticSelection } from '../../../lib/telegram-web-app';
+import { useCatalogFeed } from '../../../lib/use-catalog-feed';
 
 const PAGE_LIMIT = 30;
+const SEARCH_DEBOUNCE_MS = 500;
+
+type CatalogTab = 'popular' | 'search';
 
 export default function CatalogPage() {
   const router = useRouter();
+  const [tab, setTab] = useState<CatalogTab>('popular');
 
-  const [items, setItems] = useState<CatalogProductDto[]>([]);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingInitial, setIsLoadingInitial] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const openProduct = useCallback(
+    (spuId: string) => {
+      hapticImpact('light');
+      router.push(`/calculator?spuId=${encodeURIComponent(spuId)}`);
+    },
+    [router],
+  );
 
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const isFetchingRef = useRef(false);
+  // ─── "Популярное" ───────────────────────────────────────────
+  const popularFetch = useCallback(
+    (page: number) => catalogApi.list({ page, limit: PAGE_LIMIT }),
+    [],
+  );
+  const popular = useCatalogFeed(popularFetch);
 
-  const loadPage = useCallback(async (targetPage: number) => {
-    if (isFetchingRef.current) return;
-    isFetchingRef.current = true;
-    setError(null);
+  // ─── "Поиск" (фильтры) ──────────────────────────────────────
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<CatalogTypeOption | null>(null);
+  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
 
-    try {
-      const response = await catalogApi.list({ page: targetPage, limit: PAGE_LIMIT });
-      setItems((prev) => (targetPage === 1 ? response.items : [...prev, ...response.items]));
-      setHasMore(response.hasMore);
-      setPage(targetPage);
-    } catch (requestError) {
-      setError(
-        extractAxiosMessage(requestError) ??
-          'Не удалось загрузить каталог. Попробуйте ещё раз позже.',
-      );
-    } finally {
-      isFetchingRef.current = false;
-      setIsLoadingInitial(false);
-      setIsLoadingMore(false);
-    }
-  }, []);
-
-  // Initial load.
   useEffect(() => {
-    void loadPage(1);
-  }, [loadPage]);
+    const handle = setTimeout(() => setDebouncedQuery(searchInput.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
-  // Infinite scroll: fetch the next page once the sentinel enters view.
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel || !hasMore || isLoadingInitial) return;
+  const hasSearchCriteria = Boolean(selectedType || selectedBrand || debouncedQuery);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && !isFetchingRef.current) {
-          setIsLoadingMore(true);
-          void loadPage(page + 1);
-        }
-      },
-      { rootMargin: '400px' },
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, isLoadingInitial, page, loadPage]);
-
-  const openProduct = (spuId: string) => {
-    hapticImpact('light');
-    router.push(`/calculator?spuId=${encodeURIComponent(spuId)}`);
-  };
+  const searchFetch = useCallback(
+    (page: number) =>
+      catalogApi.search({
+        brand: selectedBrand ?? undefined,
+        type: selectedType ?? undefined,
+        q: debouncedQuery || undefined,
+        page,
+        limit: PAGE_LIMIT,
+      }),
+    [selectedBrand, selectedType, debouncedQuery],
+  );
+  const search = useCatalogFeed(searchFetch);
 
   return (
     <PageSection className="lg:mx-auto lg:max-w-6xl">
-      {isLoadingInitial ? (
-        <LoadingBlock
-          title="Загружаем магазин"
-          description="Собираем самые популярные товары Poizon."
-        />
-      ) : error && items.length === 0 ? (
-        <FeedbackMessage tone="error" onRetry={() => void loadPage(1)}>
-          {error}
-        </FeedbackMessage>
-      ) : items.length === 0 ? (
-        <EmptyState
-          title="Магазин пока пуст"
-          description="Каталог обновляется — загляните немного позже."
+      {/* Tab switcher */}
+      <div className="flex gap-2 rounded-[18px] border border-white/10 bg-white/5 p-1">
+        {(
+          [
+            ['popular', 'Популярное'],
+            ['search', 'Поиск'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => {
+              hapticSelection();
+              setTab(key);
+            }}
+            className={[
+              'flex-1 rounded-[14px] px-3 py-2 text-sm font-semibold transition',
+              tab === key ? 'bg-[var(--accent)] text-slate-950' : 'text-white',
+            ].join(' ')}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'popular' ? (
+        <CatalogGrid
+          items={popular.items}
+          isLoadingInitial={popular.isLoadingInitial}
+          isLoadingMore={popular.isLoadingMore}
+          hasMore={popular.hasMore}
+          error={popular.error}
+          onLoadMore={popular.loadMore}
+          onRetry={popular.retry}
+          onItemClick={openProduct}
+          loadingTitle="Загружаем магазин"
+          loadingDescription="Собираем самые популярные товары Poizon."
+          emptyTitle="Магазин пока пуст"
+          emptyDescription="Каталог обновляется — загляните немного позже."
         />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {items.map((product) => (
-              <CatalogCard
-                key={product.spuId}
-                product={product}
-                onClick={() => openProduct(product.spuId)}
-              />
-            ))}
-          </div>
+          <CatalogFilters
+            searchText={searchInput}
+            onSearchTextChange={setSearchInput}
+            selectedType={selectedType}
+            onSelectType={setSelectedType}
+            selectedBrand={selectedBrand}
+            onSelectBrand={setSelectedBrand}
+          />
 
-          {error ? (
-            <FeedbackMessage tone="error" onRetry={() => void loadPage(page + 1)}>
-              {error}
-            </FeedbackMessage>
-          ) : null}
-
-          {hasMore ? (
-            <div ref={sentinelRef} className="flex justify-center py-4">
-              {isLoadingMore ? (
-                <span className="text-xs text-[var(--muted)]">Загружаем ещё…</span>
-              ) : null}
-            </div>
-          ) : null}
+          {hasSearchCriteria ? (
+            <CatalogGrid
+              items={search.items}
+              isLoadingInitial={search.isLoadingInitial}
+              isLoadingMore={search.isLoadingMore}
+              hasMore={search.hasMore}
+              error={search.error}
+              onLoadMore={search.loadMore}
+              onRetry={search.retry}
+              onItemClick={openProduct}
+              loadingTitle="Ищем товары"
+              loadingDescription="Может занять до 20 секунд для нового запроса."
+              emptyTitle="Ничего не найдено"
+              emptyDescription="Попробуйте другой бренд, тип или запрос."
+            />
+          ) : (
+            <EmptyState
+              title="Выберите фильтр"
+              description="Отметьте бренд, тип или введите запрос, чтобы найти товары."
+            />
+          )}
         </>
       )}
     </PageSection>

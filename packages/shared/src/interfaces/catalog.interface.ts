@@ -26,10 +26,24 @@ export interface CatalogListQuery {
   limit?: number;
 }
 
+/** Фильтры/поиск: бренд и/или тип (чипы) и/или свободный текст — см. §"Фильтры и поиск (v2)". */
+export interface CatalogSearchQuery {
+  brand?: string;
+  type?: string;
+  q?: string;
+  page?: number;
+  limit?: number;
+}
+
 /** Ответ на ручной триггер синка витрины (админ). */
 export interface CatalogSyncResultDto {
+  /** Товаров затронуто в проходе "Популярное" (GET /catalog). */
   synced: number;
   deactivated: number;
   pagesRead: number;
+  /** Сколько keyword'ов из курируемого списка успешно синкнулись (GET /search). */
+  keywordsSynced: number;
+  /** Keyword'ы, для которых движок вернул ошибку — не остановили весь синк. */
+  keywordErrors: number;
   syncedAt: string;
 }

@@ -105,6 +105,19 @@ export const catalogApi = {
     const response = await apiClient.get<CatalogListResponse>('/catalog', { params });
     return response.data;
   },
+  async search(
+    params: { brand?: string; type?: string; q?: string; page?: number; limit?: number } = {},
+  ): Promise<CatalogListResponse> {
+    // A brand/type/q combo outside the curated nightly snapshot triggers a
+    // live engine call server-side (~10-20s cold) — give it more room than
+    // the default 15s timeout so a legitimate slow-but-successful search
+    // doesn't get cut off client-side.
+    const response = await apiClient.get<CatalogListResponse>('/catalog/search', {
+      params,
+      timeout: 30000,
+    });
+    return response.data;
+  },
 };
 
 export const pricingApi = {

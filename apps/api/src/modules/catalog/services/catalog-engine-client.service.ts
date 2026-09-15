@@ -7,15 +7,19 @@ export interface CatalogEngineItem {
   title: string;
   article?: string;
   image: string;
-  priceCny: number;
-  priceFen?: number;
+  priceCny: number | null;
+  priceFen?: number | null;
   soldText?: string;
+  /** Only present on /search results — the engine's own pre-parsed sales count (e.g. 2590000 for "259w+"). */
+  soldRank?: number;
 }
 
 interface CatalogEngineResponse {
   code: number;
   msg: string;
   data?: {
+    query?: string;
+    sortedByBest?: boolean;
     pageNum: number;
     pageSize: number;
     total: number;
@@ -25,19 +29,30 @@ interface CatalogEngineResponse {
 }
 
 /**
- * Talks to the self-hosted price engine's `GET /catalog?page=` endpoint (see
- * docs/SHOP_MVP_PLAN.md §1). Same engine as DewuApiClientService, different
- * route — only CatalogSyncService calls this; the storefront itself reads
- * from our own DB (CatalogProduct), never the engine directly.
+ * Talks to the self-hosted price engine's catalog endpoints (see
+ * docs/SHOP_MVP_PLAN.md §1 and §"Фильтры и поиск (v2)"). Same engine as
+ * DewuApiClientService, different routes — only CatalogSyncService calls
+ * this on a schedule; the storefront itself reads from our own DB
+ * (CatalogProduct), never the engine directly (except the live-search
+ * fallback for out-of-snapshot free-text queries).
  */
 @Injectable()
 export class CatalogEngineClientService {
   private readonly logger = new Logger(CatalogEngineClientService.name);
 
-  /** Returns the page's items, or [] once the engine has nothing more. */
+  /** GET /catalog?page= — the "Популярное" feed. [] once the engine has nothing more. */
   async fetchPage(page: number): Promise<CatalogEngineItem[]> {
+    return this.fetchItems(`/catalog?page=${page}`, `page=${page}`);
+  }
+
+  /** GET /search?q= — Best Sellers for a brand/type/free-text keyword. */
+  async search(keyword: string): Promise<CatalogEngineItem[]> {
+    return this.fetchItems(`/search?q=${encodeURIComponent(keyword)}`, `q="${keyword}"`);
+  }
+
+  private async fetchItems(path: string, logContext: string): Promise<CatalogEngineItem[]> {
     const { engineUrl, engineToken } = getDewuEngineCredentials();
-    const url = `${engineUrl}/catalog?page=${page}`;
+    const url = `${engineUrl}${path}`;
 
     try {
       const response = await fetch(url, {
@@ -46,7 +61,7 @@ export class CatalogEngineClientService {
       });
 
       if (!response.ok) {
-        this.logger.warn(`Catalog engine HTTP ${response.status} for page=${page}`);
+        this.logger.warn(`Catalog engine HTTP ${response.status} for ${logContext}`);
         throw new ServiceUnavailableException('Не удалось получить каталог.');
       }
 
@@ -54,7 +69,7 @@ export class CatalogEngineClientService {
 
       if (body.code !== 200) {
         this.logger.warn(
-          `Catalog engine returned code=${body.code} msg="${body.msg}" for page=${page}`,
+          `Catalog engine returned code=${body.code} msg="${body.msg}" for ${logContext}`,
         );
         throw new ServiceUnavailableException('Каталог временно недоступен.');
       }
@@ -63,7 +78,7 @@ export class CatalogEngineClientService {
     } catch (error) {
       if (error instanceof ServiceUnavailableException) throw error;
       this.logger.warn('Catalog engine request failed', {
-        page,
+        logContext,
         error: error instanceof Error ? error.message : String(error),
       });
       throw new ServiceUnavailableException('Каталог временно недоступен.');

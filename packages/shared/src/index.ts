@@ -1,3 +1,4 @@
+export * from './constants/catalog-filters';
 export * from './constants/order-prefixes';
 export * from './constants/order-statuses';
 export * from './constants/tab-routes';

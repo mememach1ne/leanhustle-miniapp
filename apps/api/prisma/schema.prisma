@@ -424,8 +424,15 @@ model CatalogProduct {
   soldText        String?  @map("sold_text") @db.VarChar(32)
   /// Распарсенное значение soldText для сортировки по популярности, напр. 640000.
   soldRank        Int      @default(0) @map("sold_rank")
-  /// Позиция в ленте движка на момент последнего синка (стабильный порядок).
-  popularityOrder Int      @map("popularity_order")
+  /// Позиция в ленте "Популярное" (GET /catalog) на момент последнего синка.
+  /// null для карточек, найденных только через поиск по keyword (GET
+  /// /search) и никогда не встречавшихся в основной ленте — у них нет
+  /// естественного места в "Популярное".
+  popularityOrder Int?     @map("popularity_order")
+  /// Keyword'ы курируемого списка (бренд/тип/бренд+тип), которыми найдена
+  /// карточка через GET /search — см. §"Фильтры и поиск (v2)". Карточки из
+  /// одной только ленты "Популярное" имеют пустой массив.
+  keywords        String[] @default([])
   /// На будущее — категории каталога (пока не приходят с движка).
   category        String?  @db.VarChar(64)
   isActive        Boolean  @default(true) @map("is_active")
