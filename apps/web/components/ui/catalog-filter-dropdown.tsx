@@ -42,11 +42,14 @@ export function CatalogFilterDropdown({
           hapticSelection();
           onToggle();
         }}
-        className="lg-chip flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-[var(--accent)] transition active:scale-95"
+        className="lg-surface flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white transition active:scale-95"
       >
         {currentLabel}
         <ChevronDownIcon
-          className={['h-4 w-4 transition-transform', isOpen ? 'rotate-180' : ''].join(' ')}
+          className={[
+            'h-4 w-4 shrink-0 text-[var(--accent)] transition-transform',
+            isOpen ? 'rotate-180' : '',
+          ].join(' ')}
         />
       </button>
 
