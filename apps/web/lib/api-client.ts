@@ -8,6 +8,7 @@ import type {
   BusinessSettingsDto,
   CartResponse,
   CatalogListResponse,
+  CatalogSortKey,
   CatalogSyncResultDto,
   ChannelSubscriptionRefreshResponse,
   CheckoutOrderResponse,
@@ -101,12 +102,21 @@ export const productsApi = {
 };
 
 export const catalogApi = {
-  async list(params: { page?: number; limit?: number } = {}): Promise<CatalogListResponse> {
+  async list(
+    params: { page?: number; limit?: number; sort?: CatalogSortKey } = {},
+  ): Promise<CatalogListResponse> {
     const response = await apiClient.get<CatalogListResponse>('/catalog', { params });
     return response.data;
   },
   async search(
-    params: { brand?: string; type?: string; q?: string; page?: number; limit?: number } = {},
+    params: {
+      brand?: string;
+      type?: string;
+      q?: string;
+      sort?: CatalogSortKey;
+      page?: number;
+      limit?: number;
+    } = {},
   ): Promise<CatalogListResponse> {
     // A brand/type/q combo outside the curated nightly snapshot triggers a
     // live engine call server-side (~10-20s cold) — give it more room than

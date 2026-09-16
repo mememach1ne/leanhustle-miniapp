@@ -1,5 +1,6 @@
+import type { CatalogSortKey } from '@lean-poizon/shared';
 import { Transform } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class CatalogSearchQueryDto {
   @IsOptional()
@@ -16,6 +17,10 @@ export class CatalogSearchQueryDto {
   @IsString()
   @MaxLength(100)
   q?: string;
+
+  @IsOptional()
+  @IsIn(['best', 'price_asc', 'price_desc'])
+  sort?: CatalogSortKey = 'best';
 
   @IsOptional()
   @Transform(({ value }) => parseInt(value, 10))

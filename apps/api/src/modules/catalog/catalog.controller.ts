@@ -17,16 +17,17 @@ export class CatalogController {
 
   @Get()
   async list(@Query() query: CatalogQueryDto): Promise<CatalogListResponse> {
-    return this.catalogService.list(query.page ?? 1, query.limit ?? 30, query.sort ?? 'popular');
+    return this.catalogService.list(query.page ?? 1, query.limit ?? 30, query.sort ?? 'best');
   }
 
-  /** Фильтры/поиск — brand/type chips и/или свободный текст. */
+  /** Фильтры/поиск — категория (тип) и/или свободный текст (в т.ч. бренд). */
   @Get('search')
   async search(@Query() query: CatalogSearchQueryDto): Promise<CatalogListResponse> {
     return this.catalogService.search(
       query.brand,
       query.type,
       query.q,
+      query.sort ?? 'best',
       query.page ?? 1,
       query.limit ?? 30,
     );

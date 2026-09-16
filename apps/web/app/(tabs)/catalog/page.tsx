@@ -1,7 +1,7 @@
 'use client';
 
-import type { CatalogTypeOption } from '@lean-poizon/shared';
-import { CATALOG_BRAND_OPTIONS, CATALOG_TYPE_OPTIONS } from '@lean-poizon/shared';
+import type { CatalogSortKey, CatalogTypeOption } from '@lean-poizon/shared';
+import { CATALOG_TYPE_OPTIONS } from '@lean-poizon/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { CatalogFilterDropdown } from '../../../components/ui/catalog-filter-dropdown';
@@ -15,14 +15,19 @@ import { hapticImpact } from '../../../lib/telegram-web-app';
 import { useCatalogStore } from '../../../store/catalog-store';
 
 const PAGE_LIMIT = 30;
+const SEARCH_DEBOUNCE_MS = 500;
 
 const TYPE_OPTIONS = CATALOG_TYPE_OPTIONS.map((type) => ({
   value: type,
   label: CATALOG_TYPE_LABELS_RU[type],
 }));
-const BRAND_OPTIONS = CATALOG_BRAND_OPTIONS.map((brand) => ({ value: brand, label: brand }));
 
-type OpenDropdown = 'category' | 'brand' | null;
+const SORT_OPTIONS: Array<{ value: CatalogSortKey; label: string }> = [
+  { value: 'price_asc', label: 'Сначала дешевле' },
+  { value: 'price_desc', label: 'Сначала дороже' },
+];
+
+type OpenDropdown = 'category' | 'sort' | null;
 
 export default function CatalogPage() {
   const [openDropdown, setOpenDropdown] = useState<OpenDropdown>(null);
@@ -30,7 +35,9 @@ export default function CatalogPage() {
   const isFetchingRef = useRef(false);
 
   const selectedType = useCatalogStore((state) => state.selectedType);
-  const selectedBrand = useCatalogStore((state) => state.selectedBrand);
+  const sort = useCatalogStore((state) => state.sort);
+  const searchText = useCatalogStore((state) => state.searchText);
+  const debouncedQuery = useCatalogStore((state) => state.debouncedQuery);
   const items = useCatalogStore((state) => state.items);
   const page = useCatalogStore((state) => state.page);
   const hasMore = useCatalogStore((state) => state.hasMore);
@@ -40,14 +47,16 @@ export default function CatalogPage() {
   const hasFetchedOnce = useCatalogStore((state) => state.hasFetchedOnce);
   const scrollY = useCatalogStore((state) => state.scrollY);
   const setType = useCatalogStore((state) => state.setType);
-  const setBrand = useCatalogStore((state) => state.setBrand);
+  const setSort = useCatalogStore((state) => state.setSort);
+  const setSearchText = useCatalogStore((state) => state.setSearchText);
+  const commitSearchQuery = useCatalogStore((state) => state.commitSearchQuery);
   const startInitialLoad = useCatalogStore((state) => state.startInitialLoad);
   const startLoadMore = useCatalogStore((state) => state.startLoadMore);
   const setPageResult = useCatalogStore((state) => state.setPageResult);
   const setError = useCatalogStore((state) => state.setError);
   const setScrollY = useCatalogStore((state) => state.setScrollY);
 
-  const hasFilters = Boolean(selectedType || selectedBrand);
+  const hasFilters = Boolean(selectedType || debouncedQuery);
 
   const loadPage = useCallback(
     async (targetPage: number) => {
@@ -59,12 +68,13 @@ export default function CatalogPage() {
       try {
         const response = hasFilters
           ? await catalogApi.search({
-              brand: selectedBrand ?? undefined,
               type: selectedType ?? undefined,
+              q: debouncedQuery || undefined,
+              sort,
               page: targetPage,
               limit: PAGE_LIMIT,
             })
-          : await catalogApi.list({ page: targetPage, limit: PAGE_LIMIT });
+          : await catalogApi.list({ page: targetPage, limit: PAGE_LIMIT, sort });
         setPageResult(response.items, targetPage, response.hasMore, targetPage > 1);
       } catch (requestError) {
         setError(
@@ -74,8 +84,16 @@ export default function CatalogPage() {
         isFetchingRef.current = false;
       }
     },
-    [hasFilters, selectedBrand, selectedType, startInitialLoad, startLoadMore, setPageResult, setError],
+    [hasFilters, selectedType, debouncedQuery, sort, startInitialLoad, startLoadMore, setPageResult, setError],
   );
+
+  // Debounce free-text typing into debouncedQuery (which drives the fetch)
+  // — commitSearchQuery is a no-op if the value hasn't actually changed
+  // (e.g. this firing again on remount with nothing new typed).
+  useEffect(() => {
+    const handle = setTimeout(() => commitSearchQuery(), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [searchText, commitSearchQuery]);
 
   // Fetch page 1 only if the current filter combo hasn't loaded yet —
   // returning to this tab with the same filters just re-renders what's
@@ -85,7 +103,7 @@ export default function CatalogPage() {
       void loadPage(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedType, selectedBrand]);
+  }, [selectedType, sort, debouncedQuery]);
 
   // Restore scroll position when returning to an already-loaded feed; save
   // it on the way out (tab switch, or opening the quick-view modal).
@@ -113,6 +131,14 @@ export default function CatalogPage() {
 
   return (
     <PageSection className="lg:mx-auto lg:max-w-6xl">
+      <input
+        type="text"
+        value={searchText}
+        onChange={(event) => setSearchText(event.target.value)}
+        placeholder="Поиск: например, nike"
+        className="w-full rounded-[16px] border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[var(--accent)]"
+      />
+
       <div className="flex flex-wrap gap-2">
         <CatalogFilterDropdown
           idleLabel="Все категории"
@@ -126,15 +152,15 @@ export default function CatalogPage() {
           onToggle={() => setOpenDropdown((prev) => (prev === 'category' ? null : 'category'))}
         />
         <CatalogFilterDropdown
-          idleLabel="Все бренды"
-          options={BRAND_OPTIONS}
-          selectedValue={selectedBrand}
+          idleLabel="Популярное"
+          options={SORT_OPTIONS}
+          selectedValue={sort === 'best' ? null : sort}
           onSelect={(value) => {
-            setBrand(value);
+            setSort((value as CatalogSortKey) ?? 'best');
             setOpenDropdown(null);
           }}
-          isOpen={openDropdown === 'brand'}
-          onToggle={() => setOpenDropdown((prev) => (prev === 'brand' ? null : 'brand'))}
+          isOpen={openDropdown === 'sort'}
+          onToggle={() => setOpenDropdown((prev) => (prev === 'sort' ? null : 'sort'))}
         />
       </div>
 
@@ -156,7 +182,7 @@ export default function CatalogPage() {
         emptyTitle={hasFilters ? 'Ничего не найдено' : 'Магазин пока пуст'}
         emptyDescription={
           hasFilters
-            ? 'Попробуйте другой бренд или категорию.'
+            ? 'Попробуйте другой запрос или категорию.'
             : 'Каталог обновляется — загляните немного позже.'
         }
       />

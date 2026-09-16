@@ -1,4 +1,4 @@
-import type { CatalogListResponse, CatalogProductDto } from '@lean-poizon/shared';
+import type { CatalogListResponse, CatalogProductDto, CatalogSortKey } from '@lean-poizon/shared';
 import { buildCatalogKeyword } from '@lean-poizon/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { CatalogProduct, Prisma } from '@prisma/client';
@@ -27,11 +27,7 @@ export class CatalogService {
    * in the last /catalog feed pass) so keyword-only search results never
    * leak into this tab.
    */
-  async list(
-    pageInput: number,
-    limitInput: number,
-    sort: 'popular' | 'sold',
-  ): Promise<CatalogListResponse> {
+  async list(pageInput: number, limitInput: number, sort: CatalogSortKey): Promise<CatalogListResponse> {
     // class-transformer's @Transform on the query DTO doesn't fire under
     // tsx/esbuild (no emitDecoratorMetadata → Nest can't resolve the DTO's
     // design:paramtypes, so ValidationPipe treats it as a plain Object and
@@ -47,8 +43,7 @@ export class CatalogService {
       isActive: true,
       popularityOrder: { not: null },
     };
-    const orderBy: Prisma.CatalogProductOrderByWithRelationInput =
-      sort === 'sold' ? { soldRank: 'desc' } : { popularityOrder: 'asc' };
+    const orderBy = this.resolveOrderBy(sort, 'popularityOrder');
 
     const [rows, total] = await Promise.all([
       this.prisma.catalogProduct.findMany({ where, orderBy, skip, take: limit }),
@@ -67,18 +62,20 @@ export class CatalogService {
   }
 
   /**
-   * Фильтры/поиск (brand/type chips + free text — see
+   * Фильтры/поиск (категория + свободный текст, в т.ч. бренд — см.
    * docs/SHOP_MVP_PLAN.md §"Фильтры и поиск (v2)"). Serves from the DB
-   * snapshot (rows tagged with this exact keyword by the nightly sync).
+   * snapshot (rows tagged with this exact keyword by the nightly sync,
+   * which fetches both "best" and "price_asc" per keyword — see §v3 — so
+   * either sort here reads from that same combined, already-cached set).
    * On a cache miss — the combo isn't part of the curated keyword list, or
    * hasn't synced yet — falls back to a live engine call and tags the
-   * result for next time. Sorted by soldRank (Best Sellers), matching what
-   * the engine's /search already returns.
+   * result for next time.
    */
   async search(
     brand: string | undefined,
     type: string | undefined,
     q: string | undefined,
+    sort: CatalogSortKey,
     pageInput: number,
     limitInput: number,
   ): Promise<CatalogListResponse> {
@@ -90,13 +87,13 @@ export class CatalogService {
       return { items: [], page, limit, total: 0, hasMore: false };
     }
 
-    let rows = await this.findByKeyword(keyword);
+    let rows = await this.findByKeyword(keyword, sort);
 
     if (rows.length === 0) {
       this.logger.debug(`Catalog search cache miss for "${keyword}" — live fallback`);
       try {
         await this.catalogSyncService.syncKeywordNow(keyword);
-        rows = await this.findByKeyword(keyword);
+        rows = await this.findByKeyword(keyword, sort);
       } catch (error) {
         this.logger.warn(
           `Catalog live search fallback failed for "${keyword}": ${
@@ -122,11 +119,26 @@ export class CatalogService {
     };
   }
 
-  private findByKeyword(keyword: string): Promise<CatalogProduct[]> {
+  private findByKeyword(keyword: string, sort: CatalogSortKey): Promise<CatalogProduct[]> {
     return this.prisma.catalogProduct.findMany({
       where: { isActive: true, keywords: { has: keyword } },
-      orderBy: { soldRank: 'desc' },
+      orderBy: this.resolveOrderBy(sort, 'soldRank'),
     });
+  }
+
+  /**
+   * `bestField` is the "best"-sort column, which differs between the plain
+   * feed (`popularityOrder asc` — position in the curated top-60) and
+   * keyword search (`soldRank desc` — raw sales count). price_asc/desc are
+   * the same `priceUsd` ordering either way.
+   */
+  private resolveOrderBy(
+    sort: CatalogSortKey,
+    bestField: 'popularityOrder' | 'soldRank',
+  ): Prisma.CatalogProductOrderByWithRelationInput {
+    if (sort === 'price_asc') return { priceUsd: 'asc' };
+    if (sort === 'price_desc') return { priceUsd: 'desc' };
+    return bestField === 'popularityOrder' ? { popularityOrder: 'asc' } : { soldRank: 'desc' };
   }
 }
 

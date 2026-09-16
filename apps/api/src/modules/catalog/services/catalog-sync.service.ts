@@ -7,7 +7,11 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../../prisma/prisma.service';
 import { SettingsService } from '../../settings/settings.service';
-import { CatalogEngineClientService, type CatalogEngineItem } from './catalog-engine-client.service';
+import {
+  CatalogEngineClientService,
+  type CatalogEngineItem,
+  type CatalogSortKey,
+} from './catalog-engine-client.service';
 
 /** Safety cap on how many pages we'll ever walk for the "Популярное" feed.
  * The engine currently only returns real items on page 1 (see
@@ -15,8 +19,15 @@ import { CatalogEngineClientService, type CatalogEngineItem } from './catalog-en
  * pagination lands on the engine side and K grows. */
 const MAX_PAGES = 20;
 const PAGE_PAUSE_MS = 1000;
-/** Pause between GET /search?q= calls — plan calls for ~1-2s between engine hits. */
+/** Pause between GET /search/multi?q= calls — plan calls for ~1-2s between engine hits. */
 const KEYWORD_PAUSE_MS = 1500;
+/**
+ * Sorts fetched per keyword in one /search/multi navigation (see plan §v3):
+ * "best" for the default view, "price_asc" so the union of both slices'
+ * top items is available once the user switches to "Сначала дешевле" —
+ * cheaper than two separate /search calls (~11-16s + ~4-5s vs 2×11-16s).
+ */
+const KEYWORD_SORTS: CatalogSortKey[] = ['best', 'price_asc'];
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -109,22 +120,28 @@ export class CatalogSyncService {
       }
     }
 
-    // ─── Pass 2: curated keyword search — GET /search?q= ─────────
-    // Pre-warms the DB snapshot for the filters/search panel (brands,
-    // types, top brand+type combos — see docs/SHOP_MVP_PLAN.md
-    // §"Фильтры и поиск (v2)"). An item already seen in pass 1 is still
-    // processed here (to pick up the keyword tag), so no seenSpuIds guard
-    // before the call — upsertItem is idempotent either way.
+    // ─── Pass 2: curated keyword search — GET /search/multi?q= ───
+    // Pre-warms the DB snapshot for the filters/search panel (types,
+    // free-text brand/query — see docs/SHOP_MVP_PLAN.md §"Фильтры и поиск
+    // (v2)"/§v3). One /search/multi call per keyword fetches both the
+    // "best" and "price_asc" views in a single engine navigation; items
+    // from either slice get upserted and tagged, so switching sort later
+    // reads from the union of what both views surfaced. An item already
+    // seen in pass 1 is still processed here (to pick up the keyword
+    // tag), so no seenSpuIds guard before the call — upsertItem is
+    // idempotent either way.
     let keywordsSynced = 0;
     let keywordErrors = 0;
 
     for (const keyword of CATALOG_SNAPSHOT_KEYWORDS) {
       try {
-        const items = await this.engineClient.search(keyword);
-        for (const item of items) {
-          const upsertedId = await this.upsertItem(item, settings, { keyword });
-          if (upsertedId) {
-            seenSpuIds.add(upsertedId);
+        const slices = await this.engineClient.searchMulti(keyword, KEYWORD_SORTS);
+        for (const sortKey of KEYWORD_SORTS) {
+          for (const item of slices[sortKey]) {
+            const upsertedId = await this.upsertItem(item, settings, { keyword });
+            if (upsertedId) {
+              seenSpuIds.add(upsertedId);
+            }
           }
         }
         keywordsSynced += 1;
@@ -183,9 +200,11 @@ export class CatalogSyncService {
    */
   async syncKeywordNow(keyword: string): Promise<void> {
     const settings = await this.settingsService.getCurrentSettings();
-    const items = await this.engineClient.search(keyword);
-    for (const item of items) {
-      await this.upsertItem(item, settings, { keyword });
+    const slices = await this.engineClient.searchMulti(keyword, KEYWORD_SORTS);
+    for (const sortKey of KEYWORD_SORTS) {
+      for (const item of slices[sortKey]) {
+        await this.upsertItem(item, settings, { keyword });
+      }
     }
   }
 

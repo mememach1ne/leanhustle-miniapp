@@ -1,16 +1,22 @@
-import type { CatalogProductDto, CatalogTypeOption } from '@lean-poizon/shared';
+import type { CatalogProductDto, CatalogSortKey, CatalogTypeOption } from '@lean-poizon/shared';
 import { create } from 'zustand';
 
 /**
  * Persists the "Магазин" feed (filters + loaded items) across route changes.
  * The /catalog page unmounts whenever the user taps a bottom-nav tab or a
- * deep link, and a plain useState would lose the selected category/brand
- * and the already-loaded grid on the way back. Living in a module-level
- * Zustand store (not component state) survives that unmount/remount.
+ * deep link, and a plain useState would lose the selected category, search
+ * text, sort and the already-loaded grid on the way back. Living in a
+ * module-level Zustand store (not component state) survives that
+ * unmount/remount.
  */
 interface CatalogStoreState {
   selectedType: CatalogTypeOption | null;
-  selectedBrand: string | null;
+  sort: CatalogSortKey;
+  /** Raw input value — reflects every keystroke immediately. */
+  searchText: string;
+  /** Debounced value that actually drives the fetch — see commitSearchQuery. */
+  debouncedQuery: string;
+
   items: CatalogProductDto[];
   page: number;
   hasMore: boolean;
@@ -23,7 +29,10 @@ interface CatalogStoreState {
   scrollY: number;
 
   setType: (type: CatalogTypeOption | null) => void;
-  setBrand: (brand: string | null) => void;
+  setSort: (sort: CatalogSortKey) => void;
+  setSearchText: (text: string) => void;
+  /** Called (debounced) by the page once typing settles — commits searchText into debouncedQuery. */
+  commitSearchQuery: () => void;
   startInitialLoad: () => void;
   startLoadMore: () => void;
   setPageResult: (items: CatalogProductDto[], page: number, hasMore: boolean, append: boolean) => void;
@@ -41,14 +50,23 @@ const resetFeedFields = {
   hasFetchedOnce: false,
 };
 
-export const useCatalogStore = create<CatalogStoreState>((set) => ({
+export const useCatalogStore = create<CatalogStoreState>((set, get) => ({
   selectedType: null,
-  selectedBrand: null,
+  sort: 'best',
+  searchText: '',
+  debouncedQuery: '',
   scrollY: 0,
   ...resetFeedFields,
 
   setType: (selectedType) => set({ selectedType, ...resetFeedFields }),
-  setBrand: (selectedBrand) => set({ selectedBrand, ...resetFeedFields }),
+  setSort: (sort) => set({ sort, ...resetFeedFields }),
+  setSearchText: (searchText) => set({ searchText }),
+
+  commitSearchQuery: () => {
+    const trimmed = get().searchText.trim();
+    if (trimmed === get().debouncedQuery) return;
+    set({ debouncedQuery: trimmed, ...resetFeedFields });
+  },
 
   startInitialLoad: () => set({ isLoadingInitial: true, error: null }),
   startLoadMore: () => set({ isLoadingMore: true, error: null }),

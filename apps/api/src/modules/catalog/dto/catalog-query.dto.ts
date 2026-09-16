@@ -1,3 +1,4 @@
+import type { CatalogSortKey } from '@lean-poizon/shared';
 import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 
@@ -16,6 +17,6 @@ export class CatalogQueryDto {
   limit?: number = 30;
 
   @IsOptional()
-  @IsIn(['popular', 'sold'])
-  sort?: 'popular' | 'sold' = 'popular';
+  @IsIn(['best', 'price_asc', 'price_desc'])
+  sort?: CatalogSortKey = 'best';
 }

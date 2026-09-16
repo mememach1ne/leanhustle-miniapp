@@ -21,16 +21,28 @@ export interface CatalogListResponse {
   hasMore: boolean;
 }
 
+/**
+ * "best" = popularity/sales order (`popularityOrder` on the plain feed,
+ * `soldRank` in search mode); price_asc/desc = by priceUsd. See
+ * docs/SHOP_MVP_PLAN.md §v3.
+ */
+export type CatalogSortKey = 'best' | 'price_asc' | 'price_desc';
+
 export interface CatalogListQuery {
   page?: number;
   limit?: number;
+  sort?: CatalogSortKey;
 }
 
-/** Фильтры/поиск: бренд и/или тип (чипы) и/или свободный текст — см. §"Фильтры и поиск (v2)". */
+/**
+ * Фильтры/поиск: тип (чипы) и/или свободный текст (бренд или что угодно —
+ * чипы брендов убраны, см. §"Фильтры и поиск (v2)" 2026-09-16) + сортировка.
+ */
 export interface CatalogSearchQuery {
   brand?: string;
   type?: string;
   q?: string;
+  sort?: CatalogSortKey;
   page?: number;
   limit?: number;
 }
