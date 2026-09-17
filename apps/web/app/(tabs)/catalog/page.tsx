@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { CatalogFilterDropdown } from '../../../components/ui/catalog-filter-dropdown';
 import { CatalogGrid } from '../../../components/ui/catalog-grid';
+import { CatalogHelpPopover } from '../../../components/ui/catalog-help-popover';
 import { CatalogProductModal } from '../../../components/ui/catalog-product-modal';
 import { PageSection } from '../../../components/ui/page-section';
 import { catalogApi } from '../../../lib/api-client';
@@ -27,7 +28,7 @@ const SORT_OPTIONS: Array<{ value: CatalogSortKey; label: string }> = [
   { value: 'price_desc', label: 'Сначала дороже' },
 ];
 
-type OpenDropdown = 'category' | 'sort' | null;
+type OpenDropdown = 'category' | 'sort' | 'help' | null;
 
 export default function CatalogPage() {
   const [openDropdown, setOpenDropdown] = useState<OpenDropdown>(null);
@@ -161,6 +162,10 @@ export default function CatalogPage() {
           }}
           isOpen={openDropdown === 'sort'}
           onToggle={() => setOpenDropdown((prev) => (prev === 'sort' ? null : 'sort'))}
+        />
+        <CatalogHelpPopover
+          isOpen={openDropdown === 'help'}
+          onToggle={() => setOpenDropdown((prev) => (prev === 'help' ? null : 'help'))}
         />
       </div>
 
