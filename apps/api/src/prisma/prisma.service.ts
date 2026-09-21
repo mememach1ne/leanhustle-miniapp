@@ -1,4 +1,5 @@
 import { INestApplication, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient } from '@prisma/client';
 
 @Injectable()
@@ -7,8 +8,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor() {
     const isDevelopment = (process.env.NODE_ENV ?? 'development') === 'development';
+    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 
     super({
+      adapter,
       log: isDevelopment
         ? [
             { emit: 'event', level: 'query' },
