@@ -89,13 +89,18 @@ export const authApi = {
 };
 
 export const productsApi = {
+  // Uncached resolves go through the price engine, which averages ~12s and
+  // regularly exceeds 15s — same headroom as catalog search.
   async resolveProduct(payload: ResolveProductRequest): Promise<DewuResolvedProduct> {
-    const response = await apiClient.post<DewuResolvedProduct>('/products/resolve', payload);
+    const response = await apiClient.post<DewuResolvedProduct>('/products/resolve', payload, {
+      timeout: 30000,
+    });
     return response.data;
   },
   async resolveBySpuId(spuId: string): Promise<DewuResolvedProduct> {
     const response = await apiClient.get<DewuResolvedProduct>(
       `/products/by-spu-id/${encodeURIComponent(spuId)}`,
+      { timeout: 30000 },
     );
     return response.data;
   },

@@ -32,6 +32,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const isProduction = process.env.NODE_ENV === 'production';
     let message: string = 'Internal server error';
+    // Optional machine-readable reason (e.g. ProductResolveErrorCode) so the
+    // frontend can branch on it instead of parsing the Russian message.
+    let code: string | undefined;
 
     if (exception instanceof HttpException) {
       const exceptionResponse = exception.getResponse();
@@ -49,6 +52,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
         } else {
           message = Array.isArray(msg) ? msg.join(', ') : String(msg);
         }
+
+        const rawCode = (exceptionResponse as { code?: unknown }).code;
+        if (typeof rawCode === 'string') {
+          code = rawCode;
+        }
       }
     }
 
@@ -62,6 +70,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     response.status(status).json({
       statusCode: status,
       message,
+      ...(code ? { code } : {}),
       path: request.url ?? '',
       timestamp: new Date().toISOString(),
     });

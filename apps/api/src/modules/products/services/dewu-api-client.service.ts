@@ -1,7 +1,8 @@
-import { Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { HttpException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { getDewuEngineCredentials } from '../../../common/dewu-engine.config';
+import { productResolveError } from '../product-resolve-error';
 
 interface DewuApiRawSku {
   dwSkuId: number | string;
@@ -17,6 +18,8 @@ interface DewuApiRawSku {
 export interface DewuApiRawProductResponse {
   code: number;
   msg: string;
+  /** Set by lh-dewu-engine when the portal session has expired. */
+  needsRelogin?: boolean;
   data?: {
     dwSpuId: number | string;
     dwSpuTitle?: string;
@@ -52,9 +55,7 @@ export class DewuApiClientService {
    * DewuApiRawProductResponse shape the paid gateway used to return — so the
    * mapper and frontend need no changes. Replaces the paid dajisaas.com API.
    */
-  private async request(
-    params: Record<string, string>,
-  ): Promise<DewuApiRawProductResponse> {
+  private async request(params: Record<string, string>): Promise<DewuApiRawProductResponse> {
     const { engineUrl, engineToken } = getDewuEngineCredentials();
     const spuId = params.dwSpuId ?? '';
     const url = `${engineUrl}/raw/${encodeURIComponent(spuId)}`;
@@ -67,34 +68,47 @@ export class DewuApiClientService {
 
       if (!response.ok) {
         this.logger.warn(`Dewu engine HTTP ${response.status} for ${spuId}`);
-        throw new ServiceUnavailableException(
-          'Не удалось получить товар. Попробуйте позже.',
-        );
+        throw productResolveError('ENGINE_UNAVAILABLE');
       }
 
       const body = (await response.json()) as DewuApiRawProductResponse;
 
       if (body.code !== 200) {
         this.logger.warn(
-          `Dewu engine returned code=${body.code} msg="${body.msg}" for ${spuId}`,
+          `Dewu engine returned code=${body.code} msg="${body.msg}" needsRelogin=${Boolean(body.needsRelogin)} for ${spuId}`,
         );
-        // Session expired / portal error → let the frontend fall through to
-        // manual-input mode with a Russian message.
-        throw new ServiceUnavailableException(
-          'Сервис товаров временно недоступен. Введите данные товара вручную или попробуйте позже.',
+        // The portal answered, but refused this particular item (e.g.
+        // "portal 70400001: Unable to access item details") — other items
+        // resolve fine, so it's not an outage. Everything else (proxy down,
+        // session expired, timeouts, bad json) is.
+        throw productResolveError(
+          this.isPortalItemRejection(body) ? 'PRODUCT_NOT_AVAILABLE' : 'ENGINE_UNAVAILABLE',
         );
       }
 
       return body;
     } catch (error) {
-      if (error instanceof ServiceUnavailableException) throw error;
+      if (error instanceof HttpException) throw error;
       this.logger.warn('Dewu engine request failed', {
         params,
         error: error instanceof Error ? error.message : String(error),
       });
-      throw new ServiceUnavailableException(
-        'Сервис товаров временно недоступен. Попробуйте позже.',
-      );
+      throw productResolveError('ENGINE_UNAVAILABLE');
     }
+  }
+
+  /**
+   * lh-dewu-engine reports `{ code: 502, msg: "portal <portalCode>: <portalMsg>" }`
+   * when distribute.poizon.com itself returned a non-200 / empty answer for
+   * the item. With `needsRelogin` it's an expired session (global outage);
+   * without it, it's an item-level refusal.
+   */
+  private isPortalItemRejection(body: DewuApiRawProductResponse): boolean {
+    return (
+      body.code === 502 &&
+      !body.needsRelogin &&
+      typeof body.msg === 'string' &&
+      body.msg.startsWith('portal ')
+    );
   }
 }

@@ -1,6 +1,8 @@
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { productResolveError } from '../product-resolve-error';
+
 interface ResolvedDewuLink {
   originalLink: string;
   resolvedUrl: string;
@@ -20,13 +22,14 @@ export class DewuLinkResolverService {
     const normalizedLink = rawLink.trim();
 
     if (!normalizedLink) {
-      throw new BadRequestException('Вставьте ссылку на товар Dewu.');
+      throw productResolveError('LINK_UNRECOGNIZED', 'Вставьте ссылку на товар Dewu.');
     }
 
     const parsedUrl = this.parseUrl(normalizedLink);
 
     if (!this.isSupportedHost(parsedUrl.hostname)) {
-      throw new BadRequestException(
+      throw productResolveError(
+        'LINK_UNRECOGNIZED',
         'Ссылка не распознана. Поддерживаются короткие ссылки dw4.co и полные ссылки Dewu.',
       );
     }
@@ -36,7 +39,10 @@ export class DewuLinkResolverService {
     if (this.isShortLink(parsedUrl.hostname)) {
       const resolverUrl = this.configService.get<string>('integrations.dw4ResolverUrl');
       if (!resolverUrl) {
-        throw new BadRequestException('Сервис разрешения коротких ссылок не настроен.');
+        throw productResolveError(
+          'LINK_UNRECOGNIZED',
+          'Сервис разрешения коротких ссылок не настроен.',
+        );
       }
 
       try {
@@ -44,12 +50,15 @@ export class DewuLinkResolverService {
         const data = (await response.json()) as { location?: string; error?: string };
 
         if (!data.location) {
-          throw new BadRequestException('Короткая ссылка не содержит редирект.');
+          throw productResolveError('LINK_UNRECOGNIZED', 'Короткая ссылка не содержит редирект.');
         }
 
         const dwSpuId = this.extractDwSpuId(data.location);
         if (!dwSpuId) {
-          throw new BadRequestException('Не удалось извлечь dwSpuId из короткой ссылки Dewu.');
+          throw productResolveError(
+            'LINK_UNRECOGNIZED',
+            'Не удалось извлечь dwSpuId из короткой ссылки Dewu.',
+          );
         }
 
         return {
@@ -63,14 +72,17 @@ export class DewuLinkResolverService {
           link: normalizedLink,
           error: error instanceof Error ? error.message : String(error),
         });
-        throw new BadRequestException('Не удалось разрешить короткую ссылку. Попробуйте позже.');
+        throw productResolveError(
+          'LINK_UNRECOGNIZED',
+          'Не удалось разрешить короткую ссылку. Попробуйте позже.',
+        );
       }
     }
 
     const dwSpuId = this.extractDwSpuId(normalizedLink);
 
     if (!dwSpuId) {
-      throw new BadRequestException('Не удалось извлечь dwSpuId из ссылки Dewu.');
+      throw productResolveError('LINK_UNRECOGNIZED', 'Не удалось извлечь dwSpuId из ссылки Dewu.');
     }
 
     return {
@@ -84,7 +96,7 @@ export class DewuLinkResolverService {
     try {
       return new URL(rawLink);
     } catch {
-      throw new BadRequestException('Некорректная ссылка. Проверьте формат URL.');
+      throw productResolveError('LINK_UNRECOGNIZED', 'Некорректная ссылка. Проверьте формат URL.');
     }
   }
 

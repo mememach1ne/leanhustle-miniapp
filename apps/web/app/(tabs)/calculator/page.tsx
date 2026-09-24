@@ -1,6 +1,7 @@
 'use client';
 
-import type { DeliveryCategory } from '@lean-poizon/shared';
+import type { DeliveryCategory, ProductResolveErrorCode } from '@lean-poizon/shared';
+import axios from 'axios';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 
@@ -74,6 +75,70 @@ const validatePoizonLink = (rawLink: string): string | null => {
   return null;
 };
 
+/** Why the calculator fell back to manual entry — drives the banner copy. */
+type ManualReason = Exclude<ProductResolveErrorCode, 'LINK_UNRECOGNIZED'> | 'TIMEOUT';
+
+const MANUAL_REASON_COPY: Record<ManualReason, { title: string; text: string }> = {
+  ENGINE_UNAVAILABLE: {
+    title: 'Не удалось получить данные о товаре автоматически',
+    text: 'Сервис цен Poizon временно недоступен. Вы можете указать данные вручную для расчёта или запросить помощь менеджера.',
+  },
+  PRODUCT_NOT_AVAILABLE: {
+    title: 'Этот товар не рассчитывается автоматически',
+    text: 'Poizon не отдаёт данные по этому товару для автоматического расчёта — такое бывает с отдельными позициями. Укажите данные вручную или напишите менеджеру — мы проверим и оформим заказ.',
+  },
+  PRODUCT_UNPARSEABLE: {
+    title: 'Не получилось загрузить размеры и цены',
+    text: 'Такое бывает у товаров без стандартной размерной сетки или с нестандартной карточкой на Poizon. Укажите данные вручную или напишите менеджеру — мы проверим и оформим заказ.',
+  },
+  TIMEOUT: {
+    title: 'Poizon отвечает слишком долго',
+    text: 'Карточка товара грузится дольше обычного. Попробуйте отправить ссылку ещё раз через минуту — или укажите данные вручную либо напишите менеджеру.',
+  },
+};
+
+type ResolveFailure =
+  | { kind: 'input'; message: string }
+  | { kind: 'manual'; reason: ManualReason };
+
+/**
+ * Classifies a failed /products/resolve call. The api tags failures with a
+ * machine-readable `code`; untagged 4xx are input errors, anything else
+ * (5xx, network) is treated as the price engine being down.
+ */
+const classifyResolveFailure = (error: unknown): ResolveFailure => {
+  const code = axios.isAxiosError(error)
+    ? (error.response?.data as { code?: unknown } | undefined)?.code
+    : undefined;
+
+  if (
+    code === 'PRODUCT_NOT_AVAILABLE' ||
+    code === 'PRODUCT_UNPARSEABLE' ||
+    code === 'ENGINE_UNAVAILABLE'
+  ) {
+    return { kind: 'manual', reason: code };
+  }
+
+  // 4xx = bad input that passed our local check but server rejected
+  // (e.g. unknown spuId pattern). Show the server's reason — do NOT
+  // fall into manual mode.
+  if (code === 'LINK_UNRECOGNIZED' || isAxiosClientError(error)) {
+    return {
+      kind: 'input',
+      message: extractAxiosMessage(error) ?? 'Не удалось распознать ссылку.',
+    };
+  }
+
+  // No response within the client timeout — the engine is slow (cold
+  // browser), not necessarily down; the api keeps going and caches the
+  // result, so a retry often succeeds.
+  if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
+    return { kind: 'manual', reason: 'TIMEOUT' };
+  }
+
+  return { kind: 'manual', reason: 'ENGINE_UNAVAILABLE' };
+};
+
 function CalculatorPageContent() {
   const searchParams = useSearchParams();
   const spuIdParam = searchParams.get('spuId');
@@ -99,6 +164,7 @@ function CalculatorPageContent() {
   const [isManagerRequesting, setIsManagerRequesting] = useState(false);
   const [managerRequestSent, setManagerRequestSent] = useState(false);
   const [managerRequestError, setManagerRequestError] = useState<string | null>(null);
+  const [manualReason, setManualReason] = useState<ManualReason>('ENGINE_UNAVAILABLE');
 
   const link = useCalculatorStore((state) => state.link);
   const product = useCalculatorStore((state) => state.product);
@@ -229,18 +295,17 @@ function CalculatorPageContent() {
 
       setResolvedProduct(resolvedProduct);
     } catch (requestError) {
-      // 4xx = bad input that passed our local check but server rejected
-      // (e.g. unknown spuId pattern). Show the server's reason — do NOT
-      // fall into manual mode, which is reserved for real API outages.
-      if (isAxiosClientError(requestError)) {
-        const message =
-          extractAxiosMessage(requestError) ?? 'Не удалось распознать ссылку.';
-        setError(message);
+      const failure = classifyResolveFailure(requestError);
+
+      if (failure.kind === 'input') {
+        setError(failure.message);
         hapticNotification('error');
         return;
       }
 
-      // 5xx / network — actual API failure, offer manual mode.
+      // Engine down, or this particular item can't be parsed — offer manual
+      // mode with an explanation that matches the actual reason.
+      setManualReason(failure.reason);
       hapticNotification('warning');
       activateManualMode();
     }
@@ -549,6 +614,7 @@ function CalculatorPageContent() {
       {!product && !isLoadingProduct && !manualMode ? (
         <>
           <EmptyState
+            icon="🔗"
             title="Начните с ссылки"
             description="Вставьте ссылку Poizon, чтобы увидеть карточку товара, доступные размеры и предварительный расчёт."
           />
@@ -593,10 +659,10 @@ function CalculatorPageContent() {
           <SectionCard>
             <div className="rounded-[16px] border border-amber-300/20 bg-amber-400/10 px-4 py-3">
               <p className="text-sm font-medium text-amber-100">
-                Не удалось получить данные о товаре автоматически
+                {MANUAL_REASON_COPY[manualReason].title}
               </p>
               <p className="mt-1 text-xs text-amber-200/70">
-                API Poizon временно недоступен. Вы можете указать данные вручную для расчёта или запросить помощь менеджера.
+                {MANUAL_REASON_COPY[manualReason].text}
               </p>
             </div>
           </SectionCard>
