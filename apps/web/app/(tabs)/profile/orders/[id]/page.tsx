@@ -136,6 +136,7 @@ export default function OrderDetailsPage() {
     return (
       <PageSection>
         <EmptyState
+          icon="🔒"
           title="Нужна авторизация"
           description="Детали заказа доступны только авторизованному пользователю."
         />

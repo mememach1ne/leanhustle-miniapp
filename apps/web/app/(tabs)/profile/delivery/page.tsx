@@ -280,6 +280,7 @@ export default function DeliveryPage() {
     return (
       <PageSection>
         <EmptyState
+          icon="🔒"
           title="Нужна авторизация"
           description="Данные доставки доступны только внутри Telegram Mini App."
         />
@@ -334,6 +335,7 @@ export default function DeliveryPage() {
 
       {addresses.length === 0 ? (
         <EmptyState
+          icon="📦"
           title="Нет адресов доставки"
           description="Добавьте адрес для оформления заказов. Укажите ФИО, пункт СДЭК и телефон."
           action={

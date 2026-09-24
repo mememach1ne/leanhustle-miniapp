@@ -32,7 +32,14 @@ export function DesktopSidebar() {
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-white/10 bg-[var(--surface)] px-4 py-6 backdrop-blur-xl lg:flex">
       <Link href="/calculator" className="mb-8 flex items-center gap-3 px-2">
-        <Image src="/logo.png" alt="Poizon" width={34} height={34} className="rounded-[10px]" priority />
+        <Image
+          src="/lh-logo.webp"
+          alt="Lean Hustle Poizon"
+          width={34}
+          height={34}
+          className="h-[34px] w-[34px] shrink-0 rounded-[10px] object-cover"
+          priority
+        />
         <span className="text-[13px] font-bold uppercase leading-tight tracking-[0.14em] text-[var(--accent)]">
           LEAN HUSTLE
           <br />

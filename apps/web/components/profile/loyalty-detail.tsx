@@ -41,6 +41,7 @@ export function LoyaltyDetail() {
   if (!status || !status.enabled) {
     return (
       <EmptyState
+        icon="🎁"
         title="Программа недоступна"
         description="Программа лояльности сейчас отключена. Загляните чуть позже."
       />

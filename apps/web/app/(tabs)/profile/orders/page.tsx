@@ -73,6 +73,7 @@ function OrdersPageContent() {
     return (
       <PageSection>
         <EmptyState
+          icon="🔒"
           title="Нужна авторизация"
           description="История заказов доступна только авторизованному пользователю внутри mini app."
         />
@@ -109,6 +110,7 @@ function OrdersPageContent() {
 
       {orders.length === 0 ? (
         <EmptyState
+          icon="🧾"
           title="Заказов пока нет"
           description="После оформления заявки из корзины она появится здесь со статусом и деталями."
         />

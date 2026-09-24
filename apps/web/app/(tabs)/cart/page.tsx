@@ -198,6 +198,7 @@ export default function CartPage() {
     return (
       <PageSection>
         <EmptyState
+          icon="🔒"
           title="Нужна авторизация"
           description="Корзина доступна только внутри Telegram Mini App после входа."
         />
@@ -212,6 +213,7 @@ export default function CartPage() {
 
       {!cart || cart.items.length === 0 ? (
         <EmptyState
+          icon="🛒"
           title="Корзина пока пустая"
           description="Добавьте товар из вкладки «Калькулятор», и он сразу появится здесь."
         />
@@ -237,7 +239,12 @@ export default function CartPage() {
                       className="h-14 w-14 shrink-0 rounded-[16px] bg-white/5 object-cover"
                     />
                   ) : (
-                    <div className="h-14 w-14 shrink-0 rounded-[16px] bg-white/5" />
+                    <div
+                      aria-hidden="true"
+                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[16px] bg-white/5 text-2xl"
+                    >
+                      📦
+                    </div>
                   )}
 
                   <div className="min-w-0 flex-1">

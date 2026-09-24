@@ -173,6 +173,7 @@ export default function ProfilePage() {
       <PageSection>
         <AuthDebugBlock />
         <EmptyState
+          icon="🔒"
           title="Нужен вход через Telegram"
           description={
             error ??

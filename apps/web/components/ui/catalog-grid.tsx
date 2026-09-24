@@ -68,7 +68,7 @@ export function CatalogGrid({
   }
 
   if (items.length === 0) {
-    return <EmptyState title={emptyTitle} description={emptyDescription} />;
+    return <EmptyState icon="🔍" title={emptyTitle} description={emptyDescription} />;
   }
 
   return (
