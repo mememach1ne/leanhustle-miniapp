@@ -121,7 +121,7 @@ export function ProfitReportPanel({ onClose }: { onClose: () => void }) {
             <Row label="Заказов учтено" value={String(report.ordersCount)} />
             <Row label="Выручка" value={fmtUsd(report.revenueUsd)} />
             <Row label="Комиссия сервиса" value={fmtUsd(report.grossCommissionUsd)} />
-            <Row label="Скидки подписчикам" value={`−${fmtUsd(report.discountUsd)}`} />
+            <Row label="Скидки" value={`−${fmtUsd(report.discountUsd)}`} />
             <div className="my-1 border-t border-white/10" />
             <Row
               label="Чистая прибыль"

@@ -1,5 +1,5 @@
 /**
- * A loyalty tier: once a channel subscriber's lifetime purchase total (goods
+ * A loyalty tier: once a customer's lifetime purchase total (goods
  * only, USD) reaches `thresholdUsd`, their service commission is reduced by
  * `discountPercentPoints` percentage points.
  */
@@ -25,7 +25,7 @@ export const DEFAULT_LOYALTY_TIERS: LoyaltyTier[] = [
 export interface LoyaltyStatusDto {
   /** Program enabled at all (business setting). */
   enabled: boolean;
-  /** This user qualifies (channel subscriber). */
+  /** This user qualifies — every customer does while the program is enabled. */
   eligible: boolean;
   /** Cumulative goods spend (USD) over fulfilled, non-cancelled orders. */
   spentUsd: number;

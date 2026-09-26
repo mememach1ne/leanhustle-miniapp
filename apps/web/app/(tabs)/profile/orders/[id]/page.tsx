@@ -217,45 +217,17 @@ export default function OrderDetailsPage() {
           </button>
         ) : null}
 
-        {order.subscriberBenefitApplied ? (
-          (() => {
-            const discountPct =
-              order.summary.originalTotalUsd > 0
-                ? Math.round(
-                    (order.summary.benefitDiscountUsd /
-                      order.summary.originalTotalUsd) *
-                      100,
-                  )
-                : 0;
-            return (
-              <div className="lg-accent-card mt-4 rounded-[20px] p-4">
-                <p className="text-sm font-semibold text-white">
-                  🎉 Льгота подписчика применена
-                </p>
-                <p className="mt-1 text-xs text-white/80">
-                  Скидка на комиссию{' '}
-                  <span className="font-semibold text-[var(--accent)]">
-                    {discountPct}%
-                  </span>{' '}
-                  — экономия ${order.summary.benefitDiscountUsd.toFixed(2)} (
-                  {order.subscriberBenefitAmountRub} ₽).
-                </p>
-              </div>
-            );
-          })()
-        ) : null}
-
         <div className="mt-5 space-y-3">
           <InfoRow label="Товаров" value={order.summary.itemsCount} />
           <p className="text-xs text-[var(--muted)]">Выкуп товара (USD)</p>
-          {order.subscriberBenefitApplied ? (
+          {order.subscriberBenefitAmountRub > 0 ? (
             <InfoRow
-              label="Сумма до льготы"
+              label="Сумма до скидки"
               value={`$${order.summary.originalTotalUsd.toFixed(2)}`}
             />
           ) : null}
           <InfoRow label="Итог за товары" value={`$${order.summary.totalUsd.toFixed(2)}`} accent />
-          {order.subscriberBenefitApplied ? (
+          {order.subscriberBenefitAmountRub > 0 ? (
             <InfoRow
               label="Скидка на комиссию"
               value={`$${order.summary.benefitDiscountUsd.toFixed(2)} / ${order.subscriberBenefitAmountRub} ₽`}

@@ -20,7 +20,6 @@ export class ExcelExportService {
       { header: 'Заказов', key: 'ordersCount', width: 10 },
       { header: 'Средний чек (₽)', key: 'averageCheckRub', width: 16 },
       { header: 'Прибыль (₽)', key: 'totalProfitRub', width: 14 },
-      { header: 'Подписчик канала', key: 'isChannelSubscriber', width: 18 },
       { header: 'Последний заказ', key: 'lastOrderDate', width: 18 },
     ];
 
@@ -41,7 +40,6 @@ export class ExcelExportService {
         ordersCount: user.ordersCount,
         averageCheckRub: user.averageCheckRub,
         totalProfitRub: user.totalProfitRub,
-        isChannelSubscriber: user.isChannelSubscriber ? 'Да' : 'Нет',
         lastOrderDate: user.lastOrderDate ? this.formatDate(user.lastOrderDate) : '—',
       });
     });
@@ -56,7 +54,6 @@ export class ExcelExportService {
       ordersCount: totalOrders,
       averageCheckRub: '',
       totalProfitRub: totalProfit,
-      isChannelSubscriber: '',
       lastOrderDate: '',
     });
     summaryRow.font = { bold: true };

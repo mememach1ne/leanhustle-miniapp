@@ -1,9 +1,8 @@
-import { Controller, Get, Inject, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, UseGuards } from '@nestjs/common';
 import type { User } from '@prisma/client';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import type { RefreshChannelSubscriptionDto } from './dto/refresh-channel-subscription.dto';
 import { UsersService } from './users.service';
 
 @Controller('users')
@@ -18,12 +17,5 @@ export class UsersController {
   @Get('me')
   async getProfile(@CurrentUser() user: User) {
     return this.usersService.getProfileById(user.id);
-  }
-
-  @Post('me/channel-subscription/refresh')
-  async refreshChannelSubscription(
-    @CurrentUser() user: User,
-  ): Promise<RefreshChannelSubscriptionDto> {
-    return this.usersService.refreshCurrentUserChannelSubscription(user.id);
   }
 }

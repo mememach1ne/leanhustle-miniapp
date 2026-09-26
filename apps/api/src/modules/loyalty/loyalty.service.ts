@@ -59,16 +59,16 @@ export class LoyaltyService {
 
   /**
    * Effective commission discount (percentage points) for a user right now.
-   * Returns 0 when the program is off or the user isn't a channel subscriber.
+   * Returns 0 when the program is off.
    */
   async getDiscountPercentPoints(
-    user: Pick<User, 'id' | 'isChannelSubscriber'>,
+    user: Pick<User, 'id'>,
     settings?: BusinessSettings,
     client: PrismaClientLike = this.prisma,
   ): Promise<number> {
     const resolvedSettings = settings ?? (await this.settingsService.getCurrentSettings());
 
-    if (!resolvedSettings.loyaltyEnabled || !user.isChannelSubscriber) {
+    if (!resolvedSettings.loyaltyEnabled) {
       return 0;
     }
 
@@ -79,13 +79,12 @@ export class LoyaltyService {
   }
 
   /** Full loyalty status for the profile teaser. */
-  async getStatus(user: Pick<User, 'id' | 'isChannelSubscriber'>): Promise<LoyaltyStatusDto> {
+  async getStatus(user: Pick<User, 'id'>): Promise<LoyaltyStatusDto> {
     const settings = await this.settingsService.getCurrentSettings();
     const tiers = this.readTiers(settings);
     const enabled = settings.loyaltyEnabled;
-    const eligible = enabled && user.isChannelSubscriber;
 
-    if (!eligible) {
+    if (!enabled) {
       return {
         enabled,
         eligible: false,

@@ -11,7 +11,6 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { OrderNotificationsService } from './services/order-notifications.service';
 import { OrderNumberService } from './services/order-number.service';
-import { SubscriberBenefitService } from './services/subscriber-benefit.service';
 import { StaffOrdersController } from './staff-orders.controller';
 
 @Module({
@@ -29,7 +28,6 @@ import { StaffOrdersController } from './staff-orders.controller';
     OrdersService,
     OrderNumberService,
     OrderNotificationsService,
-    SubscriberBenefitService,
   ],
   exports: [OrdersService, OrderNotificationsService],
 })

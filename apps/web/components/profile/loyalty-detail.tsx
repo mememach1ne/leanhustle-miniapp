@@ -10,7 +10,6 @@ import { LoadingBlock } from '../ui/loading-block';
 import { SectionCard } from '../ui/section-card';
 import { TierIcon } from './tier-icon';
 
-const SUBSCRIBE_URL = 'https://t.me/lh_crypto1/8439';
 
 export function LoyaltyDetail() {
   const [status, setStatus] = useState<LoyaltyStatusDto | null>(null);
@@ -65,11 +64,7 @@ export function LoyaltyDetail() {
         ) : null}
       </div>
 
-      {status.eligible ? (
-        <EligibleBody status={status} />
-      ) : (
-        <NotEligibleBody tiers={status.tiers} />
-      )}
+      <EligibleBody status={status} />
     </SectionCard>
   );
 }
@@ -140,28 +135,6 @@ function EligibleBody({ status }: { status: LoyaltyStatusDto }) {
       <p className="mt-4 text-xs leading-5 text-white/40">
         Скидка применяется автоматически при расчёте комиссии в калькуляторе и при оформлении заказа.
       </p>
-    </div>
-  );
-}
-
-function NotEligibleBody({ tiers }: { tiers: LoyaltyTier[] }) {
-  return (
-    <div>
-      <p className="mt-3 text-sm leading-6 text-white/60">
-        Чем больше сумма ваших выкупов, тем выше скидка на комиссию. Программа доступна подписчикам
-        приватного канала.
-      </p>
-
-      <TierLadder tiers={tiers} currentKey={null} />
-
-      <a
-        href={SUBSCRIBE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="lg-accent-button mt-5 block w-full rounded-[18px] px-4 py-3 text-center text-sm font-semibold text-slate-950 transition active:scale-[0.98]"
-      >
-        Подписаться и получить скидку
-      </a>
     </div>
   );
 }

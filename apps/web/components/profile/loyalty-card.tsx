@@ -127,13 +127,7 @@ export function LoyaltyCard({ className = '' }: { className?: string }) {
           )}
         </div>
 
-        {status.eligible ? (
-          <EligibleTeaser status={status} />
-        ) : (
-          <p className="mt-2 text-xs leading-5 text-white/60">
-            Скидка на комиссию для подписчиков приватного канала. Нажмите, чтобы узнать больше.
-          </p>
-        )}
+        <EligibleTeaser status={status} />
 
         {/* Celebration banner */}
         {celebrating && currentTier && v ? (

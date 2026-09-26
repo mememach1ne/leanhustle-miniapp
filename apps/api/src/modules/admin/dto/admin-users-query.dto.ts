@@ -16,7 +16,7 @@ export class AdminUsersQueryDto {
   pageSize?: number = 20;
 
   @IsOptional()
-  @IsIn(['all', 'subscribers', 'with_orders', 'without_orders'])
+  @IsIn(['all', 'with_orders', 'without_orders'])
   filter?: string = 'all';
 
   @IsOptional()

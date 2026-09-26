@@ -1,6 +1,6 @@
 'use client';
 
-import { OrderStatus, SubscriptionVerificationStatus } from '@lean-poizon/shared';
+import { OrderStatus } from '@lean-poizon/shared';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -8,12 +8,10 @@ import { AuthDebugBlock } from '../../../components/debug/auth-debug-block';
 import { LoyaltyCard } from '../../../components/profile/loyalty-card';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { FaqAccordion } from '../../../components/ui/faq-accordion';
-import { FeedbackMessage } from '../../../components/ui/feedback-message';
 import { LoadingBlock } from '../../../components/ui/loading-block';
 import { PageSection } from '../../../components/ui/page-section';
 import { SectionCard } from '../../../components/ui/section-card';
-import { authApi, ordersApi } from '../../../lib/api-client';
-import { extractAxiosMessage } from '../../../lib/error-utils';
+import { ordersApi } from '../../../lib/api-client';
 import { tokenStorage } from '../../../lib/token-storage';
 import { useAuthStore } from '../../../store/auth-store';
 
@@ -97,11 +95,7 @@ export default function ProfilePage() {
   const status = useAuthStore((state) => state.status);
   const user = useAuthStore((state) => state.user);
   const error = useAuthStore((state) => state.error);
-  const setUser = useAuthStore((state) => state.setUser);
 
-  const [isRefreshingSubscription, setIsRefreshingSubscription] = useState(false);
-  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
-  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [orderStats, setOrderStats] = useState<{ count: number; sumUsd: number } | null>(
     null,
   );
@@ -124,45 +118,13 @@ export default function ProfilePage() {
     };
   }, []);
 
-  const handleRefreshSubscription = async () => {
-    setIsRefreshingSubscription(true);
-    setRefreshMessage(null);
-    setRefreshError(null);
-
-    try {
-      const response = await authApi.refreshChannelSubscription();
-      setUser(response.user);
-
-      if (response.verificationStatus === SubscriptionVerificationStatus.VERIFIED) {
-        setRefreshMessage(
-          response.user.isChannelSubscriber
-            ? 'Статус подписки подтверждён.'
-            : 'Подписка не найдена. Если вы только что подписались, попробуйте ещё раз через несколько секунд.',
-        );
-        return;
-      }
-
-      setRefreshError(
-        response.message ??
-          'Не удалось проверить подписку через Telegram. Попробуйте позже.',
-      );
-    } catch (requestError) {
-      setRefreshError(
-        extractAxiosMessage(requestError) ??
-          'Не удалось обновить статус подписки. Попробуйте позже.',
-      );
-    } finally {
-      setIsRefreshingSubscription(false);
-    }
-  };
-
   if (status === 'loading' || status === 'idle') {
     return (
       <PageSection>
         <AuthDebugBlock />
         <LoadingBlock
           title="Профиль загружается"
-          description="Скоро покажем аккаунт, статус подписки и переход к заказам."
+          description="Скоро покажем аккаунт и переход к заказам."
         />
       </PageSection>
     );
@@ -193,8 +155,6 @@ export default function ProfilePage() {
   return (
     <PageSection>
       <AuthDebugBlock />
-      {refreshMessage ? <FeedbackMessage tone="success">{refreshMessage}</FeedbackMessage> : null}
-      {refreshError ? <FeedbackMessage tone="error">{refreshError}</FeedbackMessage> : null}
 
       {/* Account header */}
       <SectionCard>
@@ -228,7 +188,7 @@ export default function ProfilePage() {
         </div>
       </SectionCard>
 
-      {/* Real stats — no overlap with the subscription panel. */}
+      {/* Real stats. */}
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           label="Заказов"
@@ -239,53 +199,6 @@ export default function ProfilePage() {
           value={orderStats === null ? '—' : `$${orderStats.sumUsd.toFixed(2)}`}
           accent
         />
-      </div>
-
-      {/* Subscription — mobile only; on desktop it lives in the sidebar. */}
-      <div className="lg:hidden">
-        <div className="lg-accent-card rounded-[28px] p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-white">Приватный канал</h3>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                {user.isChannelSubscriber
-                  ? 'Подписка активна — скидка на комиссию применяется автоматически при заказе.'
-                  : 'Подпишитесь и получайте скидку на комиссию при каждом заказе.'}
-              </p>
-            </div>
-            <span
-              className={[
-                'shrink-0 rounded-full border px-3 py-1 text-xs font-semibold',
-                user.isChannelSubscriber
-                  ? 'border-emerald-300/30 bg-emerald-400/15 text-emerald-200'
-                  : 'border-[var(--accent)]/30 bg-[var(--accent)]/15 text-[var(--accent)]',
-              ].join(' ')}
-            >
-              {user.isChannelSubscriber ? 'Активна' : 'Не активна'}
-            </span>
-          </div>
-
-          <div className="mt-4 grid gap-2">
-            {!user.isChannelSubscriber ? (
-              <a
-                href="https://t.me/lh_crypto1/8439"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="lg-accent-button w-full rounded-[18px] px-4 py-3 text-center text-sm font-semibold text-slate-950 transition active:scale-[0.98]"
-              >
-                Подписаться на канал
-              </a>
-            ) : null}
-            <button
-              type="button"
-              onClick={handleRefreshSubscription}
-              disabled={isRefreshingSubscription}
-              className="w-full rounded-[18px] border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isRefreshingSubscription ? 'Проверяем...' : 'Обновить статус подписки'}
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Two equal-height columns: account actions | loyalty teaser. */}

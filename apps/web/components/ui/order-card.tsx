@@ -42,12 +42,6 @@ export function OrderCard({ order }: { order: OrderListItemDto }) {
 
             <p className="mt-3 text-sm text-[var(--muted)]">{formatDate(order.createdAt)}</p>
 
-            {order.subscriberBenefitApplied ? (
-              <div className="mt-3 inline-flex rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-100">
-                Льгота подписчика применена
-              </div>
-            ) : null}
-
             <div className="mt-4 space-y-2">
               <InfoRow label="Товаров" value={order.itemsCount} />
               <InfoRow label="Итог сейчас" value={`$${order.totalUsd.toFixed(2)}`} accent />

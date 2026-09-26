@@ -2,11 +2,11 @@
  * Monthly / arbitrary-range profit report used to split earnings with the
  * investor. "Profit" here is the net service commission:
  *
- *   netProfit = grossCommission − subscriberDiscounts
+ *   netProfit = grossCommission − discounts
  *
  * where grossCommission is the commission portion of each fulfilled order's
- * original total, and subscriberDiscounts are the first-order benefits we
- * gave away (which come straight out of commission). Product cost, delivery
+ * original total, and discounts are the commission waivers on legacy
+ * first-order-benefit orders (no longer granted to new orders). Product cost, delivery
  * and duty are pass-through and never counted as profit.
  *
  * Orders are bucketed by the moment they were marked paid

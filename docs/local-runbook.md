@@ -26,7 +26,6 @@ cp .env.example .env
 Fill in at least:
 
 - `TELEGRAM_BOT_TOKEN`
-- `PRIVATE_CHANNEL_ID`
 - `RAPIDAPI_DEWU_KEY`
 - `MANAGER_TELEGRAM_IDS`
 - `BOT_INTERNAL_API_TOKEN`

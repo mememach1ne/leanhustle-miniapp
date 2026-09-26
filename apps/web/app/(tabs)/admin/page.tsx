@@ -419,11 +419,6 @@ function AdminUsersTable({
                 <span className="font-semibold text-white">
                   {u.username ? `@${u.username}` : 'Без username'}
                 </span>
-                {u.isChannelSubscriber ? (
-                  <span className="ml-2 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-200">
-                    Подписчик
-                  </span>
-                ) : null}
               </td>
               <td className="whitespace-nowrap px-4 py-3 text-white/60">
                 {new Date(u.createdAt).toLocaleDateString('ru-RU')}
@@ -640,7 +635,7 @@ function SettingsPanel() {
           </button>
         </div>
         <p className="mb-4 text-xs leading-5 text-white/50">
-          Уровни для подписчиков приватного канала. Скидка в % вычитается из комиссии при
+          Уровни лояльности для всех клиентов. Скидка в % вычитается из комиссии при
           достижении суммы выкупов (за всё время).
         </p>
 
@@ -755,12 +750,11 @@ function SettingsPanel() {
 
 // ─── Users Panel ────────────────────────────────────────────
 
-type UsersFilter = 'all' | 'subscribers' | 'with_orders' | 'without_orders';
+type UsersFilter = 'all' | 'with_orders' | 'without_orders';
 type UsersSortBy = 'createdAt' | 'ordersCount' | 'averageCheckRub' | 'totalProfitRub';
 
 const USERS_FILTERS: { value: UsersFilter; label: string }[] = [
   { value: 'all', label: 'Все' },
-  { value: 'subscribers', label: 'Подписчики' },
   { value: 'with_orders', label: 'С заказами' },
   { value: 'without_orders', label: 'Без заказов' },
 ];
@@ -934,7 +928,6 @@ function UsersPanel() {
                       </p>
                       <p className="mt-0.5 text-[11px] text-white/40">
                         Регистрация: {new Date(u.createdAt).toLocaleDateString('ru-RU')}
-                        {u.isChannelSubscriber ? ' · Подписчик' : ''}
                       </p>
                     </div>
                   </div>

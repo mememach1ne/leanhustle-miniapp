@@ -10,7 +10,6 @@ export interface AdminOrdersResponse {
 export interface AdminUserListItemDto {
   id: string;
   username?: string | null;
-  isChannelSubscriber: boolean;
   createdAt: string;
   lastActiveAt: string;
   ordersCount: number;
@@ -26,7 +25,7 @@ export interface AdminUsersResponse {
   pageSize: number;
 }
 
-export type AdminUsersFilter = 'all' | 'subscribers' | 'with_orders' | 'without_orders';
+export type AdminUsersFilter = 'all' | 'with_orders' | 'without_orders';
 export type AdminUsersSortBy = 'createdAt' | 'ordersCount' | 'averageCheckRub' | 'totalProfitRub';
 
 export interface AdminUserDetailDto {
@@ -35,7 +34,6 @@ export interface AdminUserDetailDto {
   firstName: string;
   lastName?: string | null;
   telegramId: string;
-  isChannelSubscriber: boolean;
   createdAt: string;
   lastActiveAt: string;
   ordersCount: number;

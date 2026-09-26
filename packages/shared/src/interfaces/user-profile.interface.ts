@@ -6,8 +6,6 @@ export interface UserProfile {
   lastName?: string | null;
   photoUrl?: string | null;
   languageCode?: string | null;
-  isChannelSubscriber: boolean;
-  hasUsedSubscriberBenefit: boolean;
   lastActiveAt: string;
   createdAt: string;
   staffRole?: 'ADMIN' | 'MANAGER' | null;

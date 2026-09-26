@@ -4,7 +4,6 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
-  IsBoolean,
   IsEnum,
   IsInt,
   IsNumber,
@@ -89,14 +88,4 @@ export class CreateManualOrderDto {
   @ValidateNested()
   @Type(() => CreateManualOrderDeliveryDto)
   delivery!: CreateManualOrderDeliveryDto;
-
-  /**
-   * Staff intent for the subscriber first-order benefit:
-   *   true  -> force-apply now (bypass hasUsed guard);
-   *   false -> explicitly skip (block standard auto-apply at PAID stage);
-   *   undefined -> default behavior.
-   */
-  @IsOptional()
-  @IsBoolean()
-  applySubscriberBenefit?: boolean;
 }

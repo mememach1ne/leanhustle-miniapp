@@ -358,9 +358,9 @@ export default function AdminOrderDetailPage() {
               <span className="text-white">{order.summary.actualDutyRub} ₽</span>
             </div>
           ) : null}
-          {order.subscriberBenefitApplied ? (
+          {order.subscriberBenefitAmountRub > 0 ? (
             <div className="flex justify-between text-emerald-400">
-              <span>Скидка подписчика:</span>
+              <span>Скидка на комиссию:</span>
               <span>-{order.subscriberBenefitAmountRub} ₽</span>
             </div>
           ) : null}

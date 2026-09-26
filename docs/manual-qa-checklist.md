@@ -25,7 +25,6 @@ Use this checklist after local setup is complete and all three services are runn
 - Run `/find_order LP001` with a real order number and confirm the order card opens.
 - Use `Отправлены реквизиты` and confirm the order moves to `Ожидание оплаты`.
 - Use `Товар оплачен` and confirm the order moves to `Оплачен, ожидается выкуп`.
-- If the user is a channel subscriber on the first paid order, confirm the subscriber benefit is applied once.
 - Use `Выкуплен` and confirm the order moves to `Выкуплен`.
 - Use `Ввести трек-код`, submit a track code, and confirm the order moves to `Трек-код получен`.
 - Confirm the user can see the updated status and track code in the Mini App.

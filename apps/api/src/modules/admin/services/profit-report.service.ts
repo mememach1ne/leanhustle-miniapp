@@ -33,10 +33,10 @@ export class ProfitReportService {
    * both crypto-matched and manually-marked orders, and for historical data
    * created before `paidAt` existed). CANCELLED orders are excluded.
    *
-   * Net profit per order = grossCommission − subscriberDiscount, where
-   * grossCommission is the commission portion of the order's ORIGINAL total
-   * (before any benefit). Because a first-order subscriber benefit waives
-   * exactly the commission, benefit orders net to ~0 — which is correct.
+   * Net profit per order = grossCommission − discount, where grossCommission
+   * is the commission portion of the order's ORIGINAL total. `discount` is
+   * only non-zero on legacy orders that got the (now removed) first-order
+   * commission waiver, which nets those orders to ~0 — which is correct.
    */
   async computeReport(from: Date, to: Date): Promise<ProfitReportDto> {
     const start = new Date(from);
@@ -163,7 +163,7 @@ export class ProfitReportService {
     addRow('Заказов учтено', report.ordersCount);
     addRow('Выручка (USD)', report.revenueUsd);
     addRow('Комиссия сервиса (USD)', report.grossCommissionUsd);
-    addRow('Скидки подписчикам (USD)', report.discountUsd);
+    addRow('Скидки (USD)', report.discountUsd);
     addRow('Чистая прибыль (USD)', report.netProfitUsd, true);
     addRow('Чистая прибыль (₽)', report.netProfitRub, true);
     summary.addRow({ k: '', v: '' });

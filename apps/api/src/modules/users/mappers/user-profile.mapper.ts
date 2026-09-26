@@ -13,8 +13,6 @@ export const mapUserToProfile = (
     lastName: user.lastName,
     photoUrl: user.photoUrl,
     languageCode: user.languageCode,
-    isChannelSubscriber: user.isChannelSubscriber,
-    hasUsedSubscriberBenefit: user.hasUsedSubscriberBenefit,
     lastActiveAt: user.lastActiveAt.toISOString(),
     createdAt: user.createdAt.toISOString(),
     staffRole: staffRole ?? null,

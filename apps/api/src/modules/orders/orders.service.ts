@@ -40,7 +40,6 @@ import {
 } from './mappers/order-response.mapper';
 import { OrderNotificationsService } from './services/order-notifications.service';
 import { OrderNumberService } from './services/order-number.service';
-import { SubscriberBenefitService } from './services/subscriber-benefit.service';
 
 const ORDER_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.CREATED]: [OrderStatus.PAYMENT_PENDING],
@@ -86,7 +85,6 @@ export class OrdersService {
   private readonly pricingService: PricingService;
   private readonly orderNumberService: OrderNumberService;
   private readonly orderNotificationsService: OrderNotificationsService;
-  private readonly subscriberBenefitService: SubscriberBenefitService;
   private readonly loyaltyService: LoyaltyService;
 
   constructor(
@@ -97,8 +95,6 @@ export class OrdersService {
     @Inject(OrderNumberService) orderNumberService: OrderNumberService,
     @Inject(OrderNotificationsService)
     orderNotificationsService: OrderNotificationsService,
-    @Inject(SubscriberBenefitService)
-    subscriberBenefitService: SubscriberBenefitService,
     @Inject(LoyaltyService) loyaltyService: LoyaltyService,
   ) {
     this.prisma = prisma;
@@ -107,7 +103,6 @@ export class OrdersService {
     this.pricingService = pricingService;
     this.orderNumberService = orderNumberService;
     this.orderNotificationsService = orderNotificationsService;
-    this.subscriberBenefitService = subscriberBenefitService;
     this.loyaltyService = loyaltyService;
   }
 
@@ -141,13 +136,10 @@ export class OrdersService {
           );
         }
 
-        const orderNumber = await this.orderNumberService.generate(
-          tx,
-          user.isChannelSubscriber,
-        );
+        const orderNumber = await this.orderNumberService.generate(tx);
 
-        // Loyalty discount (percentage points off commission) for subscribers,
-        // based on lifetime spend before this order.
+        // Loyalty discount (percentage points off commission), based on
+        // lifetime spend before this order.
         const loyaltyDiscount = await this.loyaltyService.getDiscountPercentPoints(
           user,
           settings,
@@ -193,9 +185,6 @@ export class OrdersService {
             orderNumber,
             userId: user.id,
             status: OrderStatus.CREATED,
-            isChannelSubscriberAtCheckout: user.isChannelSubscriber,
-            subscriberBenefitApplied: false,
-            subscriberBenefitAmountRub: new Prisma.Decimal(0),
             itemsCount,
             originalTotalUsd: totalUsd,
             benefitDiscountUsd: new Prisma.Decimal(0),
@@ -293,8 +282,8 @@ export class OrdersService {
 
   /**
    * Look up an existing client by @username for the manual order flow.
-   * Returns saved delivery addresses (default first) and subscriber status
-   * so the bot/miniapp can pre-fill the manual order form.
+   * Returns saved delivery addresses (default first) so the bot/miniapp can
+   * pre-fill the manual order form.
    */
   async lookupManualOrderClient(
     staff: StaffAccount | undefined,
@@ -340,10 +329,6 @@ export class OrdersService {
         isDefault: address.isDefault,
         createdAt: address.createdAt.toISOString(),
       })),
-      subscription: {
-        isChannelSubscriber: client.isChannelSubscriber,
-        hasUsedSubscriberBenefit: client.hasUsedSubscriberBenefit,
-      },
     };
   }
 
@@ -430,10 +415,7 @@ export class OrdersService {
 
     const createdOrderId = await this.prisma.$transaction(
       async (tx) => {
-        const orderNumber = await this.orderNumberService.generate(
-          tx,
-          client.isChannelSubscriber,
-        );
+        const orderNumber = await this.orderNumberService.generate(tx);
 
         // Persist the manager-typed delivery data to the client's profile so
         // it's saved for next time. Reuse an identical existing address;
@@ -473,9 +455,6 @@ export class OrdersService {
             orderNumber,
             userId: client.id,
             status: OrderStatus.CREATED,
-            isChannelSubscriberAtCheckout: client.isChannelSubscriber,
-            subscriberBenefitApplied: false,
-            subscriberBenefitAmountRub: new Prisma.Decimal(0),
             itemsCount,
             originalTotalUsd: totalUsd,
             benefitDiscountUsd: new Prisma.Decimal(0),
@@ -518,85 +497,13 @@ export class OrdersService {
           })),
         });
 
-        // Subscriber benefit handling for manual orders. The intent comes
-        // from the staff toggle in the bot/miniapp:
-        //   - true  -> force-apply the discount now (bypass hasUsed guard);
-        //   - false -> explicitly skip (mark applied=true with zero amount so
-        //              the standard PAID-transition logic does not re-apply);
-        //   - undefined -> leave default behavior (auto-apply at PAID stage).
-        let benefitNote: string | null = null;
-
-        if (dto.applySubscriberBenefit === true) {
-          // Ensure the BenefitService eligibility checks pass.
-          if (client.hasUsedSubscriberBenefit) {
-            await tx.user.update({
-              where: { id: client.id },
-              data: { hasUsedSubscriberBenefit: false },
-            });
-          }
-          if (!client.isChannelSubscriber) {
-            await tx.order.update({
-              where: { id: order.id },
-              data: { isChannelSubscriberAtCheckout: true },
-            });
-          }
-
-          const benefitOrder = await tx.order.findUniqueOrThrow({
-            where: { id: order.id },
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  isChannelSubscriber: true,
-                  hasUsedSubscriberBenefit: true,
-                },
-              },
-              items: {
-                select: {
-                  id: true,
-                  quantity: true,
-                  priceYuan: true,
-                  originalTotalUsd: true,
-                  totalUsd: true,
-                },
-              },
-            },
-          });
-
-          const benefitResult = await this.subscriberBenefitService.applyIfEligible(
-            tx,
-            benefitOrder,
-          );
-
-          if (benefitResult.applied) {
-            benefitNote = `Льгота подписчика применена вручную ${staffLabel}. Скидка: ₽${benefitResult.benefitDiscountRub
-              .toDecimalPlaces(2)
-              .toString()}.`;
-          }
-        } else if (dto.applySubscriberBenefit === false) {
-          await tx.order.update({
-            where: { id: order.id },
-            data: {
-              subscriberBenefitApplied: true,
-              subscriberBenefitAmountRub: new Prisma.Decimal(0),
-              isChannelSubscriberAtCheckout: false,
-            },
-          });
-          benefitNote = `Льгота подписчика отключена ${staffLabel} при создании заказа.`;
-        }
-
         await tx.orderStatusHistory.create({
           data: {
             orderId: order.id,
             fromStatus: null,
             toStatus: OrderStatus.CREATED,
             changedByStaffId: staff.id,
-            comment: [
-              `Заказ создан вручную ${staffLabel} через админ-панель.`,
-              benefitNote,
-            ]
-              .filter(Boolean)
-              .join(' '),
+            comment: `Заказ создан вручную ${staffLabel} через админ-панель.`,
           },
         });
 
@@ -793,19 +700,7 @@ export class OrdersService {
         include: {
           user: {
             select: {
-              id: true,
               telegramId: true,
-              isChannelSubscriber: true,
-              hasUsedSubscriberBenefit: true,
-            },
-          },
-          items: {
-            select: {
-              id: true,
-              quantity: true,
-              priceYuan: true,
-              originalTotalUsd: true,
-              totalUsd: true,
             },
           },
         },
@@ -835,20 +730,12 @@ export class OrdersService {
         },
       });
 
-      const benefitResult = enteringPaid
-        ? await this.subscriberBenefitService.applyIfEligible(tx, order)
-        : null;
-
       await tx.orderStatusHistory.create({
         data: {
           orderId: order.id,
           fromStatus: order.status,
           toStatus: prismaNextStatus,
           changedByStaffId: staff.id,
-          comment:
-            benefitResult?.applied
-              ? `Льгота подписчика применена. Новая сумма заказа: $${benefitResult.adjustedTotalUsd.toFixed(2)}.`
-              : undefined,
         },
       });
 
@@ -1013,11 +900,6 @@ export class OrdersService {
    * Hard-delete an order. Used by staff to clean up test / spam orders that
    * shouldn't show up in analytics or history. Cascades to order items and
    * status history via the schema. Available to ADMIN and MANAGER.
-   *
-   * The order's user is NOT touched. If they had `hasUsedSubscriberBenefit`
-   * set by this order, we leave it as-is (the manager should fix it via the
-   * benefit toggle on a future manual order rather than touching the user
-   * row implicitly).
    */
   async deleteOrderByStaff(
     orderId: string,

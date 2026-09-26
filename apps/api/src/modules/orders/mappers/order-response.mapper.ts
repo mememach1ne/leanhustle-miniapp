@@ -23,7 +23,6 @@ type OrderWithItems = {
   createdAt: Date;
   updatedAt: Date;
   trackCode: string | null;
-  isChannelSubscriberAtCheckout: boolean;
   subscriberBenefitApplied: boolean;
   subscriberBenefitAmountRub: Prisma.Decimal;
   itemsCount: number;
@@ -139,7 +138,6 @@ export const mapOrderToDetailsDto = (order: OrderWithItems): OrderDetailsDto => 
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
     trackCode: order.trackCode,
-    isChannelSubscriberAtCheckout: order.isChannelSubscriberAtCheckout,
     subscriberBenefitApplied: order.subscriberBenefitApplied,
     subscriberBenefitAmountRub: roundRub(order.subscriberBenefitAmountRub),
     delivery: order.deliveryFullName

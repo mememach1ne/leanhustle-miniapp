@@ -85,8 +85,6 @@ interface ManualOrderDraftItem {
 
 interface ManualOrderClientSnapshot {
   id: string;
-  isChannelSubscriber: boolean;
-  hasUsedSubscriberBenefit: boolean;
 }
 
 interface ManualOrderDraft {
@@ -96,12 +94,6 @@ interface ManualOrderDraft {
   client?: ManualOrderClientSnapshot;
   /** Saved delivery addresses fetched from API for the picker. */
   addresses?: DeliveryAddressDto[];
-  /**
-   * Staff intent for the subscriber benefit. Auto-set after lookup
-   * (true when client is a subscriber and has not used it). Toggleable
-   * via inline button — staff can force-apply or skip.
-   */
-  applySubscriberBenefit: boolean;
   items: ManualOrderDraftItem[];
   current: Partial<ManualOrderDraftItem>;
   /** Last resolved product cached for the active item (size-picker step). */
@@ -640,15 +632,13 @@ export class OrderAdminService {
         items: [],
         current: {},
         delivery: {},
-        applySubscriberBenefit: false,
       },
     });
   }
 
   /**
    * Called after the staff entered the @username. Persists the lookup
-   * response on the draft and pre-toggles the subscriber benefit when
-   * the client is eligible (subscribed AND has not used it yet).
+   * response on the draft.
    */
   applyManualOrderClientLookup(
     managerId: string,
@@ -658,27 +648,11 @@ export class OrderAdminService {
     if (!draft) return;
 
     draft.username = lookup.client.username ?? draft.username;
-    draft.client = {
-      id: lookup.client.id,
-      isChannelSubscriber: lookup.subscription.isChannelSubscriber,
-      hasUsedSubscriberBenefit: lookup.subscription.hasUsedSubscriberBenefit,
-    };
+    draft.client = { id: lookup.client.id };
     draft.addresses = lookup.addresses;
-    // Auto-on only when eligible without forcing; staff may flip it.
-    draft.applySubscriberBenefit =
-      lookup.subscription.isChannelSubscriber &&
-      !lookup.subscription.hasUsedSubscriberBenefit;
     draft.step = 'pick_address';
 
     this.updateManualOrderDraft(managerId, draft);
-  }
-
-  toggleManualOrderBenefit(managerId: string): boolean | null {
-    const draft = this.getManualOrderDraft(managerId);
-    if (!draft) return null;
-    draft.applySubscriberBenefit = !draft.applySubscriberBenefit;
-    this.updateManualOrderDraft(managerId, draft);
-    return draft.applySubscriberBenefit;
   }
 
   /**
@@ -894,21 +868,12 @@ export class OrderAdminService {
     const fullName = [draft.client ? '' : '', ''].filter(Boolean).join(' ');
     void fullName;
     lines.push(`Клиент: @${username}.`);
-    if (draft.client) {
-      const sub = draft.client.isChannelSubscriber ? 'да' : 'нет';
-      const used = draft.client.hasUsedSubscriberBenefit ? 'да' : 'нет';
-      lines.push(`Подписан на канал: ${sub}. Бонус уже использован: ${used}.`);
-    }
     lines.push('');
     if (!draft.addresses || draft.addresses.length === 0) {
       lines.push('У клиента нет сохранённых адресов СДЭК — данные доставки нужно ввести вручную.');
     } else {
       lines.push('Выберите сохранённый адрес доставки клиента или введите вручную.');
     }
-    lines.push('');
-    lines.push(
-      `🎁 Бонус подписчика: ${draft.applySubscriberBenefit ? 'ВКЛ' : 'ВЫКЛ'} (нажмите кнопку, чтобы переключить).`,
-    );
     return lines.join('\n');
   }
 
@@ -931,12 +896,6 @@ export class OrderAdminService {
       {
         text: '✏️ Ввести данные доставки вручную',
         callback_data: this.encodeManualOrderCallback('addr:manual'),
-      },
-    ]);
-    rows.push([
-      {
-        text: `🎁 Бонус подписчика: ${draft.applySubscriberBenefit ? 'ВКЛ ✅' : 'ВЫКЛ ⛔'}`,
-        callback_data: this.encodeManualOrderCallback('benefit:toggle'),
       },
     ]);
     rows.push([
@@ -1045,7 +1004,6 @@ export class OrderAdminService {
       '🧾 Проверьте заказ перед созданием:',
       '',
       `Клиент: @${draft.username ?? ''}`,
-      `🎁 Бонус подписчика: ${draft.applySubscriberBenefit ? 'будет применён' : 'НЕ применяется'}.`,
       '',
       'Товары:',
       this.buildManualItemsSummary(draft),
@@ -1077,7 +1035,6 @@ export class OrderAdminService {
         phone: draft.delivery.phone ?? '',
         comment: draft.delivery.comment ?? null,
       },
-      applySubscriberBenefit: draft.applySubscriberBenefit,
     };
   }
 
@@ -1659,14 +1616,6 @@ export class OrderAdminService {
       )}.`,
     ];
 
-    if (order.status === OrderStatus.PAID_AWAITING_PURCHASE) {
-      lines.push(
-        order.subscriberBenefitApplied
-          ? `Льгота подписчика применена. Новая сумма заказа: $${order.summary.totalUsd.toFixed(2)}.`
-          : 'Льгота подписчика не применялась.',
-      );
-    }
-
     return lines.join('\n');
   }
 
@@ -1693,8 +1642,8 @@ export class OrderAdminService {
       `Сумма: $${order.totalUsd.toFixed(2)} • Товаров: ${order.itemsCount}`,
       `Доставка: ${order.deliveryRub} ₽ • Пошлина: ${order.dutyRub} ₽`,
       ...(order.previewTitle ? [`Товар: ${order.previewTitle}`] : []),
-      ...(order.subscriberBenefitApplied
-        ? [`Льгота подписчика: ${order.subscriberBenefitAmountRub} ₽`]
+      ...(order.subscriberBenefitAmountRub > 0
+        ? [`Скидка на комиссию: ${order.subscriberBenefitAmountRub} ₽`]
         : []),
       `Создан: ${this.formatDateTime(order.createdAt)}`,
     ].join('\n');
@@ -1894,12 +1843,9 @@ export class OrderAdminService {
       `Пользователь: ${userLine}`,
       `Telegram ID: ${order.user.telegramId}`,
       `Создан: ${this.formatDateTime(order.createdAt)}`,
-      ...(order.subscriberBenefitApplied
-        ? [
-            'Льгота подписчика: применена',
-            `Скидка на комиссию: ${order.subscriberBenefitAmountRub} ₽`,
-          ]
-        : ['Льгота подписчика: нет']),
+      ...(order.subscriberBenefitAmountRub > 0
+        ? [`Скидка на комиссию: ${order.subscriberBenefitAmountRub} ₽`]
+        : []),
       ...(order.trackCode ? [`Трек-код: ${order.trackCode}`] : []),
       ...(order.statusHistory.length > 0
         ? [
@@ -1916,7 +1862,7 @@ export class OrderAdminService {
       '',
       items,
       '',
-      ...(order.subscriberBenefitApplied
+      ...(order.subscriberBenefitAmountRub > 0
         ? [`Исходная сумма: $${order.summary.originalTotalUsd.toFixed(2)}`]
         : []),
       `Итог: $${order.summary.totalUsd.toFixed(2)}`,

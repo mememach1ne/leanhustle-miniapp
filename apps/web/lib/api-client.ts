@@ -10,7 +10,6 @@ import type {
   CatalogListResponse,
   CatalogSortKey,
   CatalogSyncResultDto,
-  ChannelSubscriptionRefreshResponse,
   CheckoutOrderResponse,
   CreateCryptoPaymentIntentRequest,
   CreateDeliveryAddressRequest,
@@ -78,12 +77,6 @@ export const authApi = {
   },
   async getCurrentUser(): Promise<UserProfile> {
     const response = await apiClient.get<UserProfile>('/auth/me');
-    return response.data;
-  },
-  async refreshChannelSubscription(): Promise<ChannelSubscriptionRefreshResponse> {
-    const response = await apiClient.post<ChannelSubscriptionRefreshResponse>(
-      '/users/me/channel-subscription/refresh',
-    );
     return response.data;
   },
 };

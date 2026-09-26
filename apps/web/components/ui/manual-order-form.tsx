@@ -65,10 +65,6 @@ export function ManualOrderForm({ onClose }: { onClose: () => void }) {
   const [phone, setPhone] = useState('');
   const [comment, setComment] = useState('');
 
-  // Subscriber benefit toggle. Auto-on after lookup if the client is
-  // a subscriber AND hasn't used the benefit. Staff can force on/off.
-  const [applySubscriberBenefit, setApplySubscriberBenefit] = useState(false);
-
   const [items, setItems] = useState<DraftItem[]>([emptyItem()]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -97,10 +93,6 @@ export function ManualOrderForm({ onClose }: { onClose: () => void }) {
     try {
       const result = await adminApi.lookupManualOrderClient(normalized);
       setLookup(result);
-      setApplySubscriberBenefit(
-        result.subscription.isChannelSubscriber &&
-          !result.subscription.hasUsedSubscriberBenefit,
-      );
       const defaultAddress =
         result.addresses.find((a) => a.isDefault) ?? result.addresses[0] ?? null;
       if (defaultAddress) {
@@ -232,7 +224,6 @@ export function ManualOrderForm({ onClose }: { onClose: () => void }) {
         phone: phone.trim(),
         comment: comment.trim() || null,
       },
-      applySubscriberBenefit,
     };
 
     setSubmitting(true);
@@ -247,7 +238,6 @@ export function ManualOrderForm({ onClose }: { onClose: () => void }) {
       setPhone('');
       setComment('');
       setSelectedAddressId(MANUAL_ADDRESS_ID);
-      setApplySubscriberBenefit(false);
     } catch (err) {
       setError(extractAxiosMessage(err) ?? 'Не удалось создать заказ.');
     } finally {
@@ -304,7 +294,7 @@ export function ManualOrderForm({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        {/* Client summary + subscriber benefit toggle */}
+        {/* Client summary */}
         {lookup ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-3 space-y-2 text-xs text-white/80">
             <div>
@@ -316,34 +306,6 @@ export function ManualOrderForm({ onClose }: { onClose: () => void }) {
                 <span className="text-white/40"> (@{lookup.client.username})</span>
               ) : null}
             </div>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-white/60">
-              <span>
-                Подписан на канал:{' '}
-                <span className={lookup.subscription.isChannelSubscriber ? 'text-emerald-300' : 'text-white/50'}>
-                  {lookup.subscription.isChannelSubscriber ? 'да' : 'нет'}
-                </span>
-              </span>
-              <span>
-                Бонус уже использован:{' '}
-                <span className={lookup.subscription.hasUsedSubscriberBenefit ? 'text-amber-300' : 'text-white/50'}>
-                  {lookup.subscription.hasUsedSubscriberBenefit ? 'да' : 'нет'}
-                </span>
-              </span>
-            </div>
-            <label className="flex cursor-pointer items-center gap-2 pt-1 text-xs text-white">
-              <input
-                type="checkbox"
-                checked={applySubscriberBenefit}
-                onChange={(e) => setApplySubscriberBenefit(e.target.checked)}
-                className="accent-[var(--accent)]"
-              />
-              🎁 Применить бонус подписчика к этому заказу
-            </label>
-            {applySubscriberBenefit && lookup.subscription.hasUsedSubscriberBenefit ? (
-              <p className="text-[10px] text-amber-300">
-                Внимание: клиент уже использовал бонус — он будет применён принудительно.
-              </p>
-            ) : null}
           </div>
         ) : null}
 

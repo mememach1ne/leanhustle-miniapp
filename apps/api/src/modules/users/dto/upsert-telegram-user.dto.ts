@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class UpsertTelegramUserDto {
   @IsString()
@@ -22,8 +22,4 @@ export class UpsertTelegramUserDto {
   @IsOptional()
   @IsString()
   languageCode?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  isChannelSubscriber?: boolean;
 }

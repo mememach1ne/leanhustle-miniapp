@@ -411,28 +411,6 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
         return;
       }
 
-      if (action === 'benefit:toggle') {
-        if (draft.step !== 'pick_address') {
-          await ctx.answerCbQuery();
-          return;
-        }
-        const next = orderAdminService.toggleManualOrderBenefit(managerId);
-        await ctx.answerCbQuery(
-          next ? '🎁 Бонус подписчика ВКЛ' : '🎁 Бонус подписчика ВЫКЛ',
-        );
-        const updated = orderAdminService.getManualOrderDraft(managerId);
-        if (updated) {
-          try {
-            await ctx.editMessageText(orderAdminService.buildManualAddressPickerPrompt(updated), {
-              reply_markup: orderAdminService.buildManualAddressPickerKeyboard(updated),
-            });
-          } catch {
-            // Ignore "message is not modified" — only the button label changed.
-          }
-        }
-        return;
-      }
-
       if (action.startsWith('addr:')) {
         if (draft.step !== 'pick_address') {
           await ctx.answerCbQuery();

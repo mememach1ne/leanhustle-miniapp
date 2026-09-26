@@ -9,7 +9,6 @@ export function validateEnv(config: EnvShape) {
   const nodeEnv = asString(config.NODE_ENV) || 'development';
   const databaseUrl = asString(config.DATABASE_URL);
   const telegramBotToken = asString(config.TELEGRAM_BOT_TOKEN);
-  const privateChannelId = asString(config.PRIVATE_CHANNEL_ID);
   const jwtSecret = asString(config.JWT_SECRET);
   const dewuApiAppKey = asString(config.DEWU_API_APP_KEY);
   const dewuApiAppSecret = asString(config.DEWU_API_APP_SECRET);
@@ -26,10 +25,6 @@ export function validateEnv(config: EnvShape) {
 
   if (!telegramBotToken) {
     errors.push('TELEGRAM_BOT_TOKEN is required');
-  }
-
-  if (!privateChannelId) {
-    errors.push('PRIVATE_CHANNEL_ID is required');
   }
 
   if (!jwtSecret) {
@@ -77,7 +72,6 @@ export function validateEnv(config: EnvShape) {
     PORT: String(port),
     CORS_ORIGIN: asString(config.CORS_ORIGIN) || 'http://localhost:3000',
     TELEGRAM_BOT_TOKEN: telegramBotToken,
-    PRIVATE_CHANNEL_ID: privateChannelId,
     TELEGRAM_AUTH_MAX_AGE_SECONDS: String(authMaxAge),
     JWT_SECRET: jwtSecret,
     JWT_EXPIRES_IN: asString(config.JWT_EXPIRES_IN) || '1d',

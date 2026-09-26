@@ -61,7 +61,6 @@ Copy `.env.example` to `.env` and fill the values.
 - `TELEGRAM_AUTH_MAX_AGE_SECONDS`
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
-- `PRIVATE_CHANNEL_ID`
 - `RAPIDAPI_DEWU_KEY`
 - `RAPIDAPI_DEWU_HOST`
 - `RAPIDAPI_DEWU_PRODUCT_ENDPOINT`
@@ -112,7 +111,6 @@ cp .env.example .env
 Minimum values to fill before a realistic local run:
 
 - `TELEGRAM_BOT_TOKEN`
-- `PRIVATE_CHANNEL_ID`
 - `RAPIDAPI_DEWU_KEY`
 - `MANAGER_TELEGRAM_IDS`
 - `BOT_INTERNAL_API_TOKEN`
@@ -193,7 +191,6 @@ Detailed checklist: [docs/manual-qa-checklist.md](C:/lh%20miniapp/docs/manual-qa
 - Find an order with `/find_order LP001`.
 - Move the order to `Ожидание оплаты`.
 - Move the order to `Оплачен, ожидается выкуп`.
-- Verify subscriber benefit behavior when applicable.
 - Move the order to `Выкуплен`.
 - Enter a track code.
 - Confirm the user sees the updated status in the Mini App.
@@ -214,9 +211,8 @@ Detailed checklist: [docs/manual-qa-checklist.md](C:/lh%20miniapp/docs/manual-qa
 - Pricing engine with approximate delivery and duty estimation
 - Persistent cart with quantity handling and snapshot pricing
 - Checkout from cart to order snapshot
-- Order numbers with `LP` and `L` prefixes
+- Order numbers with `L` prefix
 - Manager/admin bot actions for order status changes and track code input
-- Subscriber benefit on the first paid order
 - Bot-based business settings management with audit log
 - Polished mobile-first Mini App UI
 

@@ -195,9 +195,7 @@ export class AdminService {
       // Build where clause
       const where: Record<string, unknown> = {};
 
-      if (filter === 'subscribers') {
-        where.isChannelSubscriber = true;
-      } else if (filter === 'with_orders') {
+      if (filter === 'with_orders') {
         // Auto-cancelled / staff-cancelled orders don't count as real
         // customer activity.
         where.orders = { some: { status: { not: OrderStatus.CANCELLED } } };
@@ -318,7 +316,6 @@ export class AdminService {
       firstName: user.firstName,
       lastName: user.lastName,
       telegramId: user.telegramId,
-      isChannelSubscriber: user.isChannelSubscriber,
       createdAt: user.createdAt.toISOString(),
       lastActiveAt: user.lastActiveAt.toISOString(),
       ordersCount: user._count.orders,
@@ -358,7 +355,6 @@ export class AdminService {
       return {
         id: user.id,
         username: user.username,
-        isChannelSubscriber: user.isChannelSubscriber,
         createdAt: user.createdAt.toISOString(),
         lastActiveAt: user.lastActiveAt.toISOString(),
         ordersCount: user._count.orders,
@@ -392,7 +388,6 @@ export class AdminService {
   private mapUserToListItem(user: {
     id: string;
     username: string | null;
-    isChannelSubscriber: boolean;
     createdAt: Date;
     lastActiveAt: Date;
     _count: { orders: number };
@@ -410,7 +405,6 @@ export class AdminService {
     return {
       id: user.id,
       username: user.username,
-      isChannelSubscriber: user.isChannelSubscriber,
       createdAt: user.createdAt.toISOString(),
       lastActiveAt: user.lastActiveAt.toISOString(),
       ordersCount: user._count.orders,

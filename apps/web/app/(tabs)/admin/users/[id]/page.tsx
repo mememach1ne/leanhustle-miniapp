@@ -108,11 +108,6 @@ export default function AdminUserDetailPage() {
               Регистрация: {new Date(user.createdAt).toLocaleDateString('ru-RU')}
             </p>
           </div>
-          {user.isChannelSubscriber ? (
-            <span className="shrink-0 rounded-full border border-emerald-300/30 bg-emerald-400/15 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
-              Подписчик
-            </span>
-          ) : null}
         </div>
 
         {/* Stats */}

@@ -17,7 +17,6 @@ export default () => ({
   },
   telegram: {
     botToken: process.env.TELEGRAM_BOT_TOKEN ?? '',
-    privateChannelId: process.env.PRIVATE_CHANNEL_ID ?? '',
     authMaxAgeSeconds: Number(process.env.TELEGRAM_AUTH_MAX_AGE_SECONDS ?? 300),
     miniAppUrl: process.env.TELEGRAM_MINI_APP_URL ?? '',
   },

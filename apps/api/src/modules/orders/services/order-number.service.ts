@@ -4,13 +4,8 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class OrderNumberService {
-  async generate(
-    prisma: Prisma.TransactionClient,
-    isChannelSubscriber: boolean,
-  ): Promise<string> {
-    const prefix = isChannelSubscriber
-      ? ORDER_NUMBER_PREFIX.SUBSCRIBER
-      : ORDER_NUMBER_PREFIX.REGULAR;
+  async generate(prisma: Prisma.TransactionClient): Promise<string> {
+    const prefix = ORDER_NUMBER_PREFIX.REGULAR;
 
     const sequence = await prisma.orderSequence.upsert({
       where: { prefix },
