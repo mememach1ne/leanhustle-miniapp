@@ -128,7 +128,12 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
     );
   }
 
-  if (error && !intent) {
+  const hasNetworks = Boolean(networks && networks.length > 0);
+
+  // Without a network list there is nothing to retry — only the manager.
+  // Otherwise the error is shown inside the picker so another network can
+  // be tried right away.
+  if (error && !intent && !hasNetworks) {
     return (
       <SectionCard>
         <FeedbackMessage tone="error">{error}</FeedbackMessage>
@@ -150,6 +155,11 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
           <p className="mt-2 text-[11px] text-amber-300">
             Предыдущая оплата по этому заказу истекла. Выберите сеть заново.
           </p>
+        ) : null}
+        {error ? (
+          <div className="mt-3">
+            <FeedbackMessage tone="error">{error}</FeedbackMessage>
+          </div>
         ) : null}
         <div className="mt-3 space-y-1.5">
           {(networks ?? []).map((network) => (

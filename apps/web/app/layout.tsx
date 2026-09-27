@@ -6,6 +6,7 @@ import Script from 'next/script';
 
 import { AppShell } from '../components/layout/app-shell';
 import { AuthProvider } from '../components/providers/auth-provider';
+import { TelegramLinkHandler } from '../components/providers/telegram-link-handler';
 
 // Brand fonts (same families as the main site leanhustle.net): Unbounded
 // for the display wordmark, JetBrains Mono for the kicker/tagline.
@@ -43,6 +44,7 @@ export default function RootLayout({
           src="https://telegram.org/js/telegram-web-app.js"
           strategy="beforeInteractive"
         />
+        <TelegramLinkHandler />
         <AuthProvider>
           <AppShell>{children}</AppShell>
         </AuthProvider>

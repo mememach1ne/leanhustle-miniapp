@@ -46,6 +46,8 @@ export interface TelegramWebApp {
   // Bot API 6.4+: reads the user's clipboard inside the Telegram app
   // itself (works on iOS where navigator.clipboard.readText is blocked).
   readTextFromClipboard?: (callback?: (text: string | null) => void) => void;
+  openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
+  openTelegramLink?: (url: string) => void;
 }
 
 /** Returns true on iOS Telegram, where clipboard APIs are restricted. */
