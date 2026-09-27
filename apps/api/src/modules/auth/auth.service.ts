@@ -17,7 +17,6 @@ import { StaffService } from '../staff/staff.service';
 import { UsersService } from '../users/users.service';
 import { TelegramAuthDto } from './dto/telegram-auth.dto';
 import { ConfirmBotLoginDto } from './dto/bot-login.dto';
-import { TelegramLoginWidgetDto } from './dto/telegram-login-widget.dto';
 import { BotLoginService } from './services/bot-login.service';
 import { TelegramAuthValidationService } from './services/telegram-auth-validation.service';
 
@@ -72,22 +71,6 @@ export class AuthService {
       this.logger.log('Telegram auth validation start');
       const telegramUser = this.telegramAuthValidationService.validate(dto.initData);
       this.logger.log(`Telegram auth validation success for user ${telegramUser.id}`);
-      return await this.issueAuthForTelegramUser(telegramUser);
-    } catch (error) {
-      throw this.normalizeAuthError(error);
-    }
-  }
-
-  /**
-   * Browser login via the Telegram Login Widget. Validates the widget hash
-   * (different secret derivation than initData) and then reuses the same
-   * user upsert + JWT issuance as the Mini App flow.
-   */
-  async authenticateTelegramWidget(dto: TelegramLoginWidgetDto): Promise<AuthPayload> {
-    try {
-      this.logger.log('Telegram login widget validation start');
-      const telegramUser = this.telegramAuthValidationService.validateLoginWidget(dto);
-      this.logger.log(`Telegram login widget validation success for user ${telegramUser.id}`);
       return await this.issueAuthForTelegramUser(telegramUser);
     } catch (error) {
       throw this.normalizeAuthError(error);

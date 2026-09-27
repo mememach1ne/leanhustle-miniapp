@@ -2,8 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 
+import { ClientIpThrottlerGuard } from '../../common/guards/client-ip-throttler.guard';
 import appConfig from '../../config/app.config';
 import { validateEnv } from '../../config/env.validation';
 import { getEnvFilePaths } from '../../config/env-file-paths';
@@ -33,15 +34,17 @@ import { UsersModule } from '../users/users.module';
     }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([
+      // Per client IP (see ClientIpThrottlerGuard). Mobile carriers put many
+      // users behind one IP, so keep headroom above a single active session.
       {
         name: 'short',
         ttl: 60_000,
-        limit: 30,
+        limit: 120,
       },
       {
         name: 'long',
         ttl: 600_000,
-        limit: 200,
+        limit: 1000,
       },
     ]),
     PrismaModule,
@@ -63,7 +66,7 @@ import { UsersModule } from '../users/users.module';
   providers: [
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: ClientIpThrottlerGuard,
     },
   ],
 })

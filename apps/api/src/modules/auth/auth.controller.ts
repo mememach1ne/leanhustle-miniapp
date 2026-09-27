@@ -8,7 +8,6 @@ import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { ConfirmBotLoginDto, StartBotLoginDto } from './dto/bot-login.dto';
 import { TelegramAuthDto } from './dto/telegram-auth.dto';
-import { TelegramLoginWidgetDto } from './dto/telegram-login-widget.dto';
 import { InternalBotTokenGuard } from './guards/internal-bot-token.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { BotLoginService } from './services/bot-login.service';
@@ -29,14 +28,14 @@ export class AuthController {
 
   /** Website: get a one-time code + bot deep link to log in through the bot. */
   @Post('bot-login/start')
-  @Throttle({ default: { ttl: 60000, limit: 10 } })
+  @Throttle({ short: { ttl: 60000, limit: 20 } })
   startBotLogin(@Body() dto: StartBotLoginDto) {
     return this.botLoginService.start(dto.origin);
   }
 
   /** Website: poll until the bot confirms; then returns the JWT + user. */
   @Get('bot-login/status/:token')
-  @Throttle({ default: { ttl: 60000, limit: 60 } })
+  @Throttle({ short: { ttl: 60000, limit: 60 } })
   getBotLoginStatus(@Param('token') token: string) {
     return this.botLoginService.status(token);
   }
@@ -49,17 +48,10 @@ export class AuthController {
   }
 
   @Post('telegram')
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
+  @Throttle({ short: { ttl: 60000, limit: 20 } })
   async authenticateTelegram(@Body() dto: TelegramAuthDto) {
     this.logger.log('POST /auth/telegram request received');
     return this.authService.authenticateTelegram(dto);
-  }
-
-  @Post('telegram-widget')
-  @Throttle({ default: { ttl: 60000, limit: 5 } })
-  async authenticateTelegramWidget(@Body() dto: TelegramLoginWidgetDto) {
-    this.logger.log('POST /auth/telegram-widget request received');
-    return this.authService.authenticateTelegramWidget(dto);
   }
 
   @UseGuards(JwtAuthGuard)

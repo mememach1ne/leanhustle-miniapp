@@ -10,7 +10,13 @@ const LOGIN_PREFIX = 'login_';
 
 const apiService = new ApiService();
 
-/** Website login codes waiting for the user to pass the subscription gate. */
+const WEB_LOGIN_OK = 'client:wl_ok';
+const WEB_LOGIN_CANCEL = 'client:wl_no';
+
+/**
+ * Website login codes per Telegram user, waiting for the subscription gate
+ * and/or the explicit "Подтвердить вход" tap.
+ */
 const pendingWebLogins = new Map<number, string>();
 
 const extractLoginToken = (payload: string | undefined): string | null => {
@@ -50,6 +56,34 @@ const completeWebLogin = async (ctx: BotContext, token: string) => {
   }
 };
 
+/**
+ * Never confirm a website login silently: someone could send the victim
+ * their own login link and take over the account once it's opened. Ask for
+ * an explicit tap with a clear warning instead.
+ */
+const askWebLoginConfirmation = async (ctx: BotContext, token: string) => {
+  if (!ctx.from) return;
+  pendingWebLogins.set(ctx.from.id, token);
+  const sent = await ctx.reply(
+    [
+      '🔐 Вход на сайт LEAN HUSTLE POIZON',
+      '',
+      'Подтвердите, что это вы сейчас входите на сайт china.leanhustle.net или leanhustle.ru.',
+      '',
+      '⚠️ Если вы не нажимали «Войти через Telegram» на сайте сами, а просто перешли по чужой ссылке — нажмите «Отмена». Иначе посторонний получит доступ к вашему аккаунту и заказам.',
+    ].join('\n'),
+    {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✅ Да, это я — подтвердить вход', callback_data: WEB_LOGIN_OK }],
+          [{ text: '✖️ Отмена', callback_data: WEB_LOGIN_CANCEL }],
+        ],
+      },
+    },
+  );
+  if (ctx.chat) clientMessagesService.track(ctx.chat.id, sent.message_id);
+};
+
 const isUserSubscribed = async (
   bot: Telegraf<BotContext>,
   userId: number,
@@ -87,7 +121,7 @@ const sendSubscriptionGate = async (ctx: BotContext) => {
 export const registerStartCommand = (bot: Telegraf<BotContext>) => {
   bot.start(async (ctx) => {
     // Website login: t.me/<bot>?start=login_<code>. Clients pass the usual
-    // subscription gate first; staff are confirmed right away.
+    // subscription gate first; everyone confirms with an explicit tap.
     const loginToken = extractLoginToken(ctx.payload);
     if (loginToken && ctx.from) {
       if (!ctx.access) {
@@ -98,7 +132,7 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
           return;
         }
       }
-      await completeWebLogin(ctx, loginToken);
+      await askWebLoginConfirmation(ctx, loginToken);
       return;
     }
 
@@ -131,6 +165,33 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
     const data = ctx.match.input;
     const chatId = ctx.chat?.id;
 
+    // --- Website login confirmation ---
+    if (data === WEB_LOGIN_OK || data === WEB_LOGIN_CANCEL) {
+      const userId = ctx.from?.id;
+      const token = userId ? pendingWebLogins.get(userId) : undefined;
+      if (userId) pendingWebLogins.delete(userId);
+
+      if (data === WEB_LOGIN_CANCEL) {
+        await ctx.answerCbQuery('Вход отменён');
+        await ctx
+          .editMessageText('Вход на сайт отменён. Если это были не вы — ничего делать не нужно, аккаунт в безопасности.')
+          .catch(() => undefined);
+        return;
+      }
+
+      if (!token) {
+        await ctx.answerCbQuery('Запрос устарел — нажмите «Войти» на сайте ещё раз.', {
+          show_alert: true,
+        });
+        return;
+      }
+
+      await ctx.answerCbQuery();
+      await ctx.deleteMessage().catch(() => undefined);
+      await completeWebLogin(ctx, token);
+      return;
+    }
+
     // --- Subscription check ---
     if (orderAdminService.isClientCheckSubscriptionCallback(data)) {
       const userId = ctx.from?.id;
@@ -146,9 +207,8 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
 
         const pendingLogin = pendingWebLogins.get(userId);
         if (pendingLogin) {
-          pendingWebLogins.delete(userId);
           await ctx.deleteMessage().catch(() => undefined);
-          await completeWebLogin(ctx, pendingLogin);
+          await askWebLoginConfirmation(ctx, pendingLogin);
           return;
         }
 
