@@ -16,6 +16,8 @@ import { ordersApi } from '../../../lib/api-client';
 import { tokenStorage } from '../../../lib/token-storage';
 import { useAuthStore } from '../../../store/auth-store';
 
+const SUPPORT_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
+
 const FAQ_ITEMS = [
   {
     question: 'Сколько ждать доставку?',
@@ -227,6 +229,18 @@ export default function ProfilePage() {
               </div>
               <span className="text-white/30">→</span>
             </Link>
+            <a
+              href={SUPPORT_TELEGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 px-4 py-3.5 transition hover:bg-white/10"
+            >
+              <div>
+                <p className="text-sm font-medium text-white">Служба поддержки</p>
+                <p className="mt-0.5 text-xs text-white/40">Написать менеджеру в Telegram</p>
+              </div>
+              <span className="text-white/30">→</span>
+            </a>
           </div>
         </SectionCard>
 
