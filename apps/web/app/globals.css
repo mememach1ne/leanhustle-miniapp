@@ -55,6 +55,16 @@ h3,
   letter-spacing: -0.01em;
 }
 
+/* Opt a heading back into the body face (e.g. long product titles). */
+.font-body {
+  font-family:
+    var(--font-archivo),
+    var(--font-onest),
+    system-ui,
+    sans-serif;
+  letter-spacing: normal;
+}
+
 /* Small uppercase labels, like the kickers on leanhustle.net. */
 .font-mono-brand {
   font-family:
