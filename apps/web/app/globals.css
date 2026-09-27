@@ -287,3 +287,127 @@ select {
   border-radius: 12px;
   display: block;
 }
+
+/* =====================================================================
+ * Browser landing (login screen) — liquid glass + Lite mode, ported from
+ * leanhustle.net and recoloured to teal.
+ * ===================================================================== */
+.lg-glass {
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.07), rgba(41, 195, 197, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 14px 30px -18px rgba(0, 0, 0, 0.7);
+}
+
+.lite-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  padding: 0.34rem 0.55rem 0.34rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-family: var(--font-mono-brand), ui-monospace, monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.lite-switch:hover {
+  color: #fff;
+  border-color: rgba(41, 195, 197, 0.45);
+}
+.lite-sw-track {
+  position: relative;
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  transition: background 0.25s, border-color 0.25s;
+}
+.lite-sw-knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #e6f7f7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.lite-switch.on {
+  color: #fff;
+  border-color: rgba(41, 195, 197, 0.5);
+  background: rgba(41, 195, 197, 0.12);
+}
+.lite-switch.on .lite-sw-track {
+  background: linear-gradient(90deg, #1fa8aa, #7fe9ea);
+  border-color: transparent;
+}
+.lite-switch.on .lite-sw-knob {
+  transform: translateX(13px);
+}
+
+.to-top {
+  position: fixed;
+  right: clamp(14px, 2.4vw, 28px);
+  bottom: clamp(16px, 2.6vw, 30px);
+  z-index: 120;
+  width: clamp(42px, 4.4vw, 52px);
+  height: clamp(42px, 4.4vw, 52px);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.07), rgba(41, 195, 197, 0.05));
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 14px 30px -18px rgba(0, 0, 0, 0.7);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px);
+  pointer-events: none;
+  transition: opacity 0.35s ease, transform 0.35s ease, border-color 0.25s;
+}
+.to-top.show {
+  opacity: 0.5;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.to-top.show:hover {
+  opacity: 1;
+  border-color: rgba(41, 195, 197, 0.5);
+}
+
+/* Lite: static background, no blur, no animations. */
+html.lite .lh-wordmark {
+  animation: none;
+  background-position: 0 0;
+}
+html.lite .lg-glass,
+html.lite .lite-switch,
+html.lite .to-top {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html.lite .lg-glass {
+  background: rgba(22, 32, 40, 0.92);
+}
+html.lite .to-top {
+  background: rgba(22, 32, 40, 0.92);
+}
