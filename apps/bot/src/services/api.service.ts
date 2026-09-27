@@ -342,6 +342,21 @@ export class ApiService {
     });
   }
 
+  /** Website login through the bot: vouch for this Telegram user. */
+  async confirmBotLogin(payload: {
+    token: string;
+    telegramId: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    languageCode?: string;
+  }): Promise<{ returnUrl: string }> {
+    const response = await this.http.post<{ returnUrl: string }>('/auth/bot-login/confirm', payload, {
+      headers: { 'x-internal-bot-token': botEnv.internalApiToken },
+    });
+    return response.data;
+  }
+
   private buildHeaders(actor: BotActorIdentity) {
     return {
       'x-internal-bot-token': botEnv.internalApiToken,

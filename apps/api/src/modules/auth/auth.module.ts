@@ -6,7 +6,9 @@ import { StaffModule } from '../staff/staff.module';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { InternalBotTokenGuard } from './guards/internal-bot-token.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { BotLoginService } from './services/bot-login.service';
 import { TelegramAuthValidationService } from './services/telegram-auth-validation.service';
 
 @Module({
@@ -34,7 +36,13 @@ import { TelegramAuthValidationService } from './services/telegram-auth-validati
     StaffModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, TelegramAuthValidationService, JwtAuthGuard],
+  providers: [
+    AuthService,
+    TelegramAuthValidationService,
+    JwtAuthGuard,
+    BotLoginService,
+    InternalBotTokenGuard,
+  ],
   exports: [JwtAuthGuard, JwtModule],
 })
 export class AuthModule {}

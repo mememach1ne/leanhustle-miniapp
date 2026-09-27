@@ -32,7 +32,6 @@ import type {
   SettingsAuditLogItemDto,
   StaffOrderDetailsDto,
   StaffOrderListItemDto,
-  TelegramLoginWidgetPayload,
   UpdateBusinessSettingsRequest,
   UpdateDeliveryAddressRequest,
   UserProfile,
@@ -69,14 +68,25 @@ export const authApi = {
     const response = await apiClient.post<AuthPayload>('/auth/telegram', { initData });
     return response.data;
   },
-  async authenticateTelegramWidget(
-    payload: TelegramLoginWidgetPayload,
-  ): Promise<AuthPayload> {
-    const response = await apiClient.post<AuthPayload>('/auth/telegram-widget', payload);
-    return response.data;
-  },
   async getCurrentUser(): Promise<UserProfile> {
     const response = await apiClient.get<UserProfile>('/auth/me');
+    return response.data;
+  },
+  /** Website login through the bot: one-time code + t.me deep link. */
+  async startBotLogin(): Promise<{ token: string; botUrl: string; expiresAt: string }> {
+    const response = await apiClient.post<{ token: string; botUrl: string; expiresAt: string }>(
+      '/auth/bot-login/start',
+      { origin: window.location.origin },
+    );
+    return response.data;
+  },
+  /** `accessToken` is present once the bot has confirmed the code. */
+  async getBotLoginStatus(
+    token: string,
+  ): Promise<{ status: 'pending' | 'confirmed'; accessToken?: string }> {
+    const response = await apiClient.get<{ status: 'pending' | 'confirmed'; accessToken?: string }>(
+      `/auth/bot-login/status/${encodeURIComponent(token)}`,
+    );
     return response.data;
   },
 };

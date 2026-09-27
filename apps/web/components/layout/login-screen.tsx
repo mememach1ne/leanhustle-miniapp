@@ -1,12 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-
 import { useLiteMode } from '../../lib/use-lite-mode';
 import { LiquidBackground } from '../ui/liquid-background';
-import { TelegramLoginButton } from '../ui/telegram-login-button';
+import { BotLoginButton } from './bot-login-button';
 import {
-  BOT_URL,
   LiteSwitch,
   MarketplacesSection,
   PURCHASES_URL,
@@ -31,8 +28,8 @@ const READABLE: React.CSSProperties = {
 const GUIDE_STEPS = [
   {
     n: '1',
-    title: 'Откройте бота в Telegram',
-    text: 'Нажмите «Открыть бота» и «Запустить» — приложение откроется прямо в Telegram, без паролей и регистраций.',
+    title: 'Войдите через Telegram',
+    text: 'Нажмите «Войти через Telegram», подпишитесь на канал в боте — и вход на сайт произойдёт сам, без паролей.',
   },
   {
     n: '2',
@@ -47,16 +44,14 @@ const GUIDE_STEPS = [
 ] as const;
 
 /**
- * Browser landing for visitors outside Telegram. Instead of a Telegram
- * OAuth login (which reads as phishing to most people) it sends them to
- * the bot, where the Mini App opens with automatic auth. Styled after the
+ * Browser landing for visitors outside Telegram. Instead of the Telegram
+ * OAuth popup (which reads as phishing to most people) login goes through
+ * the bot — see BotLoginButton. Styled after the
  * main site leanhustle.net: continuous liquid background, liquid-glass
- * cards, Lite switch, scroll-to-top button and the same footer. A small
- * "Вход на сайте" link in the footer keeps the web login for staff.
+ * cards, Lite switch, scroll-to-top button and the same footer.
  */
 export function LoginScreen() {
   const { lite, ready, toggle } = useLiteMode();
-  const [showWebLogin, setShowWebLogin] = useState(false);
 
   return (
     <div className="relative isolate min-h-screen text-white">
@@ -122,16 +117,7 @@ export function LoginScreen() {
             и отслеживай заказы прямо в Telegram.
           </p>
 
-          <a
-            href={BOT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="lg-accent-button mt-2 inline-flex h-14 w-full max-w-xs items-center justify-center gap-2 rounded-full text-base font-bold transition active:scale-[0.98]"
-            style={DISPLAY}
-          >
-            Открыть бота
-            <span aria-hidden>↗</span>
-          </a>
+          <BotLoginButton className="mt-2 max-w-xs" />
 
           <div className="flex w-full max-w-xs gap-2">
             <GlassLink href={PURCHASES_URL}>Выкупы</GlassLink>
@@ -182,35 +168,17 @@ export function LoginScreen() {
             Текстовая инструкция
           </GlassLink>
           <a
-            href={BOT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+            href="#top"
             className="lg-accent-button w-full rounded-full px-6 py-3 text-center text-sm font-bold transition hover:opacity-90 sm:w-auto"
           >
-            Открыть бота ↗
+            Войти через Telegram
           </a>
         </div>
       </section>
 
       <MarketplacesSection />
 
-      <SiteFooter
-        bottomExtra={
-          <button
-            type="button"
-            onClick={() => setShowWebLogin((v) => !v)}
-            className="text-[0.7rem] text-white/30 transition hover:text-white/60"
-            style={{ ...MONO, letterSpacing: '0.06em' }}
-          >
-            Вход на сайте
-          </button>
-        }
-      />
-      {showWebLogin ? (
-        <div className="mx-auto flex w-full max-w-5xl justify-end px-5 pb-10">
-          <TelegramLoginButton />
-        </div>
-      ) : null}
+      <SiteFooter />
 
       <ToTopButton />
     </div>

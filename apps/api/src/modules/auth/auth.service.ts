@@ -16,7 +16,9 @@ import { JwtService } from '@nestjs/jwt';
 import { StaffService } from '../staff/staff.service';
 import { UsersService } from '../users/users.service';
 import { TelegramAuthDto } from './dto/telegram-auth.dto';
+import { ConfirmBotLoginDto } from './dto/bot-login.dto';
 import { TelegramLoginWidgetDto } from './dto/telegram-login-widget.dto';
+import { BotLoginService } from './services/bot-login.service';
 import { TelegramAuthValidationService } from './services/telegram-auth-validation.service';
 
 @Injectable()
@@ -26,6 +28,7 @@ export class AuthService {
   private readonly jwtService: JwtService;
   private readonly telegramAuthValidationService: TelegramAuthValidationService;
   private readonly staffService: StaffService;
+  private readonly botLoginService: BotLoginService;
 
   constructor(
     @Inject(UsersService) usersService: UsersService,
@@ -33,11 +36,35 @@ export class AuthService {
     @Inject(TelegramAuthValidationService)
     telegramAuthValidationService: TelegramAuthValidationService,
     @Inject(StaffService) staffService: StaffService,
+    @Inject(BotLoginService) botLoginService: BotLoginService,
   ) {
     this.usersService = usersService;
     this.jwtService = jwtService;
     this.telegramAuthValidationService = telegramAuthValidationService;
     this.staffService = staffService;
+    this.botLoginService = botLoginService;
+  }
+
+  /**
+   * Website login via the bot: the bot vouches for the Telegram user (it's
+   * the one talking to them), so no hash check is needed — the request is
+   * authenticated by the internal bot token instead.
+   */
+  async confirmBotLogin(dto: ConfirmBotLoginDto): Promise<{ returnUrl: string }> {
+    this.botLoginService.assertPending(dto.token);
+    try {
+      const auth = await this.issueAuthForTelegramUser({
+        id: Number(dto.telegramId),
+        username: dto.username,
+        first_name: dto.firstName ?? dto.username ?? 'Telegram user',
+        last_name: dto.lastName,
+        language_code: dto.languageCode,
+      });
+      this.logger.log(`Bot login confirmed for telegramId=${dto.telegramId}`);
+      return this.botLoginService.confirm(dto.token, auth);
+    } catch (error) {
+      throw this.normalizeAuthError(error);
+    }
   }
 
   async authenticateTelegram(dto: TelegramAuthDto): Promise<AuthPayload> {

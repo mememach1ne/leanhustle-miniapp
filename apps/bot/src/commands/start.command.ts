@@ -1,10 +1,54 @@
 import type { Telegraf } from 'telegraf';
 
+import { ApiService } from '../services/api.service';
 import { clientMessagesService } from '../services/client-messages.service';
 import { NEWS_CHANNEL_USERNAME, orderAdminService } from '../services/order-admin.service';
 import type { BotContext } from '../types/bot-context';
 
 const SUBSCRIBED_STATUSES = new Set(['creator', 'administrator', 'member', 'restricted']);
+const LOGIN_PREFIX = 'login_';
+
+const apiService = new ApiService();
+
+/** Website login codes waiting for the user to pass the subscription gate. */
+const pendingWebLogins = new Map<number, string>();
+
+const extractLoginToken = (payload: string | undefined): string | null => {
+  if (!payload?.startsWith(LOGIN_PREFIX)) return null;
+  const token = payload.slice(LOGIN_PREFIX.length);
+  return /^[A-Za-z0-9_-]{16,64}$/.test(token) ? token : null;
+};
+
+/** Confirm the website login for this Telegram user and offer a way back. */
+const completeWebLogin = async (ctx: BotContext, token: string) => {
+  const from = ctx.from;
+  if (!from) return;
+
+  try {
+    const { returnUrl } = await apiService.confirmBotLogin({
+      token,
+      telegramId: String(from.id),
+      username: from.username,
+      firstName: from.first_name,
+      lastName: from.last_name,
+      languageCode: from.language_code,
+    });
+    const sent = await ctx.reply(
+      [
+        '✅ Вход на сайт подтверждён!',
+        '',
+        'Вернитесь на вкладку сайта — вход произойдёт автоматически. Или нажмите кнопку ниже.',
+      ].join('\n'),
+      { reply_markup: { inline_keyboard: [[{ text: '↩️ Вернуться на сайт', url: returnUrl }]] } },
+    );
+    if (ctx.chat) clientMessagesService.track(ctx.chat.id, sent.message_id);
+  } catch (error) {
+    console.error('[web-login] confirm failed:', error instanceof Error ? error.message : error);
+    await ctx.reply(
+      '⏳ Ссылка для входа устарела. Вернитесь на сайт и нажмите «Войти через Telegram» ещё раз.',
+    );
+  }
+};
 
 const isUserSubscribed = async (
   bot: Telegraf<BotContext>,
@@ -42,6 +86,22 @@ const sendSubscriptionGate = async (ctx: BotContext) => {
 
 export const registerStartCommand = (bot: Telegraf<BotContext>) => {
   bot.start(async (ctx) => {
+    // Website login: t.me/<bot>?start=login_<code>. Clients pass the usual
+    // subscription gate first; staff are confirmed right away.
+    const loginToken = extractLoginToken(ctx.payload);
+    if (loginToken && ctx.from) {
+      if (!ctx.access) {
+        if (ctx.chat) await clientMessagesService.clearChat(bot, ctx.chat.id);
+        if (!(await isUserSubscribed(bot, ctx.from.id))) {
+          pendingWebLogins.set(ctx.from.id, loginToken);
+          await sendSubscriptionGate(ctx);
+          return;
+        }
+      }
+      await completeWebLogin(ctx, loginToken);
+      return;
+    }
+
     if (ctx.access) {
       const roleLabel = ctx.access.role === 'admin' ? 'Администратор' : 'Менеджер';
       await ctx.reply(orderAdminService.getWelcomeText(roleLabel), {
@@ -83,6 +143,15 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
 
       if (subscribed) {
         await ctx.answerCbQuery('✅ Подписка подтверждена');
+
+        const pendingLogin = pendingWebLogins.get(userId);
+        if (pendingLogin) {
+          pendingWebLogins.delete(userId);
+          await ctx.deleteMessage().catch(() => undefined);
+          await completeWebLogin(ctx, pendingLogin);
+          return;
+        }
+
         // Replace gate message in-place with the welcome screen.
         await ctx.editMessageText(orderAdminService.getClientWelcomeText(), {
           parse_mode: 'HTML',

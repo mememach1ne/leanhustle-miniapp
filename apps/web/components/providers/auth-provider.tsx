@@ -51,6 +51,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
+      // 0) Came back from the bot ("Вернуться на сайт"): claim the confirmed
+      //    website-login code from the URL.
+      const params = new URLSearchParams(window.location.search);
+      const botLoginToken = params.get('bot_login');
+      if (botLoginToken) {
+        params.delete('bot_login');
+        const query = params.toString();
+        window.history.replaceState(
+          null,
+          '',
+          `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`,
+        );
+        try {
+          const result = await authApi.getBotLoginStatus(botLoginToken);
+          if (result.status === 'confirmed' && result.accessToken) {
+            tokenStorage.set(result.accessToken);
+          }
+        } catch {
+          // Expired / unknown code — fall through to the normal flow.
+        }
+      }
+
       // 1) Resume an existing session if a JWT is already stored. This makes
       //    the browser version "remember" the user between visits and skips
       //    the login widget while the token is valid.
