@@ -8,7 +8,7 @@ import { AuthDebugBlock } from '../../../components/debug/auth-debug-block';
 import { LoyaltyCard } from '../../../components/profile/loyalty-card';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { FaqAccordion } from '../../../components/ui/faq-accordion';
-import { LockIcon } from '../../../components/ui/icons';
+import { ChatIcon, HelpIcon, LockIcon, MapPinIcon, ReceiptIcon } from '../../../components/ui/icons';
 import { LoadingBlock } from '../../../components/ui/loading-block';
 import { PageSection } from '../../../components/ui/page-section';
 import { SectionCard } from '../../../components/ui/section-card';
@@ -159,93 +159,54 @@ export default function ProfilePage() {
     <PageSection>
       <AuthDebugBlock />
 
-      {/* Account header */}
+      {/* Account card with stats. */}
       <SectionCard>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {user.photoUrl ? (
             <img
               src={user.photoUrl}
               alt={user.firstName}
               loading="lazy"
               decoding="async"
-              className="h-16 w-16 rounded-[22px] bg-white/5 object-cover"
+              className="h-14 w-14 shrink-0 rounded-[18px] bg-white/5 object-cover"
             />
           ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-[var(--accent)] text-lg font-semibold text-slate-950">
+            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-[18px] bg-[linear-gradient(135deg,#5b4bd6,#29C3C5)] text-xl font-extrabold text-white">
               {user.firstName.slice(0, 1).toUpperCase()}
             </div>
           )}
 
           <div className="min-w-0 flex-1">
-            <h3 className="text-xl font-semibold text-white">
+            <h3 className="truncate text-lg font-extrabold text-white">
               {[user.firstName, user.lastName].filter(Boolean).join(' ')}
             </h3>
-            <p className="mt-1 text-sm text-[var(--muted)]">
+            <p className="mt-0.5 truncate text-[13px] font-semibold text-[var(--muted)]">
               {user.username ? `@${user.username}` : 'Без username'}
+              {user.staffRole ? ` · ${roleLabel}` : ''}
             </p>
           </div>
+        </div>
 
-          <span className="hidden shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/60 sm:inline-block">
-            {roleLabel}
-          </span>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Stat label="Заказов" value={orderStats === null ? '—' : String(orderStats.count)} />
+          <Stat
+            label="Сумма заказов"
+            value={orderStats === null ? '—' : `$${orderStats.sumUsd.toFixed(2)}`}
+          />
         </div>
       </SectionCard>
 
-      {/* Real stats. */}
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard
-          label="Заказов"
-          value={orderStats === null ? '—' : String(orderStats.count)}
-        />
-        <StatCard
-          label="Сумма заказов"
-          value={orderStats === null ? '—' : `$${orderStats.sumUsd.toFixed(2)}`}
-          accent
-        />
+      {/* Quick actions — round icon buttons. */}
+      <div className="lg-surface grid grid-cols-4 gap-1 rounded-[22px] px-1.5 py-3">
+        <ActionButton href="/profile/orders" label="Заказы" icon={<ReceiptIcon className="h-[21px] w-[21px]" />} />
+        <ActionButton href="/profile/delivery" label="Адреса" icon={<MapPinIcon className="h-[21px] w-[21px]" />} />
+        <ActionButton href={SUPPORT_TELEGRAM_URL} external label="Поддержка" icon={<ChatIcon className="h-[21px] w-[21px]" />} />
+        <ActionButton href="/profile/faq" label="FAQ" icon={<HelpIcon className="h-[21px] w-[21px]" />} />
       </div>
 
-      {/* Two equal-height columns: account actions | loyalty teaser. */}
-      <div className="lg:grid lg:grid-cols-2 lg:items-stretch lg:gap-6">
-        {/* Quick actions */}
-        <SectionCard className="flex flex-col">
-          <div className="flex flex-1 flex-col justify-center gap-2">
-            <Link
-              href="/profile/delivery"
-              className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 px-4 py-3.5 transition hover:bg-white/10"
-            >
-              <div>
-                <p className="text-sm font-medium text-white">Мои данные</p>
-                <p className="mt-0.5 text-xs text-white/40">ФИО, адрес СДЭК, телефон</p>
-              </div>
-              <span className="text-white/30">→</span>
-            </Link>
-            <Link
-              href="/profile/orders"
-              className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 px-4 py-3.5 transition hover:bg-white/10"
-            >
-              <div>
-                <p className="text-sm font-medium text-white">Мои заказы</p>
-                <p className="mt-0.5 text-xs text-white/40">История и статусы заказов</p>
-              </div>
-              <span className="text-white/30">→</span>
-            </Link>
-            <a
-              href={SUPPORT_TELEGRAM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between rounded-2xl border border-white/5 bg-white/5 px-4 py-3.5 transition hover:bg-white/10"
-            >
-              <div>
-                <p className="text-sm font-medium text-white">Служба поддержки</p>
-                <p className="mt-0.5 text-xs text-white/40">Написать менеджеру в Telegram</p>
-              </div>
-              <span className="text-white/30">→</span>
-            </a>
-          </div>
-        </SectionCard>
-
+      <div>
         {/* Loyalty program — live tier / discount / progress. */}
-        <LoyaltyCard className="mt-4 lg:mt-0" />
+        <LoyaltyCard />
       </div>
 
       {/* FAQ — full-width, left aligned, two columns on desktop */}
@@ -270,22 +231,44 @@ export default function ProfilePage() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  accent = false,
-}: {
-  label: string;
-  value: string;
-  accent?: boolean;
-}) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <SectionCard className="!px-4 !py-3">
-      <p className={['text-lg font-bold', accent ? 'text-[var(--accent)]' : 'text-white'].join(' ')}>
-        {value}
-      </p>
-      <p className="mt-0.5 text-[11px] text-white/40">{label}</p>
-    </SectionCard>
+    <div className="rounded-2xl bg-white/[0.04] px-3 py-2.5">
+      <p className="text-[17px] font-extrabold text-white">{value}</p>
+      <p className="mt-0.5 text-[11.5px] font-semibold text-[var(--muted)]">{label}</p>
+    </div>
+  );
+}
+
+function ActionButton({
+  href,
+  label,
+  icon,
+  external = false,
+}: {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  external?: boolean;
+}) {
+  const content = (
+    <>
+      <span className="mx-auto mb-1.5 grid h-11 w-11 place-items-center rounded-full bg-[var(--surface-2)] text-white">
+        {icon}
+      </span>
+      <span className="block text-center text-[11.5px] font-bold text-white">{label}</span>
+    </>
+  );
+  const className = 'block transition active:scale-95';
+
+  return external ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+      {content}
+    </a>
+  ) : (
+    <Link href={href} className={className}>
+      {content}
+    </Link>
   );
 }
 

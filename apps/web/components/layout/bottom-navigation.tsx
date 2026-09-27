@@ -1,5 +1,6 @@
 'use client';
 
+import { TAB_ROUTES } from '@lean-poizon/shared';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -8,45 +9,58 @@ import { useAuthStore } from '../../store/auth-store';
 
 export function BottomNavigation() {
   const pathname = usePathname();
-  const staffRole = useAuthStore((state) => state.user?.staffRole);
-  const tabs = getAppTabs(staffRole);
+  const user = useAuthStore((state) => state.user);
+  const tabs = getAppTabs(user?.staffRole).filter((tab) => tab.href !== TAB_ROUTES.PROFILE);
+  const isProfileActive = pathname?.startsWith(TAB_ROUTES.PROFILE) ?? false;
+  const initial = (user?.firstName ?? user?.username ?? '?').slice(0, 1).toUpperCase();
 
   return (
-    <nav className="lg-surface-strong fixed bottom-4 left-1/2 z-20 w-[calc(100%-24px)] max-w-md -translate-x-1/2 rounded-[28px] p-2 lg:hidden">
-      {/* grid-cols auto-adapts to the tab count so we never get empty
-          dead space when a tab is hidden. */}
-      <ul
-        className={`grid gap-2 ${
-          tabs.length >= 5
-            ? 'grid-cols-5'
-            : tabs.length === 4
-            ? 'grid-cols-4'
-            : tabs.length === 3
-            ? 'grid-cols-3'
-            : 'grid-cols-2'
-        }`}
-      >
+    <nav className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-20 flex w-[calc(100%-24px)] max-w-md -translate-x-1/2 items-center gap-2 lg:hidden">
+      <ul className="lg-island flex h-16 flex-1 items-center justify-around rounded-full px-1.5">
         {tabs.map((tab) => {
           const isActive = pathname?.startsWith(tab.href) ?? false;
 
           return (
-            <li key={tab.href}>
+            <li key={tab.href} className="flex-1">
               <Link
                 href={tab.href}
                 className={[
-                  'flex flex-col items-center justify-center rounded-2xl px-2 py-3 text-xs font-medium transition-all',
+                  'mx-auto flex h-14 max-w-[76px] flex-col items-center justify-center gap-0.5 rounded-full text-[10.5px] font-bold transition-colors',
                   isActive
-                    ? 'bg-[var(--accent)] text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_20px_-6px_rgba(41,195,197,0.55)]'
-                    : 'text-slate-300 hover:bg-white/5',
+                    ? 'bg-[radial-gradient(circle_at_50%_45%,rgba(41,195,197,0.28),rgba(41,195,197,0)_70%)] text-[var(--accent)]'
+                    : 'text-[#8a8d93]',
                 ].join(' ')}
               >
                 {tab.icon}
-                <span className="mt-1">{tab.label}</span>
+                <span>{tab.label}</span>
               </Link>
             </li>
           );
         })}
       </ul>
+
+      <Link
+        href={TAB_ROUTES.PROFILE}
+        aria-label="Профиль"
+        className={[
+          'lg-island grid h-16 w-16 shrink-0 place-items-center rounded-full',
+          isProfileActive ? 'ring-2 ring-[var(--accent)]' : '',
+        ].join(' ')}
+      >
+        {user?.photoUrl ? (
+          <img
+            src={user.photoUrl}
+            alt=""
+            className="h-12 w-12 rounded-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <span className="grid h-12 w-12 place-items-center rounded-full bg-[linear-gradient(135deg,#5b4bd6,#29C3C5)] text-lg font-extrabold text-white">
+            {initial}
+          </span>
+        )}
+      </Link>
     </nav>
   );
 }

@@ -128,7 +128,7 @@ function OrdersPageContent() {
                     className={[
                       'rounded-full border px-4 py-2 text-xs font-medium transition',
                       filter === value
-                        ? 'border-[var(--accent)] bg-[var(--accent)] text-slate-950'
+                        ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]'
                         : 'border-white/10 bg-white/5 text-white',
                     ].join(' ')}
                   >

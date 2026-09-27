@@ -1,17 +1,20 @@
 @import 'tailwindcss';
 
 :root {
-  --background: #08111f;
-  --background-soft: #101b2d;
-  --surface: rgba(10, 21, 37, 0.88);
-  --surface-border: rgba(41, 195, 197, 0.14);
-  --foreground: #f2f7fb;
-  --muted: #93a4b8;
+  --background: #131415;
+  --background-soft: #1b1c1e;
+  --surface: #1e1f21;
+  --surface-2: #2a2b2e;
+  --surface-border: #313236;
+  --line: #313236;
+  --foreground: #ffffff;
+  --muted: #7d8087;
   --accent: #29C3C5;
   --accent-strong: #1FA8AA;
+  --accent-ink: #052a2b;
   --success: #2ed3a0;
-  --radius-card: 28px;
-  --radius-soft: 20px;
+  --radius-card: 24px;
+  --radius-soft: 18px;
 }
 
 * {
@@ -26,21 +29,21 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  background:
-    radial-gradient(circle at top, rgba(41, 195, 197, 0.14), transparent 34%),
-    linear-gradient(180deg, #0a1424 0%, #050c17 100%);
+  background: var(--background);
   color: var(--foreground);
 }
 
 body {
   font-family:
-    'Segoe UI',
-    'SF Pro Display',
-    system-ui,
     -apple-system,
+    'SF Pro Text',
     BlinkMacSystemFont,
+    'Segoe UI',
+    Inter,
+    system-ui,
     sans-serif;
   line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -61,154 +64,50 @@ select {
 }
 
 /* =====================================================================
- * Liquid Glass utilities (mid-intensity)
- * Defining traits of Apple's Liquid Glass approximated for the web:
- *   - bright 1px specular highlight along the top edge
- *   - soft dark inset shadow along the bottom edge for depth
- *   - layered translucent background with backdrop-filter blur+saturate
- *   - gradient-tinted border via padding/border-box dual background
- * Costs are kept moderate (single blur layer, no SVG displacement) so
- * mid-range Android phones stay smooth.
+ * Surfaces. Flat, neutral cards (no gradients / glass / glow) — the
+ * accent colour is reserved for primary actions and key values.
+ * Class names are kept from the earlier "liquid glass" theme so every
+ * component picks up the new look without edits.
  * ===================================================================== */
 
 .lg-surface {
-  /* Solid dark base so text reads well. Subtle white tint at top-left
-   * gives the glassy gleam without sacrificing contrast. */
-  background:
-    linear-gradient(
-      135deg,
-      rgba(28, 42, 64, 0.92) 0%,
-      rgba(14, 22, 38, 0.94) 100%
-    )
-    padding-box,
-    linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.22) 0%,
-      rgba(255, 255, 255, 0.04) 50%,
-      rgba(41, 195, 197, 0.14) 100%
-    )
-    border-box;
-  border: 1px solid transparent;
-  backdrop-filter: blur(16px) saturate(170%);
-  -webkit-backdrop-filter: blur(16px) saturate(170%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    0 10px 30px -12px rgba(0, 0, 0, 0.55);
+  background: var(--surface);
+  border: 1px solid var(--line);
 }
 
+/* Slightly lifted surface for sheets, modals and pickers. */
 .lg-surface-strong {
-  background:
-    linear-gradient(
-      135deg,
-      rgba(32, 48, 72, 0.94) 0%,
-      rgba(16, 26, 44, 0.96) 100%
-    )
-    padding-box,
-    linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.30) 0%,
-      rgba(255, 255, 255, 0.08) 50%,
-      rgba(41, 195, 197, 0.24) 100%
-    )
-    border-box;
-  border: 1px solid transparent;
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-    0 14px 40px -10px rgba(0, 0, 0, 0.6);
+  background: #1b1c1e;
+  border: 1px solid #2e2f33;
+  box-shadow: 0 18px 50px -16px rgba(0, 0, 0, 0.7);
 }
 
-/* For pill-shaped buttons / chips. */
+/* Pills / chips / round icon buttons. */
 .lg-chip {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02)) padding-box,
-    linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.08)) border-box;
+  background: var(--surface-2);
   border: 1px solid transparent;
-  backdrop-filter: blur(14px) saturate(170%);
-  -webkit-backdrop-filter: blur(14px) saturate(170%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  .lg-surface,
-  .lg-surface-strong,
-  .lg-chip {
-    background: rgba(15, 24, 38, 0.94);
-    border-color: rgba(255, 255, 255, 0.08);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
+/* Floating, blurred bottom navigation island. */
+.lg-island {
+  background: rgba(42, 43, 46, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: 0 12px 34px -12px rgba(0, 0, 0, 0.75);
 }
 
-/* Mid-intensity pulsing teal glow for the subscription card.
- * Brighter than minimal, softer than the WWDC keynote demo. */
-@keyframes lg-accent-pulse {
-  0%, 100% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.14),
-      0 0 0 1px rgba(41, 195, 197, 0.26),
-      0 0 22px rgba(41, 195, 197, 0.18),
-      0 10px 30px -12px rgba(0, 0, 0, 0.55);
-  }
-  50% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.18),
-      0 0 0 1px rgba(41, 195, 197, 0.4),
-      0 0 32px rgba(41, 195, 197, 0.32),
-      0 10px 30px -12px rgba(0, 0, 0, 0.55);
-  }
-}
-
+/* Highlighted card (loyalty, promos): a quiet teal wash, no pulsing. */
 .lg-accent-card {
-  background:
-    linear-gradient(
-      135deg,
-      rgba(41, 195, 197, 0.12) 0%,
-      rgba(22, 32, 50, 0.94) 60%,
-      rgba(41, 195, 197, 0.08) 100%
-    )
-    padding-box,
-    linear-gradient(
-      135deg,
-      rgba(41, 195, 197, 0.55) 0%,
-      rgba(41, 195, 197, 0.14) 50%,
-      rgba(41, 195, 197, 0.38) 100%
-    )
-    border-box;
-  border: 1px solid transparent;
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
-  animation: lg-accent-pulse 3s ease-in-out infinite;
+  background: linear-gradient(135deg, #123c3d 0%, var(--surface) 70%);
+  border: 1px solid #1f4a4b;
 }
 
-@keyframes lg-button-shine {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
+/* Primary call-to-action. */
 .lg-accent-button {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(
-    90deg,
-    var(--accent) 0%,
-    #4dd9da 50%,
-    var(--accent) 100%
-  );
-  background-size: 200% 100%;
-  animation: lg-button-shine 3.5s linear infinite;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    0 5px 16px -4px rgba(41, 195, 197, 0.45);
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 8px 24px -10px rgba(41, 195, 197, 0.65);
 }
 
 /* =====================================================================
@@ -267,7 +166,7 @@ select {
 
 .lg-tier-glow {
   border: 1px solid transparent;
-  animation: lg-tier-pulse 3.2s ease-in-out infinite;
+  box-shadow: 0 0 0 1px var(--tier-ring);
 }
 
 /* Celebration: a bright burst on the card the moment a new tier is

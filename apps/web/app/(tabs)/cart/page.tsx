@@ -351,7 +351,7 @@ export default function CartPage() {
                       </p>
                       <Link
                         href="/profile/delivery"
-                        className="mt-2 inline-block rounded-[14px] bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-slate-950"
+                        className="mt-2 inline-block rounded-[14px] bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-[var(--accent-ink)]"
                       >
                         Добавить адрес
                       </Link>
@@ -392,7 +392,7 @@ export default function CartPage() {
                       type="button"
                       onClick={handleCheckout}
                       disabled={isCheckingOut || deliveryAddresses.length === 0 || !selectedAddressId}
-                      className="flex-1 rounded-[18px] bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50"
+                      className="flex-1 rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-[var(--accent-ink)] disabled:opacity-50"
                     >
                       {isCheckingOut ? 'Оформляем...' : 'Подтвердить'}
                     </button>
@@ -411,7 +411,7 @@ export default function CartPage() {
                   type="button"
                   onClick={() => setIsCheckoutConfirmOpen(true)}
                   disabled={cart.items.length === 0}
-                  className="w-full rounded-[20px] bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-[var(--accent-ink)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Оформить заявку
                 </button>

@@ -4,31 +4,28 @@ import type { CatalogSortKey, CatalogTypeOption } from '@lean-poizon/shared';
 import { CATALOG_TYPE_OPTIONS } from '@lean-poizon/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { CatalogFilterDropdown } from '../../../components/ui/catalog-filter-dropdown';
 import { CatalogGrid } from '../../../components/ui/catalog-grid';
 import { CatalogHelpPopover } from '../../../components/ui/catalog-help-popover';
 import { CatalogProductModal } from '../../../components/ui/catalog-product-modal';
+import { CatalogTypeIcon } from '../../../components/ui/catalog-type-icon';
+import { SearchIcon } from '../../../components/ui/icons';
 import { PageSection } from '../../../components/ui/page-section';
 import { catalogApi } from '../../../lib/api-client';
 import { CATALOG_TYPE_LABELS_RU } from '../../../lib/catalog-type-labels';
 import { extractAxiosMessage } from '../../../lib/error-utils';
-import { hapticImpact } from '../../../lib/telegram-web-app';
+import { hapticImpact, hapticSelection } from '../../../lib/telegram-web-app';
 import { useCatalogStore } from '../../../store/catalog-store';
 
 const PAGE_LIMIT = 30;
 const SEARCH_DEBOUNCE_MS = 500;
 
-const TYPE_OPTIONS = CATALOG_TYPE_OPTIONS.map((type) => ({
-  value: type,
-  label: CATALOG_TYPE_LABELS_RU[type],
-}));
-
 const SORT_OPTIONS: Array<{ value: CatalogSortKey; label: string }> = [
+  { value: 'best', label: 'Популярное' },
   { value: 'price_asc', label: 'Сначала дешевле' },
   { value: 'price_desc', label: 'Сначала дороже' },
 ];
 
-type OpenDropdown = 'category' | 'sort' | 'help' | null;
+type OpenDropdown = 'help' | null;
 
 export default function CatalogPage() {
   const [openDropdown, setOpenDropdown] = useState<OpenDropdown>(null);
@@ -132,41 +129,65 @@ export default function CatalogPage() {
 
   return (
     <PageSection className="lg:mx-auto lg:max-w-6xl">
-      <input
-        type="text"
-        value={searchText}
-        onChange={(event) => setSearchText(event.target.value)}
-        placeholder="Поиск: например, nike"
-        className="w-full rounded-[16px] border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[var(--accent)]"
-      />
+      <h1 className="-mt-1 text-[30px] font-extrabold leading-tight tracking-[-0.02em] text-white">
+        Магазин
+      </h1>
 
-      <div className="flex flex-wrap gap-2">
-        <CatalogFilterDropdown
-          idleLabel="Все категории"
-          options={TYPE_OPTIONS}
-          selectedValue={selectedType}
-          onSelect={(value) => {
-            setType(value as CatalogTypeOption | null);
-            setOpenDropdown(null);
-          }}
-          isOpen={openDropdown === 'category'}
-          onToggle={() => setOpenDropdown((prev) => (prev === 'category' ? null : 'category'))}
+      <div className="-mx-4 flex gap-2.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <CategoryTile
+          label="Все"
+          icon={<CatalogTypeIcon type="all" className="h-6 w-6" />}
+          active={selectedType === null}
+          onClick={() => setType(null)}
         />
-        <CatalogFilterDropdown
-          idleLabel="Популярное"
-          options={SORT_OPTIONS}
-          selectedValue={sort === 'best' ? null : sort}
-          onSelect={(value) => {
-            setSort((value as CatalogSortKey) ?? 'best');
-            setOpenDropdown(null);
-          }}
-          isOpen={openDropdown === 'sort'}
-          onToggle={() => setOpenDropdown((prev) => (prev === 'sort' ? null : 'sort'))}
-        />
+        {CATALOG_TYPE_OPTIONS.map((type) => (
+          <CategoryTile
+            key={type}
+            label={CATALOG_TYPE_LABELS_RU[type]}
+            icon={<CatalogTypeIcon type={type} className="h-6 w-6" />}
+            active={selectedType === type}
+            onClick={() => setType(selectedType === type ? null : (type as CatalogTypeOption))}
+          />
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <label className="lg-surface flex h-[46px] flex-1 items-center gap-2 rounded-2xl px-3.5 text-[var(--muted)] transition focus-within:border-[var(--accent)]">
+          <SearchIcon className="h-5 w-5 shrink-0" />
+          <input
+            type="text"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            placeholder="Поиск: например, nike"
+            className="w-full bg-transparent text-[15px] text-white outline-none placeholder:text-[var(--muted)]"
+          />
+        </label>
         <CatalogHelpPopover
           isOpen={openDropdown === 'help'}
           onToggle={() => setOpenDropdown((prev) => (prev === 'help' ? null : 'help'))}
         />
+      </div>
+
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {SORT_OPTIONS.map((option) => {
+          const active = sort === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                hapticSelection();
+                setSort(option.value);
+              }}
+              className={[
+                'h-[38px] shrink-0 rounded-full px-4 text-[13.5px] font-bold transition',
+                active ? 'bg-white text-[#111]' : 'lg-surface text-white',
+              ].join(' ')}
+            >
+              {option.label}
+            </button>
+          );
+        })}
       </div>
 
       <CatalogGrid
@@ -196,5 +217,43 @@ export default function CatalogPage() {
         <CatalogProductModal spuId={quickViewSpuId} onClose={() => setQuickViewSpuId(null)} />
       ) : null}
     </PageSection>
+  );
+}
+
+function CategoryTile({
+  label,
+  icon,
+  active,
+  onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        hapticSelection();
+        onClick();
+      }}
+      className={[
+        'flex w-16 shrink-0 flex-col items-center gap-1.5 text-[11.5px] font-semibold transition active:scale-95',
+        active ? 'text-white' : 'text-[var(--muted)]',
+      ].join(' ')}
+    >
+      <span
+        className={[
+          'grid h-[54px] w-[54px] place-items-center rounded-[17px]',
+          active
+            ? 'bg-[var(--surface-2)] text-white shadow-[inset_0_0_0_1px_#45474c]'
+            : 'bg-[var(--surface)] text-[#8c8f96]',
+        ].join(' ')}
+      >
+        {icon}
+      </span>
+      <span className="w-full truncate text-center">{label}</span>
+    </button>
   );
 }

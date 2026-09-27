@@ -27,7 +27,7 @@ export function CatalogHelpPopover({
           onToggle();
         }}
         aria-label="Как пользоваться поиском и фильтрами"
-        className="lg-surface grid h-9 w-9 shrink-0 place-items-center rounded-full text-[var(--accent)] transition active:scale-95"
+        className="lg-chip grid h-[46px] w-[46px] shrink-0 place-items-center rounded-full text-[#cfd1d5] transition active:scale-95"
       >
         <InfoIcon className="h-5 w-5" />
       </button>

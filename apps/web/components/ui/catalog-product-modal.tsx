@@ -147,66 +147,63 @@ export function CatalogProductModal({ spuId, onClose }: { spuId: string; onClose
       onClick={onClose}
     >
       <div
-        className="lg-surface-strong flex max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] lg:max-w-lg"
+        className="lg-surface-strong relative flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] lg:max-w-lg"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-white/20" />
+        <div className="mx-auto mb-3 mt-2.5 h-[5px] w-10 shrink-0 rounded-full bg-[#45474c]" />
 
-        <div className="flex shrink-0 items-center justify-between px-5 pb-2 pt-3">
-          <h3 className="text-base font-semibold text-white">Товар</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-sm text-white transition active:scale-90"
-            aria-label="Закрыть"
-          >
-            ✕
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-6 top-8 z-10 grid h-9 w-9 place-items-center rounded-full bg-[#131415]/75 text-white backdrop-blur transition active:scale-90"
+          aria-label="Закрыть"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3.5 pb-4">
           {isLoadingProduct ? (
             <LoadingBlock title="Загружаем товар" description="Проверяем размеры и цены." />
           ) : productError ? (
             <FeedbackMessage tone="error">{productError}</FeedbackMessage>
           ) : product ? (
             <>
-              <div className="flex gap-3">
+              <div className="grid aspect-[1.35/1] w-full place-items-center overflow-hidden rounded-[24px] bg-white">
                 {product.mainImage ? (
                   <img
                     src={product.mainImage}
                     alt={product.title}
                     loading="lazy"
                     decoding="async"
-                    className="h-20 w-20 shrink-0 rounded-[20px] bg-white object-contain"
+                    className="h-full w-[84%] object-contain"
                   />
-                ) : (
-                  <div className="h-20 w-20 shrink-0 rounded-[20px] bg-white/5" />
-                )}
-                <div className="min-w-0">
-                  <h4 className="break-words text-sm font-semibold leading-snug text-white">
-                    {product.title}
-                  </h4>
-                  <p className="mt-1 text-xs text-[var(--muted)]">{product.brand ?? 'Poizon'}</p>
-                </div>
+                ) : null}
               </div>
 
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <p className="text-sm text-[var(--muted)]">
-                  Доступно {product.availableSkus.length} из {product.skus.length}
-                </p>
+              <h4 className="mx-0.5 mt-3.5 break-words text-[20px] font-extrabold leading-tight tracking-[-0.01em] text-white">
+                {product.title}
+              </h4>
+              <p className="mx-0.5 mt-1 text-[13px] font-semibold text-[var(--muted)]">
+                {product.brand ?? 'Poizon'} · в наличии {product.availableSkus.length} из{' '}
+                {product.skus.length}
+              </p>
+
+              <div className="mt-4 flex items-center justify-between gap-3 px-0.5">
+                <p className="text-[15px] font-bold text-white">Размер</p>
                 {product.sizeChart ? (
                   <button
                     type="button"
                     onClick={() => setIsSizeChartOpen(true)}
-                    className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white transition active:scale-95"
+                    className="lg-chip shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold text-white transition active:scale-95"
                   >
                     Размерная сетка
                   </button>
                 ) : null}
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="mt-2.5 grid grid-cols-3 gap-2">
                 {product.skus.map((sku) => {
                   const isSelected = selectedSku?.dwSkuId === sku.dwSkuId;
                   return (
@@ -220,16 +217,16 @@ export function CatalogProductModal({ spuId, onClose }: { spuId: string; onClose
                         hapticImpact('light');
                       }}
                       className={[
-                        'rounded-[18px] border px-4 py-2.5 text-left transition',
+                        'rounded-[14px] px-2 py-2 text-center transition active:scale-95',
                         sku.isAvailable
                           ? isSelected
-                            ? 'border-[var(--accent)] bg-[var(--accent)] text-slate-950'
-                            : 'border-white/10 bg-white/5 text-white'
-                          : 'cursor-not-allowed border-white/5 bg-white/[0.03] text-slate-500',
+                            ? 'bg-white text-[#111]'
+                            : 'bg-[var(--surface-2)] text-white'
+                          : 'cursor-not-allowed bg-white/[0.03] text-[#55585e]',
                       ].join(' ')}
                     >
-                      <div className="text-sm font-semibold">{sku.size}</div>
-                      <div className="mt-0.5 text-xs opacity-80">
+                      <div className="truncate text-sm font-extrabold">{sku.size}</div>
+                      <div className="mt-0.5 truncate text-[11px] font-semibold opacity-60">
                         {sku.isAvailable ? formatYuan(sku.priceYuan) : 'Нет в наличии'}
                       </div>
                     </button>
@@ -278,9 +275,9 @@ export function CatalogProductModal({ spuId, onClose }: { spuId: string; onClose
         </div>
 
         {product && selectedSku && pricing ? (
-          <div className="shrink-0 border-t border-white/10 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="shrink-0 px-3.5 pb-[calc(0.9rem+env(safe-area-inset-bottom))] pt-2">
             <div className="flex items-center gap-2">
-              <div className="flex shrink-0 items-center rounded-full border border-white/10 bg-slate-950/40 p-0.5">
+              <div className="flex h-[58px] shrink-0 items-center rounded-full bg-[var(--surface-2)] p-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -311,17 +308,24 @@ export function CatalogProductModal({ spuId, onClose }: { spuId: string; onClose
                 onClick={handleAddToCart}
                 disabled={isAddingToCart}
                 className={[
-                  'flex-1 rounded-[16px] px-4 py-3 text-sm font-semibold transition disabled:opacity-50',
+                  'flex h-[58px] flex-1 flex-col items-center justify-center rounded-full px-4 leading-tight transition active:scale-[0.98] disabled:opacity-50',
                   addedSkuId === pricing.dwSkuId
-                    ? 'bg-emerald-400 text-slate-950'
-                    : 'bg-[var(--accent)] text-slate-950',
+                    ? 'bg-emerald-400 text-[#052a1c]'
+                    : 'lg-accent-button',
                 ].join(' ')}
               >
-                {isAddingToCart
-                  ? 'Добавляем...'
-                  : addedSkuId === pricing.dwSkuId
-                    ? `Добавлено • ${quantity} шт.`
-                    : `В корзину • $${(pricing.totalUsd * quantity).toFixed(2)}`}
+                <span className="text-base font-extrabold">
+                  {isAddingToCart
+                    ? 'Добавляем…'
+                    : addedSkuId === pricing.dwSkuId
+                      ? 'Добавлено в корзину'
+                      : 'В корзину'}
+                </span>
+                <span className="text-[11.5px] font-semibold opacity-75">
+                  {addedSkuId === pricing.dwSkuId
+                    ? `${quantity} шт.`
+                    : `$${(pricing.totalUsd * quantity).toFixed(2)} + доставка`}
+                </span>
               </button>
             </div>
           </div>

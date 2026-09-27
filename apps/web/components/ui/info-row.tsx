@@ -8,14 +8,16 @@ export function InfoRow({
   accent?: boolean;
 }) {
   return (
-    <div
-      className={[
-        'flex min-w-0 items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm',
-        accent ? 'bg-[var(--accent)]/12' : 'bg-white/5',
-      ].join(' ')}
-    >
-      <span className="min-w-0 text-[var(--muted)]">{label}</span>
-      <span className="shrink-0 text-right font-medium text-white">{value}</span>
+    <div className="flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-white/[0.04] px-4 py-3 text-sm">
+      <span className="min-w-0 font-medium text-[var(--muted)]">{label}</span>
+      <span
+        className={[
+          'shrink-0 text-right',
+          accent ? 'text-base font-extrabold text-[var(--accent)]' : 'font-bold text-white',
+        ].join(' ')}
+      >
+        {value}
+      </span>
     </div>
   );
 }

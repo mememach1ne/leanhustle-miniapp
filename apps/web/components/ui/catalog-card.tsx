@@ -41,18 +41,19 @@ export function CatalogCard({
         />
       </div>
 
-      <div className="flex flex-1 flex-col gap-1.5 p-3">
-        <h3 className="line-clamp-2 min-h-[2.2em] text-xs font-medium leading-snug text-white">
+      <div className="flex flex-1 flex-col px-3 pb-3 pt-2.5">
+        <h3 className="line-clamp-2 min-h-[2.6em] text-[13px] font-semibold leading-[1.3] text-[#e9eaec]">
           {product.title}
         </h3>
 
-        <div className="mt-auto flex flex-col gap-0.5 pt-1">
-          <span className="truncate text-sm font-semibold text-[var(--accent)]">
-            от {formatUsd(product.priceUsd)}
+        <div className="mt-auto flex items-baseline justify-between gap-2 pt-2">
+          <span className="truncate text-[17px] font-extrabold text-white">
+            <span className="mr-0.5 text-xs font-semibold text-[var(--muted)]">от</span>
+            {formatUsd(product.priceUsd)}
           </span>
           {formatSoldLabel(product.soldRank) ? (
-            <span className="truncate text-[10px] text-[var(--muted)]">
-              Продано {formatSoldLabel(product.soldRank)}
+            <span className="shrink-0 truncate text-[11px] font-semibold text-[var(--muted)]">
+              {formatSoldLabel(product.soldRank)}
             </span>
           ) : null}
         </div>

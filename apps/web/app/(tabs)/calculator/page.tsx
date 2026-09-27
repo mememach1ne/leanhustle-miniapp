@@ -547,7 +547,7 @@ function CalculatorPageContent() {
           type="button"
           onClick={handleResolveProduct}
           disabled={isResolveDisabled}
-          className="mt-4 w-full rounded-[20px] bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-slate-950 transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-4 w-full rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-[var(--accent-ink)] transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isLoadingProduct ? 'Получаем товар...' : 'Получить товар'}
         </button>
@@ -763,7 +763,7 @@ function CalculatorPageContent() {
                           className={[
                             'rounded-[16px] border px-4 py-3 text-left text-sm font-medium transition active:scale-[0.98]',
                             manualCategory === cat
-                              ? 'border-[var(--accent)] bg-[var(--accent)] text-slate-950'
+                              ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]'
                               : 'border-white/10 bg-white/5 text-white',
                           ].join(' ')}
                         >
@@ -791,7 +791,7 @@ function CalculatorPageContent() {
                 type="button"
                 onClick={handleManualCalculate}
                 disabled={isLoadingPricing || !manualPriceYuan}
-                className="w-full rounded-[20px] bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-slate-950 transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-[var(--accent-ink)] transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isLoadingPricing ? 'Считаем...' : 'Рассчитать стоимость'}
               </button>
@@ -919,7 +919,7 @@ function CalculatorPageContent() {
                       'rounded-[20px] border px-4 py-3 text-left transition',
                       sku.isAvailable
                         ? isSelected
-                          ? 'border-[var(--accent)] bg-[var(--accent)] text-slate-950'
+                          ? 'border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-ink)]'
                           : 'border-white/10 bg-white/5 text-white'
                         : 'cursor-not-allowed border-white/5 bg-white/[0.03] text-slate-500',
                     ].join(' ')}
@@ -1024,7 +1024,7 @@ function CalculatorPageContent() {
                       'flex-1 rounded-[16px] px-4 py-3 text-sm font-semibold transition disabled:opacity-50',
                       addedSkuId === pricing.dwSkuId
                         ? 'bg-emerald-400 text-slate-950'
-                        : 'bg-[var(--accent)] text-slate-950',
+                        : 'bg-[var(--accent)] text-[var(--accent-ink)]',
                     ].join(' ')}
                   >
                     {isAddingToCart
@@ -1085,7 +1085,7 @@ function CalculatorPageContent() {
                 'flex-1 rounded-[16px] px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50',
                 addedSkuId === pricing.dwSkuId
                   ? 'bg-emerald-400 text-slate-950'
-                  : 'bg-[var(--accent)] text-slate-950',
+                  : 'bg-[var(--accent)] text-[var(--accent-ink)]',
               ].join(' ')}
             >
               {isAddingToCart
@@ -1130,7 +1130,7 @@ function CalculatorPageContent() {
                 'flex-1 rounded-[16px] px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50',
                 addedSkuId
                   ? 'bg-emerald-400 text-slate-950'
-                  : 'bg-[var(--accent)] text-slate-950',
+                  : 'bg-[var(--accent)] text-[var(--accent-ink)]',
               ].join(' ')}
             >
               {isAddingToCart

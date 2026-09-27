@@ -137,7 +137,7 @@ function AddressForm({
             type="button"
             onClick={handleSubmit}
             disabled={isBusy}
-            className="flex-1 rounded-[18px] bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-slate-950 disabled:opacity-50"
+            className="flex-1 rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-[var(--accent-ink)] disabled:opacity-50"
           >
             {isBusy ? 'Сохраняем...' : submitLabel}
           </button>
@@ -356,7 +356,7 @@ export default function DeliveryPage() {
             <button
               type="button"
               onClick={() => { hapticSelection(); setMode('create'); }}
-              className="rounded-[20px] bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-slate-950"
+              className="rounded-full bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-[var(--accent-ink)]"
             >
               Добавить адрес
             </button>
