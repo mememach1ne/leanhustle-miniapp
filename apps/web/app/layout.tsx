@@ -36,6 +36,10 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 });
 
+// Render every page on request so HTML is served with no-store and browsers /
+// the Telegram WebView always pick up a fresh deploy instead of a stale copy.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'LEAN HUSTLE POIZON',
   description: 'Telegram Mini App для заказа товаров с Poizon в Россию',
