@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 
 import { getAppTabs } from '../../lib/navigation';
+import { useLiteMode } from '../../lib/use-lite-mode';
 import { useAuthStore } from '../../store/auth-store';
 import { AmbientBackground } from './ambient-background';
 import { AuthStateBanner } from './auth-state-banner';
@@ -10,6 +11,7 @@ import { BottomNavigation } from './bottom-navigation';
 import { DesktopSidebar } from './desktop-sidebar';
 import { Header } from './header';
 import { LoginScreen } from './login-screen';
+import { LiteSwitch, MarketplacesSection, SiteFooter, ToTopButton } from './site-footer';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,6 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const staffRole = useAuthStore((state) => state.user?.staffRole);
   const tabs = getAppTabs(staffRole);
   const activeTab = tabs.find((tab) => pathname?.startsWith(tab.href)) ?? tabs[0];
+  const { lite, ready, toggle: toggleLite } = useLiteMode();
 
   // Browser visitor without a session — show the Telegram login gate instead
   // of the app chrome.
@@ -26,8 +29,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative isolate lg:flex">
-      {/* Brand liquid glow behind everything (desktop only). */}
-      <AmbientBackground />
+      {/* Brand liquid glow behind everything (desktop only, off in Lite). */}
+      {ready && !lite ? <AmbientBackground /> : null}
+
+      {/* Desktop-only extras from leanhustle.net: Lite switch, to-top. */}
+      <div className="fixed right-5 top-5 z-[130] hidden lg:block">
+        <LiteSwitch lite={lite} onToggle={toggleLite} />
+      </div>
+      <div className="hidden lg:block">
+        <ToTopButton />
+      </div>
 
       {/* Desktop-only left navigation rail. */}
       <DesktopSidebar />
@@ -48,6 +59,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <main className="flex-1 pt-1 lg:mx-auto lg:w-full lg:max-w-6xl">{children}</main>
+
+        {/* Desktop site footer (same as leanhustle.net). */}
+        <div className="mt-16 hidden lg:-mx-10 lg:block">
+          <MarketplacesSection />
+          <SiteFooter />
+        </div>
       </div>
 
       {/* Mobile bottom tab bar (hidden on desktop). */}

@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { getAppTabs } from '../../lib/navigation';
 import { tokenStorage } from '../../lib/token-storage';
 import { useAuthStore } from '../../store/auth-store';
+import { PURCHASES_URL, REVIEWS_URL } from './site-footer';
 
 /**
  * Left navigation rail shown only on desktop (lg+). On mobile / inside the
@@ -62,6 +63,26 @@ export function DesktopSidebar() {
             </Link>
           );
         })}
+
+        <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/10 pt-4">
+          {[
+            { label: 'Выкупы', href: PURCHASES_URL },
+            { label: 'Отзывы', href: REVIEWS_URL },
+          ].map((link) => (
+            <a
+              key={link.label}
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="lg-glass flex items-center justify-center gap-1 rounded-2xl px-3 py-2 text-xs font-semibold text-white transition hover:border-[var(--accent)]/40"
+            >
+              {link.label}
+              <span aria-hidden className="text-[var(--accent)]">
+                ↗
+              </span>
+            </a>
+          ))}
+        </div>
       </nav>
 
       <div className="mt-4 space-y-3 border-t border-white/10 pt-4">

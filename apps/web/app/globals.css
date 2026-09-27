@@ -408,6 +408,17 @@ html.lite .to-top {
 html.lite .lg-glass {
   background: rgba(22, 32, 40, 0.92);
 }
+@media (min-width: 1024px) {
+  html.lite .lg-surface,
+  html.lite .lg-surface-strong {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  html.lite .lg-surface {
+    background: var(--surface);
+    border-color: var(--line);
+  }
+}
 html.lite .to-top {
   background: rgba(22, 32, 40, 0.92);
 }

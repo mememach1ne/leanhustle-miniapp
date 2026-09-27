@@ -1,16 +1,20 @@
 'use client';
 
-import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { useLiteMode } from '../../lib/use-lite-mode';
 import { LiquidBackground } from '../ui/liquid-background';
 import { TelegramLoginButton } from '../ui/telegram-login-button';
-
-const BOT_URL = 'https://t.me/lh_poizonbot';
-const MANAGER_URL = 'https://t.me/lh_poizonmanager';
-const PURCHASES_URL = 'https://t.me/lh_poizonpurchases';
-const REVIEWS_URL = 'https://t.me/lh_poizonreviews';
+import {
+  BOT_URL,
+  LiteSwitch,
+  MarketplacesSection,
+  PURCHASES_URL,
+  REVIEWS_URL,
+  SectionHead,
+  SiteFooter,
+  ToTopButton,
+} from './site-footer';
 const GUIDE_VIDEO_EMBED_URL = 'https://www.youtube.com/embed/dwVmtQGWVa8';
 const GUIDE_ARTICLE_URL = 'https://telegra.ph/KAK-ZAKAZYVAT-s-POIZON-v-ROSSII-05-24';
 
@@ -42,20 +46,6 @@ const GUIDE_STEPS = [
   },
 ] as const;
 
-const MARKETPLACES = [
-  { name: 'Poizon', note: 'Оригинальная одежда, обувь и аксессуары', live: true },
-  { name: 'Taobao и Tmall', note: 'Крупнейшие маркетплейсы Китая', live: false },
-  { name: '1688', note: 'Оптовые цены напрямую от фабрик', live: false },
-  { name: 'Pinduoduo', note: 'Товары на каждый день по низким ценам', live: false },
-] as const;
-
-const CONTACTS = [
-  { label: 'Менеджер', href: MANAGER_URL },
-  { label: 'Выкупы', href: PURCHASES_URL },
-  { label: 'Отзывы', href: REVIEWS_URL },
-  { label: 'Открыть бота', href: BOT_URL },
-] as const;
-
 /**
  * Browser landing for visitors outside Telegram. Instead of a Telegram
  * OAuth login (which reads as phishing to most people) it sends them to
@@ -66,20 +56,7 @@ const CONTACTS = [
  */
 export function LoginScreen() {
   const { lite, ready, toggle } = useLiteMode();
-  const [showToTop, setShowToTop] = useState(false);
   const [showWebLogin, setShowWebLogin] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setShowToTop(window.scrollY > window.innerHeight * 0.6);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  const scrollToTop = () => {
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
-  };
 
   return (
     <div className="relative isolate min-h-screen text-white">
@@ -107,19 +84,7 @@ export function LoginScreen() {
 
       {/* Lite switch — top right corner, like on leanhustle.net. */}
       <div className="fixed right-4 top-4 z-[130]">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={lite}
-          onClick={toggle}
-          title="Lite Version — статичный фон и меньше эффектов для слабых устройств"
-          className={['lite-switch', lite ? 'on' : ''].join(' ')}
-        >
-          <span className="lite-sw-track">
-            <span className="lite-sw-knob" />
-          </span>
-          <span>Lite</span>
-        </button>
+        <LiteSwitch lite={lite} onToggle={toggle} />
       </div>
 
       {/* ── Hero ─────────────────────────────────────────────── */}
@@ -227,130 +192,27 @@ export function LoginScreen() {
         </div>
       </section>
 
-      {/* ── Other marketplaces ───────────────────────────────── */}
-      <section id="marketplaces" className="mx-auto w-full max-w-4xl px-5 pb-16 lg:pb-20">
-        <SectionHead kicker="LH — China" title="Не только Poizon" />
-        <p className="mx-auto -mt-4 mb-8 max-w-xl text-center text-sm leading-6 text-white/70">
-          Проект растёт в LH — CHINA: скоро выкуп и доставка в Россию с других крупных площадок
-          Китая.
-        </p>
+      <MarketplacesSection />
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          {MARKETPLACES.map((market) => (
-            <div key={market.name} className="lg-glass flex items-center justify-between gap-4 rounded-[22px] px-5 py-4">
-              <div className="min-w-0">
-                <h3 className="text-base font-bold text-white">{market.name}</h3>
-                <p className="mt-0.5 text-xs leading-5 text-white/60">{market.note}</p>
-              </div>
-              <span
-                className={[
-                  'shrink-0 rounded-full px-3 py-1 text-[10px] font-semibold uppercase',
-                  market.live
-                    ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
-                    : 'border border-white/15 text-white/60',
-                ].join(' ')}
-                style={{ ...MONO, letterSpacing: '0.12em' }}
-              >
-                {market.live ? 'Доступно' : 'Скоро'}
-              </span>
-            </div>
-          ))}
+      <SiteFooter
+        bottomExtra={
+          <button
+            type="button"
+            onClick={() => setShowWebLogin((v) => !v)}
+            className="text-[0.7rem] text-white/30 transition hover:text-white/60"
+            style={{ ...MONO, letterSpacing: '0.06em' }}
+          >
+            Вход на сайте
+          </button>
+        }
+      />
+      {showWebLogin ? (
+        <div className="mx-auto flex w-full max-w-5xl justify-end px-5 pb-10">
+          <TelegramLoginButton />
         </div>
-      </section>
+      ) : null}
 
-      {/* ── Footer (same as leanhustle.net) ──────────────────── */}
-      <footer id="contacts" className="border-t border-white/10">
-        <div className="mx-auto w-full max-w-5xl px-5">
-          <div className="grid items-center gap-10 py-14 md:grid-cols-[1fr_auto]">
-            <h3
-              className="uppercase text-white"
-              style={{
-                ...DISPLAY,
-                fontWeight: 800,
-                letterSpacing: '-0.015em',
-                lineHeight: 0.95,
-                fontSize: 'clamp(2.3rem, 8.5vw, 5.4rem)',
-              }}
-            >
-              Контакты
-            </h3>
-            <div className="flex min-w-0 flex-col gap-2.5 md:min-w-[320px]">
-              {CONTACTS.map((contact) => (
-                <a
-                  key={contact.label}
-                  href={contact.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex items-center justify-between gap-5 rounded-[18px] border border-white/15 bg-white/[0.02] px-5 py-4 text-[0.8rem] font-semibold uppercase text-white transition hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--accent)]/10"
-                  style={{ ...MONO, letterSpacing: '0.12em' }}
-                >
-                  {contact.label}
-                  <span className="text-[var(--accent)] transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
-                    ↗
-                  </span>
-                </a>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/[0.06] pb-10 pt-6">
-            <div
-              className="flex items-center gap-2.5 text-[0.7rem] text-white/45"
-              style={{ ...MONO, letterSpacing: '0.06em' }}
-            >
-              <Image src="/lh-logo.webp" alt="" width={18} height={18} className="h-[18px] w-[18px] rounded-[5px]" />
-              © 2026 Lean Hustle
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowWebLogin((v) => !v)}
-              className="text-[0.7rem] text-white/30 transition hover:text-white/60"
-              style={{ ...MONO, letterSpacing: '0.06em' }}
-            >
-              Вход на сайте
-            </button>
-          </div>
-
-          {showWebLogin ? (
-            <div className="flex justify-end pb-10">
-              <TelegramLoginButton />
-            </div>
-          ) : null}
-        </div>
-      </footer>
-
-      <button
-        type="button"
-        aria-label="Наверх"
-        title="Наверх"
-        onClick={scrollToTop}
-        className={['to-top', showToTop ? 'show' : ''].join(' ')}
-      >
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M6 14l6-6 6 6" />
-        </svg>
-      </button>
-    </div>
-  );
-}
-
-function SectionHead({ kicker, title }: { kicker: string; title: string }) {
-  return (
-    <div className="mb-10 text-center">
-      <span
-        className="inline-flex items-center gap-3 text-[0.72rem] font-semibold uppercase text-[var(--accent)]"
-        style={{ ...MONO, letterSpacing: '0.22em' }}
-      >
-        <span className="h-px w-7 bg-[var(--accent)]" />
-        {kicker}
-        <span className="h-px w-7 bg-[var(--accent)]" />
-      </span>
-      <h2
-        className="mt-4 text-3xl font-bold uppercase text-white sm:text-4xl"
-        style={{ ...DISPLAY, letterSpacing: '-0.01em' }}
-      >
-        {title}
-      </h2>
+      <ToTopButton />
     </div>
   );
 }
