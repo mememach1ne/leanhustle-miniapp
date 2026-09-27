@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import { CatalogCard } from './catalog-card';
 import { EmptyState } from './empty-state';
 import { FeedbackMessage } from './feedback-message';
+import { SearchIcon } from './icons';
 import { LoadingBlock } from './loading-block';
 
 export function CatalogGrid({
@@ -68,7 +69,7 @@ export function CatalogGrid({
   }
 
   if (items.length === 0) {
-    return <EmptyState icon="🔍" title={emptyTitle} description={emptyDescription} />;
+    return <EmptyState icon={<SearchIcon />} title={emptyTitle} description={emptyDescription} />;
   }
 
   return (

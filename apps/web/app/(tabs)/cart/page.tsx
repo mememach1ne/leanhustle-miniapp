@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { EmptyState } from '../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../components/ui/feedback-message';
+import { BoxIcon, CartIcon, LockIcon } from '../../../components/ui/icons';
 import { InfoRow } from '../../../components/ui/info-row';
 import { PageSection } from '../../../components/ui/page-section';
 import { PriceSummaryCard } from '../../../components/ui/price-summary-card';
@@ -197,7 +198,7 @@ export default function CartPage() {
     return (
       <PageSection>
         <EmptyState
-          icon="🔒"
+          icon={<LockIcon />}
           title="Нужна авторизация"
           description="Корзина доступна только внутри Telegram Mini App после входа."
         />
@@ -212,7 +213,7 @@ export default function CartPage() {
 
       {!cart || cart.items.length === 0 ? (
         <EmptyState
-          icon="🛒"
+          icon={<CartIcon />}
           title="Корзина пока пустая"
           description="Добавьте товар из вкладки «Калькулятор», и он сразу появится здесь."
         />
@@ -240,9 +241,9 @@ export default function CartPage() {
                   ) : (
                     <div
                       aria-hidden="true"
-                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[16px] bg-white/5 text-2xl"
+                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[16px] bg-white/5 text-white/30"
                     >
-                      📦
+                      <BoxIcon className="h-6 w-6" />
                     </div>
                   )}
 

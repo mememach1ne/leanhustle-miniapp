@@ -8,6 +8,7 @@ import { AuthDebugBlock } from '../../../components/debug/auth-debug-block';
 import { LoyaltyCard } from '../../../components/profile/loyalty-card';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { FaqAccordion } from '../../../components/ui/faq-accordion';
+import { LockIcon } from '../../../components/ui/icons';
 import { LoadingBlock } from '../../../components/ui/loading-block';
 import { PageSection } from '../../../components/ui/page-section';
 import { SectionCard } from '../../../components/ui/section-card';
@@ -135,7 +136,7 @@ export default function ProfilePage() {
       <PageSection>
         <AuthDebugBlock />
         <EmptyState
-          icon="🔒"
+          icon={<LockIcon />}
           title="Нужен вход через Telegram"
           description={
             error ??

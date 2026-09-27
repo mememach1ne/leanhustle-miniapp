@@ -8,6 +8,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { DutyRow } from '../../../components/ui/duty-row';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../components/ui/feedback-message';
+import { LinkIcon } from '../../../components/ui/icons';
 import { InfoRow } from '../../../components/ui/info-row';
 import { LoadingBlock } from '../../../components/ui/loading-block';
 import { PageSection } from '../../../components/ui/page-section';
@@ -614,7 +615,7 @@ function CalculatorPageContent() {
       {!product && !isLoadingProduct && !manualMode ? (
         <>
           <EmptyState
-            icon="🔗"
+            icon={<LinkIcon />}
             title="Начните с ссылки"
             description="Вставьте ссылку Poizon, чтобы увидеть карточку товара, доступные размеры и предварительный расчёт."
           />

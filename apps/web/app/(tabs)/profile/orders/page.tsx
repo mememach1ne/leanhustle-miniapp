@@ -7,6 +7,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 
 import { EmptyState } from '../../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../../components/ui/feedback-message';
+import { LockIcon, ReceiptIcon } from '../../../../components/ui/icons';
 import { OrderCard } from '../../../../components/ui/order-card';
 import { OrdersTable } from '../../../../components/ui/orders-table';
 import { PageSection } from '../../../../components/ui/page-section';
@@ -73,7 +74,7 @@ function OrdersPageContent() {
     return (
       <PageSection>
         <EmptyState
-          icon="🔒"
+          icon={<LockIcon />}
           title="Нужна авторизация"
           description="История заказов доступна только авторизованному пользователю внутри mini app."
         />
@@ -110,7 +111,7 @@ function OrdersPageContent() {
 
       {orders.length === 0 ? (
         <EmptyState
-          icon="🧾"
+          icon={<ReceiptIcon />}
           title="Заказов пока нет"
           description="После оформления заявки из корзины она появится здесь со статусом и деталями."
         />

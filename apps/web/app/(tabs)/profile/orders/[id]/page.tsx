@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CryptoPaymentPanel } from '../../../../../components/ui/crypto-payment-panel';
 import { EmptyState } from '../../../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../../../components/ui/feedback-message';
+import { LockIcon } from '../../../../../components/ui/icons';
 import { InfoRow } from '../../../../../components/ui/info-row';
 import { OrderTimeline } from '../../../../../components/ui/order-timeline';
 import { PageSection } from '../../../../../components/ui/page-section';
@@ -136,7 +137,7 @@ export default function OrderDetailsPage() {
     return (
       <PageSection>
         <EmptyState
-          icon="🔒"
+          icon={<LockIcon />}
           title="Нужна авторизация"
           description="Детали заказа доступны только авторизованному пользователю."
         />

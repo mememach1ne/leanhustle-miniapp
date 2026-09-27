@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { EmptyState } from '../../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../../components/ui/feedback-message';
+import { BoxIcon, LockIcon } from '../../../../components/ui/icons';
 import { LoadingBlock } from '../../../../components/ui/loading-block';
 import { PageSection } from '../../../../components/ui/page-section';
 import { SectionCard } from '../../../../components/ui/section-card';
@@ -280,7 +281,7 @@ export default function DeliveryPage() {
     return (
       <PageSection>
         <EmptyState
-          icon="🔒"
+          icon={<LockIcon />}
           title="Нужна авторизация"
           description="Данные доставки доступны только внутри Telegram Mini App."
         />
@@ -335,7 +336,7 @@ export default function DeliveryPage() {
 
       {addresses.length === 0 ? (
         <EmptyState
-          icon="📦"
+          icon={<BoxIcon />}
           title="Нет адресов доставки"
           description="Добавьте адрес для оформления заказов. Укажите ФИО, пункт СДЭК и телефон."
           action={

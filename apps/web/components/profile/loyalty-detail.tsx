@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { loyaltyApi } from '../../lib/api-client';
 import { formatDiscount, formatUsd, tierGlowVars, tierVisual } from '../../lib/loyalty';
 import { EmptyState } from '../ui/empty-state';
+import { GiftIcon } from '../ui/icons';
 import { LoadingBlock } from '../ui/loading-block';
 import { SectionCard } from '../ui/section-card';
 import { TierIcon } from './tier-icon';
@@ -40,7 +41,7 @@ export function LoyaltyDetail() {
   if (!status || !status.enabled) {
     return (
       <EmptyState
-        icon="🎁"
+        icon={<GiftIcon />}
         title="Программа недоступна"
         description="Программа лояльности сейчас отключена. Загляните чуть позже."
       />
