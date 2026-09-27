@@ -6,21 +6,19 @@ interface TabItem {
   href: string;
   label: string;
   icon: React.ReactNode;
-  subtitle: string;
 }
 
 const BASE_TABS: TabItem[] = [
-  { href: TAB_ROUTES.CATALOG, label: 'Магазин', icon: <StorefrontIcon className="h-5 w-5" />, subtitle: 'Популярные товары Poizon' },
-  { href: TAB_ROUTES.CALCULATOR, label: 'Калькулятор', icon: <CalculatorIcon className="h-5 w-5" />, subtitle: 'Расчёт стоимости товара по ссылке Poizon' },
-  { href: TAB_ROUTES.CART, label: 'Корзина', icon: <CartIcon className="h-5 w-5" />, subtitle: 'Выбранные товары и оформление заявки' },
-  { href: TAB_ROUTES.PROFILE, label: 'Профиль', icon: <ProfileIcon className="h-5 w-5" />, subtitle: 'Аккаунт, лояльность и история заказов' },
+  { href: TAB_ROUTES.CATALOG, label: 'Магазин', icon: <StorefrontIcon className="h-5 w-5" /> },
+  { href: TAB_ROUTES.CALCULATOR, label: 'Калькулятор', icon: <CalculatorIcon className="h-5 w-5" /> },
+  { href: TAB_ROUTES.CART, label: 'Корзина', icon: <CartIcon className="h-5 w-5" /> },
+  { href: TAB_ROUTES.PROFILE, label: 'Профиль', icon: <ProfileIcon className="h-5 w-5" /> },
 ];
 
 const ADMIN_TAB: TabItem = {
   href: TAB_ROUTES.ADMIN,
   label: 'Панель',
   icon: <ShieldIcon className="h-5 w-5" />,
-  subtitle: 'Управление заказами и клиентами',
 };
 
 export function getAppTabs(staffRole?: string | null): TabItem[] {
