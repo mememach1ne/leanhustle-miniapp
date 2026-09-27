@@ -26,7 +26,7 @@ export function DesktopSidebar() {
   };
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-white/10 bg-[var(--surface)] px-4 py-6 backdrop-blur-xl lg:flex">
+    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-white/10 bg-[rgba(19,20,21,0.55)] px-4 py-6 backdrop-blur-xl lg:flex">
       <Link href="/calculator" className="mb-8 flex items-center gap-3 px-2">
         <Image
           src="/lh-logo.webp"

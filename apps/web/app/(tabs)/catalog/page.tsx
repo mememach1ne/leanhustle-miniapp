@@ -133,7 +133,7 @@ export default function CatalogPage() {
 
   return (
     <PageSection className="lg:mx-auto lg:max-w-6xl">
-      <h1 className="-mt-1 text-[26px] font-extrabold leading-tight text-white">
+      <h1 className="-mt-1 text-[26px] font-extrabold leading-tight text-white lg:hidden">
         Магазин
       </h1>
 
