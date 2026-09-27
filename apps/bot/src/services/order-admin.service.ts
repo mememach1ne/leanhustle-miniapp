@@ -138,6 +138,7 @@ export const POIZON_ANDROID_URL = 'https://china.leanhustle.net/poizon.apk';
 // channel (otherwise getChatMember fails).
 export const NEWS_CHANNEL_USERNAME = '@lh_poizon';
 export const NEWS_CHANNEL_URL = 'https://t.me/lh_poizon';
+const MINI_APP_URL = process.env.TELEGRAM_MINI_APP_URL || 'https://leanhustle.ru';
 export const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
 
 // Social proof channels surfaced behind the "Отзывы" welcome button.
@@ -186,41 +187,54 @@ export class OrderAdminService {
   }
 
   buildClientWelcomeKeyboard(): InlineKeyboardMarkup {
+    // Bot API 9.4: `style` colours a button, `icon_custom_emoji_id` sets a
+    // premium emoji icon (so the text itself carries no emoji).
+    type Button = InlineKeyboardMarkup['inline_keyboard'][number][number];
     return {
       inline_keyboard: [
         [
           {
-            text: '📲 Скачать приложение POIZON',
+            text: 'Скачать приложение POIZON',
             callback_data: `${CLIENT_ACTION_PREFIX}download_app`,
-          },
+            icon_custom_emoji_id: '6096080291347042802',
+          } as Button,
         ],
         [
           {
-            text: 'Инструкция',
+            text: 'Инструкция по заказу',
             callback_data: `${CLIENT_ACTION_PREFIX}guide`,
-            // Bot API 9.4 premium emoji (📗-style book).
-            icon_custom_emoji_id: '5402482853030163217',
-          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
+            style: 'success',
+            icon_custom_emoji_id: '5226512880362332956',
+          } as Button,
         ],
         [
           {
             text: 'Отзывы',
             callback_data: `${CLIENT_ACTION_PREFIX}reviews`,
-            // Bot API 9.4 premium emoji (star/review style).
             icon_custom_emoji_id: '5780463361175066565',
-          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
+          } as Button,
         ],
         [
           {
-            text: '🛒 Другие китайские маркетплейсы',
+            text: 'Другие китайские маркетплейсы',
             callback_data: `${CLIENT_ACTION_PREFIX}other_marketplaces`,
-          },
+            icon_custom_emoji_id: '5431782733376399004',
+          } as Button,
         ],
         [
           {
-            text: '💬 Связаться с менеджером',
+            text: 'Открыть MiniApp',
+            web_app: { url: MINI_APP_URL },
+            icon_custom_emoji_id: '5884343982816759327',
+          } as Button,
+        ],
+        [
+          {
+            text: 'Связаться с менеджером',
             url: MANAGER_TELEGRAM_URL,
-          },
+            style: 'danger',
+            icon_custom_emoji_id: '5465300082628763143',
+          } as Button,
         ],
       ],
     };
