@@ -251,9 +251,9 @@ export class OrderAdminService {
   // HTML-formatted; send with parse_mode: 'HTML'. Premium emoji via <tg-emoji>.
   getOtherMarketplacesText() {
     return [
-      'Мы можем доставить товары с любого китайского маркетплейса: <i>Taobao</i><tg-emoji emoji-id="4911644425551086148">❤️</tg-emoji><i>, 1688</i><tg-emoji emoji-id="5332275449298955804">💴</tg-emoji><i>, 95</i><tg-emoji emoji-id="5239982301529533756">🇨🇳</tg-emoji><i>, Рыбка</i><tg-emoji emoji-id="5240062475684047887">🇨🇳</tg-emoji><i>, Pinduoduo</i><tg-emoji emoji-id="4909387957107950497">❤️</tg-emoji><i> и других.</i>',
+      'Мы можем доставить товары с любого китайского маркетплейса: <i>Taobao</i> <tg-emoji emoji-id="4911644425551086148">❤️</tg-emoji>, <i>1688</i> <tg-emoji emoji-id="5332275449298955804">💴</tg-emoji>, <i>95</i> <tg-emoji emoji-id="5239982301529533756">🇨🇳</tg-emoji>, <i>Рыбка</i> <tg-emoji emoji-id="5240062475684047887">🇨🇳</tg-emoji>, <i>Pinduoduo</i> <tg-emoji emoji-id="4909387957107950497">❤️</tg-emoji> <i>и других.</i>',
       '',
-      'Также мы можем подсказать вам самую низкую цену. Просто напишите, что вам нужно, — менеджер найдёт самую дешёвую цену среди сотен магазинов в Китае.',
+      'Также мы можем подсказать вам самую низкую цену. Просто напишите, что вам нужно, — менеджер найдёт самое выгодное предложение среди сотен магазинов в Китае.',
     ].join('\n');
   }
 
@@ -262,9 +262,11 @@ export class OrderAdminService {
       inline_keyboard: [
         [
           {
-            text: '💬 Связаться с менеджером',
+            text: 'Связаться с менеджером',
             url: MANAGER_TELEGRAM_URL,
-          },
+            style: 'success',
+            icon_custom_emoji_id: '5465300082628763143',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
         [
           {
