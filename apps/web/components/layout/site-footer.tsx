@@ -16,10 +16,12 @@ const DISPLAY: React.CSSProperties = {
 };
 
 const MARKETPLACES = [
-  { name: 'Poizon', note: 'Оригинальная одежда, обувь и аксессуары', live: true },
-  { name: 'Taobao и Tmall', note: 'Крупнейшие маркетплейсы Китая', live: false },
-  { name: '1688', note: 'Оптовые цены напрямую от фабрик', live: false },
-  { name: 'Pinduoduo', note: 'Товары на каждый день по низким ценам', live: false },
+  { name: 'Poizon', note: 'Автоматический расчёт прямо в приложении', auto: true },
+  { name: 'Taobao', note: 'Крупнейший маркетплейс Китая', auto: false },
+  { name: '1688', note: 'Оптовые цены напрямую от фабрик', auto: false },
+  { name: '95', note: 'Брендовые вещи с проверкой подлинности', auto: false },
+  { name: 'Рыбка (Xianyu)', note: 'Вещи с рук по низким ценам', auto: false },
+  { name: 'Pinduoduo', note: 'Товары на каждый день по низким ценам', auto: false },
 ] as const;
 
 const CONTACTS = [
@@ -50,13 +52,14 @@ export function SectionHead({ kicker, title }: { kicker: string; title: string }
   );
 }
 
-/** "Не только Poizon" — other Chinese marketplaces coming with LH — CHINA. */
+/** "Не только Poizon" — other Chinese marketplaces, ordered through the manager. */
 export function MarketplacesSection() {
   return (
     <section id="marketplaces" className="mx-auto w-full max-w-4xl px-5 py-16">
       <SectionHead kicker="LH — China" title="Не только Poizon" />
       <p className="mx-auto -mt-4 mb-8 max-w-xl text-center text-sm leading-6 text-white/70">
-        Проект растёт в LH — CHINA: скоро выкуп и доставка в Россию с других крупных площадок Китая.
+        Доставим товары с любого китайского маркетплейса. Напишите менеджеру, что нужно, — он
+        найдёт самую низкую цену среди сотен магазинов Китая.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -72,16 +75,27 @@ export function MarketplacesSection() {
             <span
               className={[
                 'shrink-0 rounded-full px-3 py-1 text-[10px] font-semibold uppercase',
-                market.live
+                market.auto
                   ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
-                  : 'border border-white/15 text-white/60',
+                  : 'border border-white/15 text-white/70',
               ].join(' ')}
               style={{ ...MONO, letterSpacing: '0.12em' }}
             >
-              {market.live ? 'Доступно' : 'Скоро'}
+              {market.auto ? 'В приложении' : 'Через менеджера'}
             </span>
           </div>
         ))}
+      </div>
+
+      <div className="mt-8 flex justify-center">
+        <a
+          href={MANAGER_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="lg-accent-button inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold transition hover:opacity-90"
+        >
+          Написать менеджеру ↗
+        </a>
       </div>
     </section>
   );

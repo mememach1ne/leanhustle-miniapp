@@ -388,7 +388,7 @@ export class OrderAdminService {
 
   getSubscriptionRequiredText() {
     return [
-      '🔒 Для использования бота подпишись на наш новостной канал',
+      '<tg-emoji emoji-id="5472308992514464048">🔐</tg-emoji> Для использования бота подпишись на наш новостной канал',
       '',
       'Там — анонсы новых дропов, скидки и обновления сервиса.',
       '',
@@ -401,15 +401,21 @@ export class OrderAdminService {
       inline_keyboard: [
         [
           {
-            text: '📢 Подписаться на канал',
+            text: 'Подписаться на канал',
             url: NEWS_CHANNEL_URL,
-          },
+            // Bot API 9.4: blue button + premium ▶️ icon.
+            style: 'primary',
+            icon_custom_emoji_id: '5226952925531621937',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
         [
           {
-            text: '✅ Проверить подписку',
+            text: 'Проверить подписку',
             callback_data: `${CLIENT_ACTION_PREFIX}check_subscription`,
-          },
+            // Bot API 9.4: green button + premium ✅ icon.
+            style: 'success',
+            icon_custom_emoji_id: '5427009714745517609',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
       ],
     };

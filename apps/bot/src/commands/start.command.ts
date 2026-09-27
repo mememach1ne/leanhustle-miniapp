@@ -111,6 +111,7 @@ const sendClientWelcome = async (ctx: BotContext) => {
 
 const sendSubscriptionGate = async (ctx: BotContext) => {
   const sent = await ctx.reply(orderAdminService.getSubscriptionRequiredText(), {
+    parse_mode: 'HTML',
     reply_markup: orderAdminService.buildSubscriptionRequiredKeyboard(),
   });
   if (ctx.chat) {
