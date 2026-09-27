@@ -260,6 +260,7 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
     if (orderAdminService.isClientReviewsCallback(data)) {
       await ctx.answerCbQuery();
       await ctx.editMessageText(orderAdminService.getReviewsText(), {
+        parse_mode: 'HTML',
         reply_markup: orderAdminService.buildReviewsKeyboard(),
       });
       return;

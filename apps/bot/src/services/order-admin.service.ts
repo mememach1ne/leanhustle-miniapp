@@ -363,9 +363,10 @@ export class OrderAdminService {
     };
   }
 
+  // HTML-formatted; send with parse_mode: 'HTML'. Premium emoji via <tg-emoji>.
   getReviewsText() {
     return [
-      '⭐️ Отзывы и выкупы',
+      '<tg-emoji emoji-id="5435957248314579621">⭐️</tg-emoji> Отзывы и выкупы',
       '',
       'Реальные отзывы наших клиентов и примеры выкупленных заказов — в наших каналах ниже.',
     ].join('\n');
@@ -376,15 +377,19 @@ export class OrderAdminService {
       inline_keyboard: [
         [
           {
-            text: '⭐️ Отзывы',
+            text: 'Отзывы',
             url: REVIEWS_CHANNEL_URL,
-          },
+            style: 'primary',
+            icon_custom_emoji_id: '5435957248314579621',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
         [
           {
-            text: '📦 Выкупы',
+            text: 'Выкупы',
             url: PURCHASES_CHANNEL_URL,
-          },
+            style: 'success',
+            icon_custom_emoji_id: '5854908544712707500',
+          } as InlineKeyboardMarkup['inline_keyboard'][number][number],
         ],
         [
           {
