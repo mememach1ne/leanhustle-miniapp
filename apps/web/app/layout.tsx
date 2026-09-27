@@ -1,19 +1,32 @@
 import './globals.css';
 
 import type { Metadata } from 'next';
-import { JetBrains_Mono, Unbounded } from 'next/font/google';
+import { Archivo, JetBrains_Mono, Onest, Unbounded } from 'next/font/google';
 import Script from 'next/script';
 
 import { AppShell } from '../components/layout/app-shell';
 import { AuthProvider } from '../components/providers/auth-provider';
 import { TelegramLinkHandler } from '../components/providers/telegram-link-handler';
 
-// Brand fonts (same families as the main site leanhustle.net): Unbounded
-// for the display wordmark, JetBrains Mono for the kicker/tagline.
+// Brand fonts from the main site leanhustle.net: Unbounded for headings and
+// key numbers, Archivo for body text, JetBrains Mono for kickers. Archivo has
+// no Cyrillic, so Onest (a close grotesque with Cyrillic) covers Russian text.
 const unbounded = Unbounded({
-  subsets: ['latin'],
+  subsets: ['latin', 'cyrillic'],
   weight: ['600', '700', '800'],
   variable: '--font-display',
+  display: 'swap',
+});
+const archivo = Archivo({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-archivo',
+  display: 'swap',
+});
+const onest = Onest({
+  subsets: ['latin', 'cyrillic'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-onest',
   display: 'swap',
 });
 const jetbrainsMono = JetBrains_Mono({
@@ -37,7 +50,7 @@ export default function RootLayout({
     <html
       lang="ru"
       suppressHydrationWarning
-      className={`${unbounded.variable} ${jetbrainsMono.variable}`}
+      className={`${unbounded.variable} ${archivo.variable} ${onest.variable} ${jetbrainsMono.variable}`}
     >
       <body suppressHydrationWarning>
         <Script

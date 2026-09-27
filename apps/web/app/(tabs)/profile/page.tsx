@@ -234,7 +234,7 @@ export default function ProfilePage() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-white/[0.04] px-3 py-2.5">
-      <p className="text-[17px] font-extrabold text-white">{value}</p>
+      <p className="font-display text-[16px] font-bold text-white">{value}</p>
       <p className="mt-0.5 text-[11.5px] font-semibold text-[var(--muted)]">{label}</p>
     </div>
   );

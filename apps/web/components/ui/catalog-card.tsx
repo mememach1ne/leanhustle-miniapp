@@ -47,7 +47,7 @@ export function CatalogCard({
         </h3>
 
         <div className="mt-auto flex items-baseline justify-between gap-2 pt-2">
-          <span className="truncate text-[17px] font-extrabold text-white">
+          <span className="font-display truncate text-[15px] font-bold text-white">
             <span className="mr-0.5 text-xs font-semibold text-[var(--muted)]">от</span>
             {formatUsd(product.priceUsd)}
           </span>

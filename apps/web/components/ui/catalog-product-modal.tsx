@@ -182,7 +182,7 @@ export function CatalogProductModal({ spuId, onClose }: { spuId: string; onClose
                 ) : null}
               </div>
 
-              <h4 className="mx-0.5 mt-3.5 break-words text-[20px] font-extrabold leading-tight tracking-[-0.01em] text-white">
+              <h4 className="font-display mx-0.5 mt-3.5 break-words text-[18px] font-bold leading-tight text-white">
                 {product.title}
               </h4>
               <p className="mx-0.5 mt-1 text-[13px] font-semibold text-[var(--muted)]">
@@ -314,7 +314,7 @@ export function CatalogProductModal({ spuId, onClose }: { spuId: string; onClose
                     : 'lg-accent-button',
                 ].join(' ')}
               >
-                <span className="text-base font-extrabold">
+                <span className="font-display text-[15px] font-bold">
                   {isAddingToCart
                     ? 'Добавляем…'
                     : addedSkuId === pricing.dwSkuId

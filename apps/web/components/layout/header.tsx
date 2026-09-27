@@ -43,7 +43,7 @@ export function Header() {
           className="h-[34px] w-[34px] shrink-0 rounded-[11px] object-cover"
           priority
         />
-        <span className="truncate text-[15px] font-extrabold tracking-[0.02em] text-white">
+        <span className="font-display truncate text-[14px] font-bold tracking-[0.02em] text-white">
           LEAN HUSTLE
         </span>
       </div>

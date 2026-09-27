@@ -35,15 +35,32 @@ body {
 
 body {
   font-family:
-    -apple-system,
-    'SF Pro Text',
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Inter,
+    var(--font-archivo),
+    var(--font-onest),
     system-ui,
     sans-serif;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Display face (Unbounded) — headings, prices, big numbers, primary CTAs. */
+h1,
+h2,
+h3,
+.font-display {
+  font-family:
+    var(--font-display),
+    var(--font-onest),
+    sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Small uppercase labels, like the kickers on leanhustle.net. */
+.font-mono-brand {
+  font-family:
+    var(--font-mono-brand),
+    ui-monospace,
+    monospace;
 }
 
 a {
