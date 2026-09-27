@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { EmptyState } from '../../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../../components/ui/feedback-message';
-import { BoxIcon, LockIcon } from '../../../../components/ui/icons';
+import { BoxIcon, LockIcon, MapPinIcon } from '../../../../components/ui/icons';
 import { LoadingBlock } from '../../../../components/ui/loading-block';
 import { PageSection } from '../../../../components/ui/page-section';
 import { SectionCard } from '../../../../components/ui/section-card';
@@ -17,6 +17,7 @@ import { useAuthStore } from '../../../../store/auth-store';
 import { useDeliveryAddressesStore } from '../../../../store/delivery-addresses-store';
 
 const PHONE_REGEX = /^\+7\d{10}$/;
+const CDEK_OFFICES_URL = 'https://www.cdek.ru/ru/offices/';
 
 interface AddressFormData {
   fullName: string;
@@ -95,6 +96,18 @@ function AddressForm({
             className={inputClass}
             maxLength={512}
           />
+          <a
+            href={CDEK_OFFICES_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent)] transition hover:underline"
+          >
+            <MapPinIcon className="h-4 w-4" />
+            Найти ближайший пункт СДЭК на карте
+          </a>
+          <p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">
+            Откроется сайт СДЭК — выберите удобный пункт и скопируйте его адрес сюда.
+          </p>
         </div>
         <div>
           <label className="mb-1 block text-xs text-[var(--muted)]">Телефон</label>
