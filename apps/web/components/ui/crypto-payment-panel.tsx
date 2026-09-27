@@ -13,6 +13,8 @@ import { cryptoPaymentsApi } from '../../lib/api-client';
 import { extractAxiosMessage } from '../../lib/error-utils';
 import { hapticNotification } from '../../lib/telegram-web-app';
 import { FeedbackMessage } from './feedback-message';
+import { ChatIcon, CheckCircleIcon } from './icons';
+import { NetworkLogo } from './network-logo';
 import { SectionCard } from './section-card';
 
 const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
@@ -156,9 +158,10 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
               type="button"
               disabled={submitting}
               onClick={() => pickNetwork(network)}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/10 disabled:opacity-50"
+              className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/10 disabled:opacity-50"
             >
-              {PAYMENT_NETWORK_LABELS[network]}
+              <NetworkLogo network={network} className="h-7 w-7 shrink-0" />
+              <span>{PAYMENT_NETWORK_LABELS[network]}</span>
             </button>
           ))}
         </div>
@@ -170,8 +173,9 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
   if (intent.status === 'MATCHED') {
     return (
       <SectionCard>
-        <h3 className="text-sm font-semibold text-emerald-300">
-          ✅ Оплата подтверждена
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-emerald-300">
+          <CheckCircleIcon className="h-5 w-5" />
+          Оплата подтверждена
         </h3>
         <p className="mt-1 text-xs text-white/60">
           Сумма {intent.expectedAmountUsdt.toFixed(2)} USDT получена. Заказ
@@ -187,8 +191,10 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold text-white">Оплата USDT</h3>
-          <p className="text-xs text-white/60">
-            Сеть: <span className="font-semibold">{PAYMENT_NETWORK_SHORT[intent.network]}</span>
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-white/60">
+            Сеть:
+            <NetworkLogo network={intent.network} className="h-4 w-4" />
+            <span className="font-semibold">{PAYMENT_NETWORK_SHORT[intent.network]}</span>
           </p>
         </div>
         <Countdown expiresAt={intent.expiresAt} />
@@ -348,9 +354,10 @@ function ManagerFallback() {
       href={MANAGER_TELEGRAM_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="mt-3 block w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-white/80 hover:bg-white/10"
+      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-white/80 hover:bg-white/10"
     >
-      💬 Оплатить другим способом / связаться с менеджером
+      <ChatIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+      Оплатить другим способом / связаться с менеджером
     </a>
   );
 }

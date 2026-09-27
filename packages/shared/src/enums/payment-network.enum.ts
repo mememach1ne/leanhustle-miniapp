@@ -20,7 +20,7 @@ export enum PaymentNetwork {
 
 /** Human-readable label shown in pickers (RU UI). */
 export const PAYMENT_NETWORK_LABELS: Record<PaymentNetwork, string> = {
-  [PaymentNetwork.TRC20]: 'USDT · TRC20 (Tron) — рекомендуем',
+  [PaymentNetwork.TRC20]: 'USDT · TRC20 (Tron)',
   [PaymentNetwork.BEP20]: 'USDT · BEP20 (BSC)',
   [PaymentNetwork.ERC20]: 'USDT · ERC20 (Ethereum)',
   [PaymentNetwork.TON]: 'USDT · TON',
