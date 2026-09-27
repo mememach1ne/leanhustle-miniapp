@@ -38,6 +38,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let isMounted = true;
 
     const bootstrapAuth = async () => {
+      // Detect the Mini App first, even when a session will be resumed below —
+      // otherwise the app is treated as a plain browser (shows "Выйти", skips
+      // ready/expand).
+      const resolvedWebApp = await waitForTelegramWebApp();
+      const webApp = resolvedWebApp ? initializeTelegramWebApp(resolvedWebApp) : null;
+
+      if (webApp?.initData) {
+        setTelegramContext({
+          initData: webApp.initData,
+          initDataUnsafe: webApp.initDataUnsafe,
+        });
+      }
+
       // 1) Resume an existing session if a JWT is already stored. This makes
       //    the browser version "remember" the user between visits and skips
       //    the login widget while the token is valid.
@@ -56,14 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // 2) Inside Telegram (Mini App): authenticate with initData.
-      const resolvedWebApp = await waitForTelegramWebApp();
-      const webApp = resolvedWebApp ? initializeTelegramWebApp(resolvedWebApp) : null;
-
       if (webApp?.initData) {
-        setTelegramContext({
-          initData: webApp.initData,
-          initDataUnsafe: webApp.initDataUnsafe,
-        });
         startAuth();
         try {
           const authPayload = await authApi.authenticateTelegram(webApp.initData);
