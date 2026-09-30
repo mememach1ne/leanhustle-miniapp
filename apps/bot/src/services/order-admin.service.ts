@@ -240,9 +240,10 @@ export class OrderAdminService {
     };
   }
 
+  // HTML-formatted; send with parse_mode: 'HTML'. Premium emoji via <tg-emoji>.
   getDownloadAppText() {
     return [
-      '📲 Официальное приложение POIZON',
+      '<tg-emoji emoji-id="6096080291347042802">📥</tg-emoji> <b>Официальное приложение POIZON</b>',
       '',
       'Выберите свою платформу:',
     ].join('\n');
@@ -251,7 +252,7 @@ export class OrderAdminService {
   // HTML-formatted; send with parse_mode: 'HTML'. Premium emoji via <tg-emoji>.
   getOtherMarketplacesText() {
     return [
-      'Мы можем доставить товары с любого китайского маркетплейса: <i>Taobao</i> <tg-emoji emoji-id="4911644425551086148">❤️</tg-emoji>, <i>1688</i> <tg-emoji emoji-id="5332275449298955804">💴</tg-emoji>, <i>95</i> <tg-emoji emoji-id="5239982301529533756">🇨🇳</tg-emoji>, <i>Рыбка</i> <tg-emoji emoji-id="5240062475684047887">🇨🇳</tg-emoji>, <i>Pinduoduo</i> <tg-emoji emoji-id="4909387957107950497">❤️</tg-emoji> <i>и других.</i>',
+      '<tg-emoji emoji-id="5431782733376399004">🇨🇳</tg-emoji> <b>Мы можем доставить товары с любого китайского маркетплейса:</b> <i>Taobao</i> <tg-emoji emoji-id="4911644425551086148">❤️</tg-emoji>, <i>1688</i> <tg-emoji emoji-id="5332275449298955804">💴</tg-emoji>, <i>95</i> <tg-emoji emoji-id="5239982301529533756">🇨🇳</tg-emoji>, <i>Рыбка</i> <tg-emoji emoji-id="5240062475684047887">🇨🇳</tg-emoji>, <i>Pinduoduo</i> <tg-emoji emoji-id="4909387957107950497">❤️</tg-emoji> <i>и других.</i>',
       '',
       'Также мы можем подсказать вам самую низкую цену. Просто напишите, что вам нужно, — менеджер найдёт самое выгодное предложение среди сотен магазинов в Китае.',
     ].join('\n');
@@ -330,9 +331,10 @@ export class OrderAdminService {
     return data === `${CLIENT_ACTION_PREFIX}back_to_welcome`;
   }
 
+  // HTML-formatted; send with parse_mode: 'HTML'. Premium emoji via <tg-emoji>.
   getGuideText() {
     return [
-      '📗 Инструкция',
+      '<tg-emoji emoji-id="5226512880362332956">📖</tg-emoji> <b>Инструкция по заказу</b>',
       '',
       'Выберите формат:',
     ].join('\n');
@@ -368,7 +370,7 @@ export class OrderAdminService {
   // HTML-formatted; send with parse_mode: 'HTML'. Premium emoji via <tg-emoji>.
   getReviewsText() {
     return [
-      '<tg-emoji emoji-id="5435957248314579621">⭐️</tg-emoji> Отзывы и выкупы',
+      '<tg-emoji emoji-id="5780463361175066565">✅</tg-emoji> <b>Отзывы и выкупы</b>',
       '',
       'Реальные отзывы наших клиентов и примеры выкупленных заказов — в наших каналах ниже.',
     ].join('\n');

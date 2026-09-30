@@ -232,6 +232,7 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
     if (orderAdminService.isClientDownloadAppCallback(data)) {
       await ctx.answerCbQuery();
       await ctx.editMessageText(orderAdminService.getDownloadAppText(), {
+        parse_mode: 'HTML',
         reply_markup: orderAdminService.buildDownloadAppKeyboard(),
       });
       return;
@@ -251,6 +252,7 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
     if (orderAdminService.isClientGuideCallback(data)) {
       await ctx.answerCbQuery();
       await ctx.editMessageText(orderAdminService.getGuideText(), {
+        parse_mode: 'HTML',
         reply_markup: orderAdminService.buildGuideKeyboard(),
       });
       return;
