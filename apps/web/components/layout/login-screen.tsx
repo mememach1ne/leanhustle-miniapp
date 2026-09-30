@@ -124,16 +124,6 @@ export function LoginScreen() {
             <GlassLink href={REVIEWS_URL}>Отзывы</GlassLink>
           </div>
         </div>
-
-        <a href="#guide" className="absolute bottom-6 left-1/2 -translate-x-1/2">
-          <span
-            className="lg-glass inline-flex items-center gap-2 rounded-full px-4 py-2 text-[11px] font-semibold uppercase text-white/70 transition hover:text-[var(--accent)]"
-            style={{ ...MONO, letterSpacing: '0.18em' }}
-          >
-            Инструкция
-            <span className="animate-bounce">↓</span>
-          </span>
-        </a>
       </section>
 
       {/* ── Guide ────────────────────────────────────────────── */}

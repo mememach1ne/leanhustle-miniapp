@@ -7,7 +7,6 @@ import { useEffect, useState } from 'react';
 import { AuthDebugBlock } from '../../../components/debug/auth-debug-block';
 import { LoyaltyCard } from '../../../components/profile/loyalty-card';
 import { EmptyState } from '../../../components/ui/empty-state';
-import { FaqAccordion } from '../../../components/ui/faq-accordion';
 import { ChatIcon, HelpIcon, LockIcon, MapPinIcon, ReceiptIcon } from '../../../components/ui/icons';
 import { LoadingBlock } from '../../../components/ui/loading-block';
 import { PageSection } from '../../../components/ui/page-section';
@@ -18,81 +17,7 @@ import { useAuthStore } from '../../../store/auth-store';
 
 const SUPPORT_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
 
-const FAQ_ITEMS = [
-  {
-    question: 'Сколько ждать доставку?',
-    answer: 'Среднее время доставки из Китая — 14–21 день. После отправки вы получите трек-код для отслеживания.',
-  },
-  {
-    question: 'Что такое пошлина?',
-    answer: 'Таможенная пошлина взимается при превышении лимита беспошлинного ввоза. Мы заранее рассчитываем примерную сумму и включаем в расчёт.',
-  },
-  {
-    question: 'Как проверить подлинность?',
-    answer: 'Все товары заказываются через Poizon, которая проводит проверку подлинности (легит-чек) каждого товара перед отправкой. Если вещь окажется неоригинальной, платформа отменит заказ и вернёт деньги.',
-  },
-  {
-    question: 'Как отслеживать заказ?',
-    answer: 'Менеджер после получения трек-кода введёт его в заказ. Вы получите уведомление в Telegram и сможете отследить посылку.',
-  },
-  {
-    question: 'Можно ли вернуть товар?',
-    answer: 'Возврат возможен только в том случае, если товар ещё не прибыл на склад в Китае. Свяжитесь с менеджером.',
-  },
-  {
-    question: 'Как происходит оплата?',
-    answer: 'Менеджер отправит реквизиты для оплаты. Выкуп — в USD, доставка и пошлина — в RUB.',
-  },
-  {
-    question: 'Почему на POIZON всё так дёшево?',
-    answer:
-      'Это не дёшево — это реальные цены за эти товары, но без накрутки со стороны ретейлеров и посредников. Мы берём комиссию непосредственно за заказ и более ни за что. Стоковые магазины в России, в которых вы можете обнаружить тот же Nike, но в 4 раза дороже, накручивают цену, так как их издержки на персонал, логистику, аренду и так далее куда выше, чем наши. Если вы зайдёте на официальные сайты брендов в Европе или США, вы увидите те же самые цены, что и на POIZON.',
-  },
-  {
-    question: 'Как правильно подобрать размер?',
-    answer: (
-      <>
-        Чаще всего у товаров указаны размерные сетки, но если вы не разобрались в них, вы можете
-        обратиться к{' '}
-        <a
-          href="https://t.me/lh_poizonmanager"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[var(--accent)] underline-offset-2 hover:underline"
-        >
-          нашему менеджеру
-        </a>
-        , и он обязательно поможет вам с решением данного вопроса.
-      </>
-    ),
-  },
-  {
-    question: 'Где почитать отзывы?',
-    answer: (
-      <>
-        Реальные отзывы наших клиентов и примеры выкупленных заказов — в наших каналах:
-        <div className="mt-3 flex flex-wrap gap-2">
-          <a
-            href="https://t.me/lh_poizonreviews"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent)]/40 bg-[var(--accent)]/15 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent)]/25 active:scale-95"
-          >
-            ⭐️ Отзывы
-          </a>
-          <a
-            href="https://t.me/lh_poizonpurchases"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent)]/40 bg-[var(--accent)]/15 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent)]/25 active:scale-95"
-          >
-            📦 Выкупы
-          </a>
-        </div>
-      </>
-    ),
-  },
-];
+const OTHER_MARKETPLACES = ['Taobao', '1688', '95', 'Рыбка', 'Pinduoduo'] as const;
 
 export default function ProfilePage() {
   const status = useAuthStore((state) => state.status);
@@ -209,19 +134,35 @@ export default function ProfilePage() {
         <LoyaltyCard />
       </div>
 
-      {/* FAQ — full-width, left aligned, two columns on desktop */}
-      <details className="group">
-        <summary className="flex cursor-pointer items-center gap-2 py-2 text-base font-semibold text-white [&::-webkit-details-marker]:hidden">
-          <span className="flex-shrink-0 text-xs text-[var(--muted)] transition-transform group-open:rotate-90">▶</span>
-          Часто задаваемые вопросы
-        </summary>
-        <div className="mt-3">
-          <FaqAccordion
-            items={FAQ_ITEMS}
-            className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0"
-          />
+      {/* Other Chinese marketplaces — ordered through the manager. */}
+      <div className="lg-surface rounded-[26px] p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className="font-display text-[16px] font-bold text-white">Не только Poizon</h3>
+          <span className="text-[11px] font-semibold text-[var(--muted)]">через менеджера</span>
         </div>
-      </details>
+        <p className="mt-1 text-[12.5px] leading-5 text-[var(--muted)]">
+          Доставим товары с любого китайского маркетплейса — менеджер найдёт самое выгодное
+          предложение.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {OTHER_MARKETPLACES.map((name) => (
+            <span
+              key={name}
+              className="rounded-full bg-white/[0.06] px-3 py-1 text-[12px] font-semibold text-white"
+            >
+              {name}
+            </span>
+          ))}
+        </div>
+        <a
+          href={SUPPORT_TELEGRAM_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="lg-accent-button mt-3.5 flex h-11 w-full items-center justify-center rounded-full text-sm font-bold transition active:scale-[0.98]"
+        >
+          Написать менеджеру
+        </a>
+      </div>
 
       {/* Logout — mobile browser only (desktop uses the sidebar). */}
       <div className="lg:hidden">

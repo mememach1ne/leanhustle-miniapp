@@ -617,7 +617,7 @@ function CalculatorPageContent() {
           <EmptyState
             icon={<LinkIcon />}
             title="Начните со ссылки"
-            description="Вставьте ссылку Poizon, чтобы увидеть карточку товара, доступные размеры и предварительный расчёт."
+            description="Вставьте ссылку с Poizon, чтобы увидеть карточку товара, доступные размеры и предварительный расчёт."
           />
 
           {/* Desktop "how it works" strip — fills the wide canvas and reads

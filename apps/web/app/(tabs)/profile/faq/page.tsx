@@ -79,7 +79,7 @@ const FAQ_ITEMS = [
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent)]/40 bg-[var(--accent)]/15 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent)]/25 active:scale-95"
           >
-            ⭐️ Отзывы
+            Отзывы
           </a>
           <a
             href="https://t.me/lh_poizonpurchases"
@@ -87,7 +87,7 @@ const FAQ_ITEMS = [
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent)]/40 bg-[var(--accent)]/15 px-3 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent)]/25 active:scale-95"
           >
-            📦 Выкупы
+            Выкупы
           </a>
         </div>
       </>

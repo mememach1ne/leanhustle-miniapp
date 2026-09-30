@@ -2,6 +2,7 @@
 
 import type { CatalogSortKey, CatalogTypeOption } from '@lean-poizon/shared';
 import { CATALOG_TYPE_OPTIONS } from '@lean-poizon/shared';
+import axios from 'axios';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { CatalogFilterDropdown } from '../../../components/ui/catalog-filter-dropdown';
@@ -29,12 +30,20 @@ const SORT_OPTIONS: Array<{ value: CatalogSortKey; label: string }> = [
   { value: 'price_desc', label: 'Сначала дороже' },
 ];
 
+const SERVER_UNAVAILABLE_MESSAGE =
+  'Сервер временно не отвечает. Попробуйте позже или найдите товар в оригинальном приложении Poizon и вставьте ссылку в «Калькулятор».';
+
+/** Timeout, network failure or a 5xx from the api / catalog engine. */
+const isServerUnavailable = (error: unknown): boolean =>
+  axios.isAxiosError(error) && (!error.response || error.response.status >= 500);
+
 type OpenDropdown = 'category' | 'sort' | 'help' | null;
 
 export default function CatalogPage() {
   const [openDropdown, setOpenDropdown] = useState<OpenDropdown>(null);
   const [quickViewSpuId, setQuickViewSpuId] = useState<string | null>(null);
   const isFetchingRef = useRef(false);
+  const requestIdRef = useRef(0);
 
   const selectedType = useCatalogStore((state) => state.selectedType);
   const sort = useCatalogStore((state) => state.sort);
@@ -62,7 +71,10 @@ export default function CatalogPage() {
 
   const loadPage = useCallback(
     async (targetPage: number) => {
-      if (isFetchingRef.current) return;
+      // A new filter/search (page 1) always wins over an in-flight request;
+      // only "load more" waits for the current one.
+      if (targetPage > 1 && isFetchingRef.current) return;
+      const requestId = ++requestIdRef.current;
       isFetchingRef.current = true;
       if (targetPage === 1) startInitialLoad();
       else startLoadMore();
@@ -77,13 +89,17 @@ export default function CatalogPage() {
               limit: PAGE_LIMIT,
             })
           : await catalogApi.list({ page: targetPage, limit: PAGE_LIMIT, sort });
+        if (requestId !== requestIdRef.current) return;
         setPageResult(response.items, targetPage, response.hasMore, targetPage > 1);
       } catch (requestError) {
+        if (requestId !== requestIdRef.current) return;
         setError(
-          extractAxiosMessage(requestError) ?? 'Не удалось загрузить каталог. Попробуйте ещё раз позже.',
+          isServerUnavailable(requestError)
+            ? SERVER_UNAVAILABLE_MESSAGE
+            : (extractAxiosMessage(requestError) ?? SERVER_UNAVAILABLE_MESSAGE),
         );
       } finally {
-        isFetchingRef.current = false;
+        if (requestId === requestIdRef.current) isFetchingRef.current = false;
       }
     },
     [hasFilters, selectedType, debouncedQuery, sort, startInitialLoad, startLoadMore, setPageResult, setError],
