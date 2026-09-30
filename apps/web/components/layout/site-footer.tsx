@@ -3,6 +3,8 @@
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 
+import { type Marketplace, MarketplaceLogo } from '../ui/marketplace-logo';
+
 export const BOT_URL = 'https://t.me/lh_poizonbot';
 export const MANAGER_URL = 'https://t.me/lh_poizonmanager';
 export const PURCHASES_URL = 'https://t.me/lh_poizonpurchases';
@@ -16,13 +18,13 @@ const DISPLAY: React.CSSProperties = {
 };
 
 const MARKETPLACES = [
-  { name: 'Poizon', note: 'Автоматический расчёт прямо в приложении', auto: true },
-  { name: 'Taobao', note: 'Крупнейший маркетплейс Китая', auto: false },
-  { name: '1688', note: 'Оптовые цены напрямую от фабрик', auto: false },
-  { name: '95', note: 'Брендовые вещи с проверкой подлинности', auto: false },
-  { name: 'Рыбка (Xianyu)', note: 'Вещи с рук по низким ценам', auto: false },
-  { name: 'Pinduoduo', note: 'Товары на каждый день по низким ценам', auto: false },
-] as const;
+  { name: 'Poizon', logo: 'poizon', note: 'Автоматический расчёт прямо в приложении', auto: true },
+  { name: 'Taobao', logo: 'taobao', note: 'Крупнейший маркетплейс Китая', auto: false },
+  { name: '1688', logo: '1688', note: 'Оптовые цены напрямую от фабрик', auto: false },
+  { name: '95', logo: '95', note: 'Брендовые вещи с проверкой подлинности', auto: false },
+  { name: 'Goofish', logo: 'goofish', note: 'Вещи с рук по низким ценам', auto: false },
+  { name: 'Pinduoduo', logo: 'pinduoduo', note: 'Товары на каждый день по низким ценам', auto: false },
+] as const satisfies ReadonlyArray<{ name: string; logo: Marketplace; note: string; auto: boolean }>;
 
 const CONTACTS = [
   { label: 'Менеджер', href: MANAGER_URL },
@@ -68,7 +70,8 @@ export function MarketplacesSection() {
             key={market.name}
             className="lg-glass flex items-center justify-between gap-4 rounded-[22px] px-5 py-4"
           >
-            <div className="min-w-0">
+            <MarketplaceLogo marketplace={market.logo} className="h-10 w-10 shrink-0" />
+            <div className="min-w-0 flex-1">
               <h3 className="text-base font-bold text-white">{market.name}</h3>
               <p className="mt-0.5 text-xs leading-5 text-white/60">{market.note}</p>
             </div>

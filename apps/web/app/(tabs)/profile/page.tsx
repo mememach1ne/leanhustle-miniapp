@@ -9,6 +9,7 @@ import { LoyaltyCard } from '../../../components/profile/loyalty-card';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { ChatIcon, HelpIcon, LockIcon, MapPinIcon, ReceiptIcon } from '../../../components/ui/icons';
 import { LoadingBlock } from '../../../components/ui/loading-block';
+import { type Marketplace, MarketplaceLogo } from '../../../components/ui/marketplace-logo';
 import { PageSection } from '../../../components/ui/page-section';
 import { SectionCard } from '../../../components/ui/section-card';
 import { ordersApi } from '../../../lib/api-client';
@@ -17,7 +18,13 @@ import { useAuthStore } from '../../../store/auth-store';
 
 const SUPPORT_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
 
-const OTHER_MARKETPLACES = ['Taobao', '1688', '95', 'Рыбка', 'Pinduoduo'] as const;
+const OTHER_MARKETPLACES: Array<{ name: string; logo: Marketplace }> = [
+  { name: 'Taobao', logo: 'taobao' },
+  { name: '1688', logo: '1688' },
+  { name: '95', logo: '95' },
+  { name: 'Goofish', logo: 'goofish' },
+  { name: 'Pinduoduo', logo: 'pinduoduo' },
+];
 
 export default function ProfilePage() {
   const status = useAuthStore((state) => state.status);
@@ -136,21 +143,19 @@ export default function ProfilePage() {
 
       {/* Other Chinese marketplaces — ordered through the manager. */}
       <div className="lg-surface rounded-[26px] p-4">
-        <div className="flex items-baseline justify-between gap-3">
-          <h3 className="font-display text-[16px] font-bold text-white">Не только Poizon</h3>
-          <span className="text-[11px] font-semibold text-[var(--muted)]">через менеджера</span>
-        </div>
+        <h3 className="font-display text-[16px] font-bold text-white">Не только Poizon</h3>
         <p className="mt-1 text-[12.5px] leading-5 text-[var(--muted)]">
           Доставим товары с любого китайского маркетплейса — менеджер найдёт самое выгодное
           предложение.
         </p>
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {OTHER_MARKETPLACES.map((name) => (
+          {OTHER_MARKETPLACES.map((market) => (
             <span
-              key={name}
-              className="rounded-full bg-white/[0.06] px-3 py-1 text-[12px] font-semibold text-white"
+              key={market.name}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] py-1 pl-1 pr-3 text-[12px] font-semibold text-white"
             >
-              {name}
+              <MarketplaceLogo marketplace={market.logo} className="h-5 w-5 shrink-0" />
+              {market.name}
             </span>
           ))}
         </div>
