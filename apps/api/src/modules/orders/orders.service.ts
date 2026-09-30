@@ -1194,6 +1194,8 @@ export class OrdersService {
           result.userTelegramId,
           result.orderNumber,
           SharedOrderStatus.DELIVERY_PAYMENT_PENDING,
+          null,
+          { amountRub: actualDeliveryRub },
         );
       } catch (error) {
         this.logger.warn(
@@ -1337,6 +1339,8 @@ export class OrdersService {
           result.userTelegramId,
           result.orderNumber,
           SharedOrderStatus.DUTY_PAYMENT_PENDING,
+          null,
+          { amountRub: actualDutyRub },
         );
       } catch (error) {
         this.logger.warn(

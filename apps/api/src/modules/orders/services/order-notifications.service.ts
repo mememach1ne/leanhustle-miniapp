@@ -7,6 +7,15 @@ import {
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
+
+const escapeHtml = (value: string): string =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+const formatRub = (value: number): string =>
+  `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value)} ₽`;
+
+
 @Injectable()
 export class OrderNotificationsService {
   private readonly logger = new Logger(OrderNotificationsService.name);
@@ -123,6 +132,7 @@ export class OrderNotificationsService {
     orderNumber: string,
     newStatus: OrderStatus,
     trackCode?: string | null,
+    details: { amountRub?: number } = {},
   ): Promise<void> {
     const botToken = this.configService.get<string>('telegram.botToken');
 
@@ -130,13 +140,7 @@ export class OrderNotificationsService {
       return;
     }
 
-    const statusLabel = this.getStatusLabel(newStatus, trackCode);
-    const text = [
-      `Обновление по заявке ${orderNumber}`,
-      '',
-      `Новый статус: ${statusLabel}`,
-      ...(trackCode ? [`Трек-код: ${trackCode}`] : []),
-    ].join('\n');
+    const text = this.buildClientStatusText(orderNumber, newStatus, trackCode, details.amountRub);
 
     try {
       const response = await fetch(
@@ -151,6 +155,9 @@ export class OrderNotificationsService {
           body: JSON.stringify({
             chat_id: userTelegramId,
             text,
+            parse_mode: 'HTML',
+            link_preview_options: { is_disabled: true },
+            reply_markup: this.buildClientKeyboard(newStatus, trackCode),
           }),
         },
       );
@@ -167,6 +174,131 @@ export class OrderNotificationsService {
         `Failed to notify user ${userTelegramId}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /**
+   * Customer-facing status message (Telegram HTML, no emoji): a bold
+   * headline, what happened and what comes next.
+   */
+  private buildClientStatusText(
+    orderNumber: string,
+    status: OrderStatus,
+    trackCode?: string | null,
+    amountRub?: number,
+  ): string {
+    const order = `<b>${escapeHtml(orderNumber)}</b>`;
+    const amount = typeof amountRub === 'number' ? formatRub(amountRub) : null;
+    const lines = (headline: string, ...body: string[]) =>
+      [`<b>${headline}</b>`, '', ...body].join('\n');
+
+    switch (status) {
+      case OrderStatus.CREATED:
+        return lines(
+          'Заказ оформлен',
+          `Менеджер оформил для вас заказ ${order}.`,
+          'Откройте его в приложении, проверьте состав и оплатите товар в USDT.',
+        );
+      case OrderStatus.PAYMENT_PENDING:
+        return lines(
+          'Заказ ждёт оплаты',
+          `Заказ ${order} готов к оплате.`,
+          'Откройте его в приложении и оплатите товар в USDT: сеть выбираете сами, платёж подтвердится автоматически.',
+        );
+      case OrderStatus.PAID_AWAITING_PURCHASE:
+        return lines(
+          'Оплата получена',
+          `Спасибо! Заказ ${order} оплачен.`,
+          'В ближайшее время выкупим товар на Poizon и сообщим, когда он будет выкуплен.',
+        );
+      case OrderStatus.PURCHASED:
+        return lines(
+          'Товар выкуплен',
+          `Заказ ${order} выкуплен на Poizon.`,
+          'Товар пройдёт проверку подлинности и отправится к нам. Когда посылку взвесят, пришлём стоимость доставки.',
+        );
+      case OrderStatus.DELIVERY_PAYMENT_PENDING:
+        return lines(
+          amount ? `Стоимость доставки: ${amount}` : 'Рассчитана стоимость доставки',
+          `Доставка из Китая по заказу ${order} рассчитана по фактическому весу.`,
+          'Менеджер свяжется с вами для оплаты.',
+        );
+      case OrderStatus.DELIVERY_PAID:
+        return lines(
+          'Доставка оплачена',
+          `Спасибо! Заказ ${order} отправляется в Россию.`,
+          'Если потребуется таможенная пошлина, мы сообщим отдельно.',
+        );
+      case OrderStatus.DUTY_PAYMENT_PENDING:
+        return amountRub === 0
+          ? lines(
+              'Пошлина не требуется',
+              `Стоимость заказа ${order} укладывается в беспошлинный лимит.`,
+              'Трек-код для отслеживания пришлём, как только он появится.',
+            )
+          : lines(
+              amount ? `Таможенная пошлина: ${amount}` : 'Рассчитана таможенная пошлина',
+              `Заказ ${order} превышает беспошлинный лимит, поэтому начислена пошлина.`,
+              'Менеджер свяжется с вами для оплаты.',
+            );
+      case OrderStatus.DUTY_PAID:
+        return lines(
+          'Пошлина оплачена',
+          `Спасибо! Заказ ${order} проходит таможенное оформление.`,
+          'Трек-код для отслеживания пришлём, как только он появится.',
+        );
+      case OrderStatus.TRACK_CODE_RECEIVED:
+        return lines(
+          'Посылка в пути',
+          `Заказ ${order} передан в СДЭК.`,
+          ...(trackCode
+            ? [
+                '',
+                `Трек-код: <code>${escapeHtml(trackCode)}</code>`,
+                'Нажмите на трек-код, чтобы скопировать его.',
+              ]
+            : []),
+        );
+      case OrderStatus.DELIVERED:
+        return lines(
+          'Заказ доставлен',
+          `Заказ ${order} завершён. Спасибо, что выбрали LEAN HUSTLE POIZON!`,
+          'Будем рады вашему отзыву — напишите менеджеру, как вам заказ.',
+        );
+      case OrderStatus.CANCELLED:
+        return lines(
+          'Заказ отменён',
+          `Заказ ${order} отменён.`,
+          'Если это ошибка или остались вопросы, напишите менеджеру.',
+        );
+      default:
+        return lines('Статус заказа обновлён', `Заказ ${order}: ${this.getStatusLabel(status, trackCode)}.`);
+    }
+  }
+
+  private buildClientKeyboard(status: OrderStatus, trackCode?: string | null) {
+    const miniAppUrl =
+      this.configService.get<string>('telegram.miniAppUrl') || 'https://leanhustle.ru';
+    const rows: Array<Array<Record<string, unknown>>> = [];
+
+    if (status === OrderStatus.TRACK_CODE_RECEIVED && trackCode) {
+      rows.push([
+        {
+          text: 'Отследить в СДЭК',
+          url: `https://www.cdek.ru/ru/tracking?order_id=${encodeURIComponent(trackCode)}`,
+          style: 'primary',
+        },
+      ]);
+    }
+    rows.push([
+      {
+        text: 'Открыть заказ',
+        web_app: { url: `${miniAppUrl.replace(/\/$/, '')}/profile/orders` },
+        ...(status === OrderStatus.TRACK_CODE_RECEIVED ? {} : { style: 'primary' }),
+      },
+      { text: 'Менеджер', url: MANAGER_TELEGRAM_URL },
+    ]);
+
+    return { inline_keyboard: rows };
   }
 
   buildMessage(order: StaffOrderDetailsDto, user?: UserProfile): string {
