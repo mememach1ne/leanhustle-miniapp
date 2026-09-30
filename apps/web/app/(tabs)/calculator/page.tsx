@@ -57,7 +57,7 @@ const validatePoizonLink = (rawLink: string): string | null => {
   try {
     url = new URL(trimmed);
   } catch {
-    return 'Это не ссылка. Скопируй ссылку на товар из приложения Poizon.';
+    return 'Это не ссылка. Скопируйте ссылку на товар из приложения Poizon.';
   }
 
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
@@ -526,7 +526,7 @@ function CalculatorPageContent() {
                 // already focused — guide the user to the native Paste.
                 if (isIosTelegram()) {
                   setPasteHint(
-                    '👆 Нажми «Paste» над клавиатурой или удерживай поле → «Вставить»',
+                    '👆 Нажмите «Paste» над клавиатурой или удерживайте поле → «Вставить»',
                   );
                 }
               }}
@@ -558,7 +558,7 @@ function CalculatorPageContent() {
             onClick={() => setIsHelpOpen(!isHelpOpen)}
             className="text-xs text-[var(--accent)] transition hover:underline"
           >
-            {isHelpOpen ? 'Скрыть подсказку ▲' : 'Как скопировать ссылку? ▼'}
+            {isHelpOpen ? 'Скрыть подсказку' : 'Как скопировать ссылку?'}
           </button>
 
           {isHelpOpen ? (
@@ -607,7 +607,7 @@ function CalculatorPageContent() {
       {isLoadingProduct ? (
         <LoadingBlock
           title="Загружаем карточку товара"
-          description="Проверяем ссылку, получаем карточку Poizon и готовим размеры."
+          description="Проверяем ссылку, получаем карточку Poizon и готовим размеры. Обычно это занимает 10–20 секунд."
         />
       ) : null}
 
@@ -616,7 +616,7 @@ function CalculatorPageContent() {
         <>
           <EmptyState
             icon={<LinkIcon />}
-            title="Начните с ссылки"
+            title="Начните со ссылки"
             description="Вставьте ссылку Poizon, чтобы увидеть карточку товара, доступные размеры и предварительный расчёт."
           />
 
@@ -694,7 +694,7 @@ function CalculatorPageContent() {
                   onClick={() => setIsPriceHelpOpen(!isPriceHelpOpen)}
                   className="mt-2 text-xs text-[var(--accent)] transition hover:underline"
                 >
-                  {isPriceHelpOpen ? 'Скрыть ▲' : 'Где найти цену? ▼'}
+                  {isPriceHelpOpen ? 'Скрыть' : 'Где найти цену?'}
                 </button>
 
                 {isPriceHelpOpen ? (
@@ -1153,7 +1153,7 @@ export default function CalculatorPage() {
         <PageSection>
           <LoadingBlock
             title="Загружаем карточку товара"
-            description="Проверяем ссылку, получаем карточку Poizon и готовим размеры."
+            description="Проверяем ссылку, получаем карточку Poizon и готовим размеры. Обычно это занимает 10–20 секунд."
           />
         </PageSection>
       }

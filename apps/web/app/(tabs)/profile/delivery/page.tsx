@@ -296,7 +296,7 @@ export default function DeliveryPage() {
         <EmptyState
           icon={<LockIcon />}
           title="Нужна авторизация"
-          description="Данные доставки доступны только внутри Telegram Mini App."
+          description="Данные доставки доступны после входа через Telegram."
         />
       </PageSection>
     );

@@ -59,7 +59,7 @@ export function MarketplacesSection() {
       <SectionHead kicker="LH — China" title="Не только Poizon" />
       <p className="mx-auto -mt-4 mb-8 max-w-xl text-center text-sm leading-6 text-white/70">
         Доставим товары с любого китайского маркетплейса. Напишите менеджеру, что нужно, — он
-        найдёт самую низкую цену среди сотен магазинов Китая.
+        найдёт самое выгодное предложение среди сотен магазинов Китая.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">

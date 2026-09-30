@@ -40,6 +40,11 @@ export function CatalogHelpPopover({
             <h4 className="text-sm font-semibold text-white">Как искать товары</h4>
             <ul className="mt-3 space-y-2.5 text-xs leading-5 text-[var(--muted)]">
               <li>
+                <span className="text-white">Здесь не весь ассортимент.</span> В каталоге —
+                популярная часть товаров Poizon. Если нужной вещи нет, найдите её в самом приложении
+                Poizon и вставьте ссылку в «Калькулятор».
+              </li>
+              <li>
                 <span className="text-white">Пишите на английском.</span> Каталог ищет по
                 названиям с сайта Poizon — русские слова он не поймёт. Например:{' '}
                 <span className="text-white">nike</span>, <span className="text-white">jacket</span>,{' '}

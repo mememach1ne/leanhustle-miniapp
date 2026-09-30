@@ -112,7 +112,7 @@ export class OrdersService {
     });
 
     if (!deliveryAddress) {
-      throw new BadRequestException('Адрес доставки не найден. Заполните данные в разделе «Мои данные».');
+      throw new BadRequestException('Адрес доставки не найден. Добавьте адрес в разделе «Профиль → Адреса».');
     }
 
     const settings = await this.settingsService.getCurrentSettings();
@@ -309,7 +309,7 @@ export class OrdersService {
 
     if (!client) {
       throw new BadRequestException(
-        `Клиент @${normalizedUsername} не найден. Попроси клиента запустить бота, чтобы он появился в базе.`,
+        `Клиент @${normalizedUsername} не найден. Попросите клиента запустить бота, чтобы он появился в базе.`,
       );
     }
 
@@ -357,7 +357,7 @@ export class OrdersService {
 
     if (!client) {
       throw new BadRequestException(
-        `Клиент @${normalizedUsername} не найден. Попроси клиента запустить бота, чтобы он появился в базе.`,
+        `Клиент @${normalizedUsername} не найден. Попросите клиента запустить бота, чтобы он появился в базе.`,
       );
     }
 
@@ -1069,7 +1069,7 @@ export class OrdersService {
     for (const order of candidates) {
       try {
         await this.executeCancellation(order.id, order.status as OrderStatus, {
-          reason: 'Авто-отмена: статус не менялся слишком долго',
+          reason: 'Автоотмена: статус не менялся слишком долго',
           changedByStaffId: null,
         });
 

@@ -55,7 +55,7 @@ export class NewCategoryNotificationService {
       `Пользователь: ${userLine}`,
       `Кол-во встреч: ${event.encounterCount}`,
       '',
-      'Открой раздел «Непроверенные категории» в меню чтобы ввести вес.',
+      'Откройте раздел «Непроверенные категории» в меню, чтобы ввести вес.',
     ];
 
     await Promise.allSettled(

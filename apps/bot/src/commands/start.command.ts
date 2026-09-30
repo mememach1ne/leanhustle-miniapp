@@ -221,7 +221,7 @@ export const registerStartCommand = (bot: Telegraf<BotContext>) => {
       } else {
         // Don't add a new message — show alert popup instead.
         await ctx.answerCbQuery(
-          'Подписка не найдена. Подпишись на @lh_poizon и попробуй снова.',
+          'Подписка не найдена. Подпишитесь на @lh_poizon и попробуйте снова.',
           { show_alert: true },
         );
       }

@@ -338,7 +338,7 @@ export class SettingsService {
 
   private assertStaff(staff?: StaffAccount) {
     if (!staff || !staff.isActive) {
-      throw new ForbiddenException('Доступ разрешён только для сотрудников.');
+      throw new ForbiddenException('Доступ разрешён только сотрудникам.');
     }
   }
 

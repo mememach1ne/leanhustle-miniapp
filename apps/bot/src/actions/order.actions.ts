@@ -370,7 +370,7 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
     if (pendingActualDuty) {
       const parsed = orderAdminService.parseNumericInput(text);
       if (parsed === null || parsed < 0) {
-        await ctx.reply('Не удалось распознать сумму. Введите число в рублях (0 если пошлины нет).');
+        await ctx.reply('Не удалось распознать сумму. Введите число в рублях (0, если пошлины нет).');
         return;
       }
       try {

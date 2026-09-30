@@ -244,7 +244,7 @@ export class OrderAdminService {
     return [
       '📲 Официальное приложение POIZON',
       '',
-      'Выбери свою платформу:',
+      'Выберите свою платформу:',
     ].join('\n');
   }
 
@@ -334,7 +334,7 @@ export class OrderAdminService {
     return [
       '📗 Инструкция',
       '',
-      'Выбери формат:',
+      'Выберите формат:',
     ].join('\n');
   }
 
@@ -409,11 +409,11 @@ export class OrderAdminService {
 
   getSubscriptionRequiredText() {
     return [
-      '<tg-emoji emoji-id="5472308992514464048">🔐</tg-emoji> Для использования бота подпишись на наш новостной канал',
+      '<tg-emoji emoji-id="5472308992514464048">🔐</tg-emoji> Для использования бота подпишитесь на наш новостной канал',
       '',
       'Там — анонсы новых дропов, скидки и обновления сервиса.',
       '',
-      'После подписки нажми «Проверить подписку».',
+      'После подписки нажмите «Проверить подписку».',
     ].join('\n');
   }
 
@@ -444,9 +444,9 @@ export class OrderAdminService {
 
   getSubscriptionStillMissingText() {
     return [
-      '❌ Похоже, ты ещё не подписан на канал.',
+      '❌ Похоже, вы ещё не подписаны на канал.',
       '',
-      'Подпишись на @lh_poizon и нажми «Проверить подписку» ещё раз.',
+      'Подпишитесь на @lh_poizon и нажмите «Проверить подписку» ещё раз.',
     ].join('\n');
   }
 
@@ -937,7 +937,7 @@ export class OrderAdminService {
 
   buildManualItemResolvedPrompt(product: DewuResolvedProduct): string {
     const lines = [
-      '✅ Товар распознан Poizon API.',
+      '✅ Товар распознан через Poizon API.',
       '',
       `Название: ${product.title}`,
     ];
@@ -1173,7 +1173,7 @@ export class OrderAdminService {
     return [
       '📦 Все категории',
       '',
-      'Выбери подкатегорию для просмотра и редактирования веса.',
+      'Выберите подкатегорию для просмотра и редактирования веса.',
     ].join('\n');
   }
 
@@ -1204,7 +1204,7 @@ export class OrderAdminService {
     if (count === 0) {
       return `${label}\n\nКатегорий нет.`;
     }
-    return `${label}\n\nВыбери категорию для редактирования.`;
+    return `${label}\n\nВыберите категорию для редактирования.`;
   }
 
   buildGroupCategoriesKeyboard(
@@ -1409,8 +1409,8 @@ export class OrderAdminService {
       `Сервисный сбор пошлины: ${settings.dutyProcessingFeeRub.toFixed(2)} ₽`,
       '',
       canEdit
-        ? 'Admin может изменить курсы, комиссию и доставку кнопками ниже или командами.'
-        : 'Manager может только просматривать настройки и историю изменений.',
+        ? 'Администратор может изменить курсы, комиссию и доставку кнопками ниже или командами.'
+        : 'Менеджер может только просматривать настройки и историю изменений.',
     ].join('\n');
   }
 
@@ -1490,7 +1490,7 @@ export class OrderAdminService {
       ...logs.map((log, index) => {
         const actor = log.changedByStaff?.username
           ? `@${log.changedByStaff.username}`
-          : log.changedByStaff?.telegramId ?? 'неизвестный staff';
+          : log.changedByStaff?.telegramId ?? 'неизвестный сотрудник';
 
         const diffs = log.changedFields.map((field) => {
           const previous = log.previousValues?.[field];
@@ -1735,7 +1735,7 @@ export class OrderAdminService {
     const text = [
       `${title} — стр. ${safePage}/${totalPages} • Всего: ${orders.length}`,
       '',
-      'Нажми на заказ чтобы открыть.',
+      'Нажмите на заказ, чтобы открыть его.',
     ].join('\n');
 
     const inline_keyboard: InlineKeyboardMarkup['inline_keyboard'] = slice.map((order) => {
@@ -2149,7 +2149,7 @@ export class OrderAdminService {
       case OrderStatus.TRACK_CODE_RECEIVED:
         return trackCode ? `Трек-код получен — ${trackCode}` : 'Трек-код получен';
       case OrderStatus.DELIVERED:
-        return 'Доставлено';
+        return 'Доставлен';
       case OrderStatus.CANCELLED:
         return 'Отменён';
       default:

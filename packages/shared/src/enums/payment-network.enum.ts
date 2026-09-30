@@ -46,6 +46,24 @@ export const PAYMENT_NETWORK_SHORT: Record<PaymentNetwork, string> = {
   [PaymentNetwork.APTOS]: 'Aptos',
 };
 
+/**
+ * Typical time until a deposit is credited on Bybit, shown to the customer.
+ * Derived from Bybit's required confirmations per chain
+ * (/v5/asset/coin/query-info, 2026-09) × block time, plus network propagation.
+ */
+export const PAYMENT_NETWORK_ETA: Record<PaymentNetwork, string> = {
+  [PaymentNetwork.TRC20]: '1–3 мин',
+  [PaymentNetwork.BEP20]: '1–3 мин',
+  [PaymentNetwork.ERC20]: '3–10 мин',
+  [PaymentNetwork.TON]: 'до 1 мин',
+  [PaymentNetwork.SOL]: '1–3 мин',
+  [PaymentNetwork.POLYGON]: '2–5 мин',
+  [PaymentNetwork.ARBITRUM]: '1–3 мин',
+  [PaymentNetwork.AVALANCHE]: '1–3 мин',
+  [PaymentNetwork.OPTIMISM]: '1–3 мин',
+  [PaymentNetwork.APTOS]: 'до 1 мин',
+};
+
 /** Default short-list that we surface to the user first. */
 export const PAYMENT_NETWORK_DEFAULTS: PaymentNetwork[] = [
   PaymentNetwork.TRC20,

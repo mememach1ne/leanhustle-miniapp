@@ -236,7 +236,7 @@ export class OrderNotificationsService {
       case OrderStatus.DUTY_PAID:
         return 'Пошлина оплачена';
       case OrderStatus.DELIVERED:
-        return 'Доставлено';
+        return 'Доставлен';
       case OrderStatus.CANCELLED:
         return 'Отменён';
       default:
@@ -259,8 +259,8 @@ export class OrderNotificationsService {
     const text = [
       `💸 Клиент произвёл автооплату по заказу ${orderNumber}.`,
       '',
-      `Крипто-депозит USDT · ${network} на ${amountUsdt.toFixed(2)} получен и подтверждён сервером.`,
-      'Заказ переведён в «Оплачен, ожидает выкупа».',
+      `Криптодепозит USDT · ${network} на ${amountUsdt.toFixed(2)} получен и подтверждён сервером.`,
+      'Заказ переведён в статус «Оплачен, ожидается выкуп».',
     ].join('\n');
 
     await Promise.allSettled(

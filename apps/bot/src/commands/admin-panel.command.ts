@@ -56,7 +56,7 @@ const assertAdminPanel = async (ctx: BotContext) => {
     return true;
   }
 
-  await ctx.answerCbQuery('Изменять бизнес-настройки может только admin.', {
+  await ctx.answerCbQuery('Изменять бизнес-настройки может только администратор.', {
     show_alert: true,
   });
   return false;

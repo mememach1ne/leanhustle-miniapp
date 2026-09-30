@@ -65,7 +65,7 @@ export class StaffService {
 
   assertAdmin(staff?: StaffAccount | null) {
     if (!this.isAdmin(staff)) {
-      throw new ForbiddenException('Только admin может выполнять это действие.');
+      throw new ForbiddenException('Только администратор может выполнять это действие.');
     }
   }
 }

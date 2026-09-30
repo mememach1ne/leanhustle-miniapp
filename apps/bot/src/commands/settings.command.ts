@@ -45,7 +45,7 @@ const assertAdminOrReply = async (ctx: BotContext) => {
     return true;
   }
 
-  await ctx.reply('Изменять бизнес-настройки может только admin.');
+  await ctx.reply('Изменять бизнес-настройки может только администратор.');
   return false;
 };
 

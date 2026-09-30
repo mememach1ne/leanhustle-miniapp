@@ -39,14 +39,14 @@ export class ProductRateLimitService {
 
     if (minuteCount >= PER_MINUTE_LIMIT) {
       throw new HttpException(
-        'Слишком много запросов подряд. Подожди минуту и попробуй снова.',
+        'Слишком много запросов подряд. Подождите минуту и попробуйте снова.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
     if (dayCount >= DAILY_LIMIT) {
       throw new HttpException(
-        `Достигнут дневной лимит запросов (${DAILY_LIMIT}/день). Попробуй завтра или напиши менеджеру.`,
+        `Достигнут дневной лимит запросов (${DAILY_LIMIT}/день). Попробуйте завтра или напишите менеджеру.`,
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }

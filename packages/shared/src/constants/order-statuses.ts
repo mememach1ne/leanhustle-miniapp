@@ -10,6 +10,6 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   [OrderStatus.DELIVERY_PAID]: 'Доставка оплачена',
   [OrderStatus.DUTY_PAYMENT_PENDING]: 'Ожидание оплаты пошлины',
   [OrderStatus.DUTY_PAID]: 'Пошлина оплачена',
-  [OrderStatus.DELIVERED]: 'Доставлено',
-  [OrderStatus.CANCELLED]: 'Отменено',
+  [OrderStatus.DELIVERED]: 'Доставлен',
+  [OrderStatus.CANCELLED]: 'Отменён',
 };

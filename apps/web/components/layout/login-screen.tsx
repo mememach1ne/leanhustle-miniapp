@@ -113,8 +113,8 @@ export function LoginScreen() {
           </h1>
 
           <p className="max-w-md text-sm font-medium leading-6 text-white" style={READABLE}>
-            Заказывай оригинальные товары с Poizon в Россию: рассчитывай стоимость, собирай корзину
-            и отслеживай заказы прямо в Telegram.
+            Заказывайте оригинальные товары с Poizon в Россию: рассчитывайте стоимость, собирайте
+            корзину и отслеживайте заказы прямо в Telegram.
           </p>
 
           <BotLoginButton className="mt-2 max-w-xs" />

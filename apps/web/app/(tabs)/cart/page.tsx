@@ -200,7 +200,7 @@ export default function CartPage() {
         <EmptyState
           icon={<LockIcon />}
           title="Нужна авторизация"
-          description="Корзина доступна только внутри Telegram Mini App после входа."
+          description="Корзина доступна после входа через Telegram."
         />
       </PageSection>
     );

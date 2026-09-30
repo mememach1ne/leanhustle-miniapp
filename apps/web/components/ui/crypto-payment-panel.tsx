@@ -2,6 +2,7 @@
 
 import type { CryptoPaymentIntentDto } from '@lean-poizon/shared';
 import {
+  PAYMENT_NETWORK_ETA,
   PAYMENT_NETWORK_LABELS,
   PAYMENT_NETWORK_SHORT,
   PaymentNetwork,
@@ -147,7 +148,7 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
       <SectionCard>
         <h3 className="text-sm font-semibold text-white">Оплата USDT</h3>
         <p className="mt-1 text-xs text-white/60">
-          Выберите сеть USDT, на которую вам удобно отправить оплату. Мы
+          Выберите сеть USDT, в которой вам удобно отправить оплату. Мы
           сгенерируем точную сумму, и после поступления заказ автоматически
           уйдёт в выкуп.
         </p>
@@ -171,7 +172,10 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
               className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/10 disabled:opacity-50"
             >
               <NetworkLogo network={network} className="h-7 w-7 shrink-0" />
-              <span>{PAYMENT_NETWORK_LABELS[network]}</span>
+              <span className="min-w-0 flex-1">{PAYMENT_NETWORK_LABELS[network]}</span>
+              <span className="shrink-0 text-[11px] text-white/50">
+                ≈ {PAYMENT_NETWORK_ETA[network]}
+              </span>
             </button>
           ))}
         </div>
@@ -259,13 +263,17 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
       <p className="mt-3 rounded-xl border border-amber-300/30 bg-amber-400/5 p-2 text-[11px] text-amber-200">
         ⚠️ Отправьте <span className="font-semibold">ровно</span>{' '}
         {intent.expectedAmountUsdt.toFixed(2)} USDT в сети{' '}
-        {PAYMENT_NETWORK_SHORT[intent.network]}. Другая сумма или сеть = деньги
-        не найдём автоматически.
+        {PAYMENT_NETWORK_SHORT[intent.network]}. Если сумма или сеть будут другими, мы не сможем
+        найти платёж автоматически.
       </p>
 
       <p className="mt-2 flex items-center gap-2 text-xs text-white/60">
         <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--accent)]" />
         Ждём поступление… статус обновится автоматически.
+      </p>
+      <p className="mt-1 pl-4 text-[11px] text-white/45">
+        В сети {PAYMENT_NETWORK_SHORT[intent.network]} перевод обычно зачисляется за{' '}
+        {PAYMENT_NETWORK_ETA[intent.network]} после отправки.
       </p>
 
       <button

@@ -76,7 +76,7 @@ function OrdersPageContent() {
         <EmptyState
           icon={<LockIcon />}
           title="Нужна авторизация"
-          description="История заказов доступна только авторизованному пользователю внутри mini app."
+          description="История заказов доступна после входа через Telegram."
         />
       </PageSection>
     );

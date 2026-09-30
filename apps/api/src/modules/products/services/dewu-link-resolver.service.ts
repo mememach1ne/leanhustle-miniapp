@@ -22,7 +22,7 @@ export class DewuLinkResolverService {
     const normalizedLink = rawLink.trim();
 
     if (!normalizedLink) {
-      throw productResolveError('LINK_UNRECOGNIZED', 'Вставьте ссылку на товар Dewu.');
+      throw productResolveError('LINK_UNRECOGNIZED', 'Вставьте ссылку на товар Poizon.');
     }
 
     const parsedUrl = this.parseUrl(normalizedLink);
@@ -30,7 +30,7 @@ export class DewuLinkResolverService {
     if (!this.isSupportedHost(parsedUrl.hostname)) {
       throw productResolveError(
         'LINK_UNRECOGNIZED',
-        'Ссылка не распознана. Поддерживаются короткие ссылки dw4.co и полные ссылки Dewu.',
+        'Ссылка не распознана. Поддерживаются короткие ссылки dw4.co и полные ссылки Poizon (Dewu).',
       );
     }
 
@@ -50,14 +50,14 @@ export class DewuLinkResolverService {
         const data = (await response.json()) as { location?: string; error?: string };
 
         if (!data.location) {
-          throw productResolveError('LINK_UNRECOGNIZED', 'Короткая ссылка не содержит редирект.');
+          throw productResolveError('LINK_UNRECOGNIZED', 'Короткая ссылка не ведёт на товар Poizon.');
         }
 
         const dwSpuId = this.extractDwSpuId(data.location);
         if (!dwSpuId) {
           throw productResolveError(
             'LINK_UNRECOGNIZED',
-            'Не удалось извлечь dwSpuId из короткой ссылки Dewu.',
+            'Не удалось распознать товар по ссылке. Скопируйте её ещё раз из приложения Poizon.',
           );
         }
 
@@ -82,7 +82,7 @@ export class DewuLinkResolverService {
     const dwSpuId = this.extractDwSpuId(normalizedLink);
 
     if (!dwSpuId) {
-      throw productResolveError('LINK_UNRECOGNIZED', 'Не удалось извлечь dwSpuId из ссылки Dewu.');
+      throw productResolveError('LINK_UNRECOGNIZED', 'Не удалось распознать товар по ссылке. Скопируйте её ещё раз из приложения Poizon.');
     }
 
     return {
