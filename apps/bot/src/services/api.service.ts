@@ -178,6 +178,33 @@ export class ApiService {
     return response.data;
   }
 
+  async setChinaTrack(
+    orderId: string,
+    payload: { itemId: string; chinaTrackNumber: string },
+    actor: BotActorIdentity,
+  ): Promise<StaffOrderDetailsDto> {
+    const response = await this.http.post<StaffOrderDetailsDto>(
+      `/staff/orders/${orderId}/china-track`,
+      payload,
+      // RAKETA + price engine calls can take a while.
+      { headers: this.buildHeaders(actor), timeout: 60_000 },
+    );
+    return response.data;
+  }
+
+  async setFulfillmentMode(
+    orderId: string,
+    manual: boolean,
+    actor: BotActorIdentity,
+  ): Promise<StaffOrderDetailsDto> {
+    const response = await this.http.post<StaffOrderDetailsDto>(
+      `/staff/orders/${orderId}/fulfillment-mode`,
+      { manual },
+      { headers: this.buildHeaders(actor) },
+    );
+    return response.data;
+  }
+
   async updateOrderTrackCode(
     orderId: string,
     payload: UpdateOrderTrackCodeRequest,

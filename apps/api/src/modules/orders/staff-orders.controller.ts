@@ -14,6 +14,7 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import type { StaffAccount } from '@prisma/client';
@@ -24,10 +25,12 @@ import { CurrentStaff } from '../staff/decorators/current-staff.decorator';
 import { StaffBotAuthGuard } from '../staff/guards/staff-bot-auth.guard';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CreateManualOrderDto } from './dto/create-manual-order.dto';
+import { SetChinaTrackDto, SetFulfillmentModeDto } from './dto/raketa-fulfillment.dto';
 import { SetActualDeliveryDto, SetActualDutyDto } from './dto/set-actual-amount.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { UpdateOrderTrackCodeDto } from './dto/update-order-track-code.dto';
 import { OrdersService } from './orders.service';
+import { RaketaFulfillmentService } from './services/raketa-fulfillment.service';
 
 @Controller('staff/orders')
 @UseGuards(StaffBotAuthGuard)
@@ -38,9 +41,35 @@ export class StaffOrdersController {
   constructor(
     @Inject(OrdersService) ordersService: OrdersService,
     @Inject(ProductsService) productsService: ProductsService,
+    @Inject(RaketaFulfillmentService) raketaFulfillment: RaketaFulfillmentService,
   ) {
     this.ordersService = ordersService;
     this.productsService = productsService;
+    this.raketaFulfillment = raketaFulfillment;
+  }
+
+  private readonly raketaFulfillment: RaketaFulfillmentService;
+
+  // --- RAKETA forwarder automation ---
+
+  @Post(':id/china-track')
+  async setChinaTrack(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetChinaTrackDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new UnauthorizedException('Staff access is required.');
+    return this.raketaFulfillment.registerChinaTrack(id, dto.itemId, dto.chinaTrackNumber, staff);
+  }
+
+  @Post(':id/fulfillment-mode')
+  async setFulfillmentMode(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetFulfillmentModeDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new UnauthorizedException('Staff access is required.');
+    return this.raketaFulfillment.setManual(id, dto.manual, staff);
   }
 
   @Post('manual')

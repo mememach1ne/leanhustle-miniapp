@@ -47,6 +47,12 @@ export default () => ({
     // window after which we stop expecting a deposit to land.
     bybitPaymentTtlMinutes: Number(process.env.BYBIT_PAYMENT_TTL_MINUTES ?? 60),
   },
+  raketa: {
+    // RAKETA forwarder cabinet (my.raketacn.ru) — order registration automation.
+    apiUrl: process.env.RAKETA_API_URL ?? 'https://my.raketacn.ru/api',
+    email: process.env.RAKETA_EMAIL ?? '',
+    password: process.env.RAKETA_PASSWORD ?? '',
+  },
   notifications: {
     managerTelegramIds: parseCsv(process.env.MANAGER_TELEGRAM_IDS),
   },

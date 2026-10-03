@@ -20,6 +20,6 @@ import { ProductRateLimitService } from './services/product-rate-limit.service';
     ProductCacheService,
     ProductRateLimitService,
   ],
-  exports: [ProductsService],
+  exports: [ProductsService, DewuApiClientService],
 })
 export class ProductsModule {}

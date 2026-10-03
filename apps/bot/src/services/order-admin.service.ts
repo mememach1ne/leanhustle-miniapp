@@ -34,6 +34,15 @@ interface PendingTrackCodeState {
   sourceMessageId?: number;
 }
 
+interface PendingChinaTrackState {
+  orderId: string;
+  orderNumber: string;
+  itemId: string;
+  itemLabel: string;
+  sourceChatId?: number;
+  sourceMessageId?: number;
+}
+
 interface PendingOrderNumberState {
   promptMessageId?: number;
 }
@@ -108,6 +117,7 @@ interface ManualOrderDraft {
 
 type PendingManagerIntent =
   | ({ type: 'awaiting_track_code' } & PendingTrackCodeState)
+  | ({ type: 'awaiting_china_track' } & PendingChinaTrackState)
   | ({ type: 'awaiting_order_number' } & PendingOrderNumberState)
   | { type: 'awaiting_rate_field' }
   | ({ type: 'awaiting_rate_value' } & PendingRateValueState)
@@ -556,6 +566,39 @@ export class OrderAdminService {
   getPendingTrackCodeInput(managerId: string) {
     const pending = this.pendingIntentByManager.get(managerId);
     return pending?.type === 'awaiting_track_code' ? pending : null;
+  }
+
+  beginChinaTrackInput(managerId: string, state: PendingChinaTrackState) {
+    this.pendingIntentByManager.set(managerId, { type: 'awaiting_china_track', ...state });
+  }
+
+  getPendingChinaTrackInput(managerId: string) {
+    const pending = this.pendingIntentByManager.get(managerId);
+    return pending?.type === 'awaiting_china_track' ? pending : null;
+  }
+
+  /** Next item of the order that still needs a China tracking number. */
+  nextItemWithoutChinaTrack(order: StaffOrderDetailsDto) {
+    const items = order.fulfillment?.items ?? [];
+    const index = items.findIndex((item) => !item.raketaOrderId);
+    if (index === -1) return null;
+    const item = items[index];
+    return {
+      itemId: item.itemId,
+      itemLabel:
+        items.length > 1
+          ? `товар ${index + 1}/${items.length}: ${item.title} (${item.size})`
+          : `${item.title} (${item.size})`,
+    };
+  }
+
+  buildChinaTrackPrompt(orderNumber: string, itemLabel: string): string {
+    return [
+      `Заказ ${orderNumber}, ${itemLabel}.`,
+      '',
+      'Пришлите китайский трек-номер посылки (например SF1234567890) — заказ в RAKETA создастся автоматически.',
+      'Для отмены — /cancel.',
+    ].join('\n');
   }
 
   beginOrderNumberInput(managerId: string, state: PendingOrderNumberState = {}) {
@@ -1876,6 +1919,7 @@ export class OrderAdminService {
         ? [`Скидка на комиссию: ${order.subscriberBenefitAmountRub} ₽`]
         : []),
       ...(order.trackCode ? [`Трек-код: ${order.trackCode}`] : []),
+      ...this.buildRaketaLines(order),
       ...(order.statusHistory.length > 0
         ? [
             '',
@@ -1902,6 +1946,27 @@ export class OrderAdminService {
         ? `Пошлина: ${order.summary.actualDutyRub} ₽ (факт, было ~${order.summary.dutyRub} ₽)`
         : `Пошлина: ~${order.summary.dutyRub} ₽ (примерная)`,
     ].join('\n');
+  }
+
+  private buildRaketaLines(order: StaffOrderDetailsDto): string[] {
+    const fulfillment = order.fulfillment;
+    if (!fulfillment) return [];
+    if (fulfillment.manual) return ['', 'RAKETA: оформление вручную'];
+    const registered = fulfillment.items.filter((item) => item.raketaOrderId);
+    if (registered.length === 0 && !fulfillment.lastError) return [];
+    return [
+      '',
+      `RAKETA: зарегистрировано ${registered.length} из ${fulfillment.items.length}`,
+      ...fulfillment.items
+        .filter((item) => item.chinaTrackNumber)
+        .map(
+          (item) =>
+            `• ${item.title.slice(0, 40)}: ${item.chinaTrackNumber}${
+              item.raketaTrackNumber ? ` → ${item.raketaTrackNumber}` : item.raketaOrderId ? ' → создан' : ''
+            }`,
+        ),
+      ...(fulfillment.lastError ? [`Ошибка RAKETA: ${fulfillment.lastError.slice(0, 300)}`] : []),
+    ];
   }
 
   buildOrderKeyboard(order: StaffOrderDetailsDto): InlineKeyboardMarkup | undefined {
@@ -2029,6 +2094,32 @@ export class OrderAdminService {
             MANAGER_ORDER_ACTIONS.MARK_DELIVERED,
             order.id,
           ),
+        },
+      ]);
+    }
+
+    // RAKETA forwarder automation: China track entry + manual mode toggle.
+    const raketaStatuses: OrderStatus[] = [
+      OrderStatus.PAID_AWAITING_PURCHASE,
+      OrderStatus.PURCHASED,
+      OrderStatus.DELIVERY_PAYMENT_PENDING,
+      OrderStatus.DELIVERY_PAID,
+      OrderStatus.DUTY_PAYMENT_PENDING,
+      OrderStatus.DUTY_PAID,
+    ];
+    if (raketaStatuses.includes(order.status) && order.fulfillment) {
+      if (!order.fulfillment.manual && this.nextItemWithoutChinaTrack(order)) {
+        buttons.push([
+          {
+            text: 'Китайский трек → RAKETA',
+            callback_data: encodeManagerOrderCallback(MANAGER_ORDER_ACTIONS.CHINA_TRACK, order.id),
+          },
+        ]);
+      }
+      buttons.push([
+        {
+          text: order.fulfillment.manual ? 'Включить автоматику RAKETA' : 'Оформить вручную (без RAKETA-автоматики)',
+          callback_data: encodeManagerOrderCallback(MANAGER_ORDER_ACTIONS.TOGGLE_MANUAL, order.id),
         },
       ]);
     }

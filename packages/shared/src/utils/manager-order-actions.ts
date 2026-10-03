@@ -12,6 +12,9 @@ export const MANAGER_ORDER_ACTIONS = {
   CANCEL: 'cncl',
   RESTORE: 'rstr',
   DELETE: 'del',
+  // RAKETA forwarder automation.
+  CHINA_TRACK: 'ctk',
+  TOGGLE_MANUAL: 'man',
 } as const;
 
 export type ManagerOrderAction =

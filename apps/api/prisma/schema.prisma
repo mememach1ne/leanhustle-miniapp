@@ -38,23 +38,23 @@ enum SettingsScope {
 }
 
 model User {
-  id                        String   @id @default(uuid()) @db.Uuid
-  telegramId                String   @unique @map("telegram_id") @db.VarChar(32)
-  username                  String?  @map("username") @db.VarChar(64)
-  firstName                 String   @map("first_name") @db.VarChar(128)
-  lastName                  String?  @map("last_name") @db.VarChar(128)
-  photoUrl                  String?  @map("photo_url") @db.Text
-  languageCode              String?  @map("language_code") @db.VarChar(16)
-  isChannelSubscriber       Boolean  @default(false) @map("is_channel_subscriber")
-  hasUsedSubscriberBenefit  Boolean  @default(false) @map("has_used_subscriber_benefit")
-  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                 DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  lastActiveAt              DateTime @default(now()) @map("last_active_at") @db.Timestamptz(6)
+  id                       String   @id @default(uuid()) @db.Uuid
+  telegramId               String   @unique @map("telegram_id") @db.VarChar(32)
+  username                 String?  @map("username") @db.VarChar(64)
+  firstName                String   @map("first_name") @db.VarChar(128)
+  lastName                 String?  @map("last_name") @db.VarChar(128)
+  photoUrl                 String?  @map("photo_url") @db.Text
+  languageCode             String?  @map("language_code") @db.VarChar(16)
+  isChannelSubscriber      Boolean  @default(false) @map("is_channel_subscriber")
+  hasUsedSubscriberBenefit Boolean  @default(false) @map("has_used_subscriber_benefit")
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lastActiveAt             DateTime @default(now()) @map("last_active_at") @db.Timestamptz(6)
 
-  cart                  Cart?
-  orders                Order[]
-  deliveryAddresses     DeliveryAddress[]
-  productResolveEvents  ProductResolveEvent[]
+  cart                 Cart?
+  orders               Order[]
+  deliveryAddresses    DeliveryAddress[]
+  productResolveEvents ProductResolveEvent[]
 
   @@index([lastActiveAt], map: "users_last_active_at_idx")
   @@map("users")
@@ -115,57 +115,62 @@ model CartItem {
 
   cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
 
+  @@unique([cartId, dwSkuId], map: "cart_items_cart_id_dw_sku_id_key")
   @@index([cartId], map: "cart_items_cart_id_idx")
   @@index([dwSpuId], map: "cart_items_dw_spu_id_idx")
-  @@unique([cartId, dwSkuId], map: "cart_items_cart_id_dw_sku_id_key")
   @@map("cart_items")
 }
 
 model Order {
-  id                           String       @id @default(uuid()) @db.Uuid
-  orderNumber                  String       @unique @map("order_number") @db.VarChar(32)
-  userId                       String       @map("user_id") @db.Uuid
-  assignedStaffId              String?      @map("assigned_staff_id") @db.Uuid
-  status                       OrderStatus  @default(CREATED)
-  paidVia                      PaymentSource? @map("paid_via")
-  isChannelSubscriberAtCheckout Boolean     @default(false) @map("is_channel_subscriber_at_checkout")
-  subscriberBenefitApplied     Boolean      @default(false) @map("subscriber_benefit_applied")
-  subscriberBenefitAmountRub   Decimal      @default(0) @map("subscriber_benefit_amount_rub") @db.Decimal(12, 2)
-  itemsCount                   Int          @default(0) @map("items_count")
-  originalTotalUsd             Decimal      @default(0) @map("original_total_usd") @db.Decimal(12, 2)
-  benefitDiscountUsd           Decimal      @default(0) @map("benefit_discount_usd") @db.Decimal(12, 2)
-  totalUsd                     Decimal      @default(0) @map("total_usd") @db.Decimal(12, 2)
-  deliveryRub                  Decimal      @default(0) @map("delivery_rub") @db.Decimal(12, 0)
-  dutyRub                      Decimal      @default(0) @map("duty_rub") @db.Decimal(12, 0)
-  pricingCnyToUsd              Decimal      @map("pricing_cny_to_usd") @db.Decimal(12, 6)
-  pricingCnyToRub              Decimal      @map("pricing_cny_to_rub") @db.Decimal(12, 4)
-  pricingCommissionPercent     Decimal      @map("pricing_commission_percent") @db.Decimal(5, 2)
-  deliveryAddressId            String?      @map("delivery_address_id") @db.Uuid
-  deliveryFullName             String?      @map("delivery_full_name") @db.VarChar(256)
-  deliveryCdekAddress          String?      @map("delivery_cdek_address") @db.VarChar(512)
-  deliveryPhone                String?      @map("delivery_phone") @db.VarChar(20)
-  customerComment              String?      @map("customer_comment") @db.Text
-  trackCode                    String?      @map("track_code") @db.VarChar(128)
+  id                            String         @id @default(uuid()) @db.Uuid
+  orderNumber                   String         @unique @map("order_number") @db.VarChar(32)
+  userId                        String         @map("user_id") @db.Uuid
+  assignedStaffId               String?        @map("assigned_staff_id") @db.Uuid
+  status                        OrderStatus    @default(CREATED)
+  paidVia                       PaymentSource? @map("paid_via")
+  isChannelSubscriberAtCheckout Boolean        @default(false) @map("is_channel_subscriber_at_checkout")
+  subscriberBenefitApplied      Boolean        @default(false) @map("subscriber_benefit_applied")
+  subscriberBenefitAmountRub    Decimal        @default(0) @map("subscriber_benefit_amount_rub") @db.Decimal(12, 2)
+  itemsCount                    Int            @default(0) @map("items_count")
+  originalTotalUsd              Decimal        @default(0) @map("original_total_usd") @db.Decimal(12, 2)
+  benefitDiscountUsd            Decimal        @default(0) @map("benefit_discount_usd") @db.Decimal(12, 2)
+  totalUsd                      Decimal        @default(0) @map("total_usd") @db.Decimal(12, 2)
+  deliveryRub                   Decimal        @default(0) @map("delivery_rub") @db.Decimal(12, 0)
+  dutyRub                       Decimal        @default(0) @map("duty_rub") @db.Decimal(12, 0)
+  pricingCnyToUsd               Decimal        @map("pricing_cny_to_usd") @db.Decimal(12, 6)
+  pricingCnyToRub               Decimal        @map("pricing_cny_to_rub") @db.Decimal(12, 4)
+  pricingCommissionPercent      Decimal        @map("pricing_commission_percent") @db.Decimal(5, 2)
+  deliveryAddressId             String?        @map("delivery_address_id") @db.Uuid
+  deliveryFullName              String?        @map("delivery_full_name") @db.VarChar(256)
+  deliveryCdekAddress           String?        @map("delivery_cdek_address") @db.VarChar(512)
+  deliveryPhone                 String?        @map("delivery_phone") @db.VarChar(20)
+  customerComment               String?        @map("customer_comment") @db.Text
+  trackCode                     String?        @map("track_code") @db.VarChar(128)
+  // RAKETA forwarder automation. fulfillmentManual = the manager handles
+  // this order by hand and the server must not touch it at RAKETA.
+  fulfillmentManual             Boolean        @default(false) @map("fulfillment_manual")
+  raketaConsolidationId         String?        @map("raketa_consolidation_id") @db.VarChar(64)
+  raketaLastError               String?        @map("raketa_last_error") @db.Text
   // Manager-entered actual amounts. NULL means "not yet known" — show
   // estimated value (deliveryRub / dutyRub) to the customer.
-  actualDeliveryRub            Decimal?     @map("actual_delivery_rub") @db.Decimal(12, 0)
-  actualDutyRub                Decimal?     @map("actual_duty_rub") @db.Decimal(12, 0)
-  paidAt                       DateTime?    @map("paid_at") @db.Timestamptz(6)
-  purchasedAt                  DateTime?    @map("purchased_at") @db.Timestamptz(6)
-  trackCodeReceivedAt          DateTime?    @map("track_code_received_at") @db.Timestamptz(6)
-  actualDeliverySetAt          DateTime?    @map("actual_delivery_set_at") @db.Timestamptz(6)
-  deliveryPaidAt               DateTime?    @map("delivery_paid_at") @db.Timestamptz(6)
-  actualDutySetAt              DateTime?    @map("actual_duty_set_at") @db.Timestamptz(6)
-  dutyPaidAt                   DateTime?    @map("duty_paid_at") @db.Timestamptz(6)
-  deliveredAt                  DateTime?    @map("delivered_at") @db.Timestamptz(6)
-  cancelledAt                  DateTime?    @map("cancelled_at") @db.Timestamptz(6)
-  cancelReason                 String?      @map("cancel_reason") @db.VarChar(256)
-  createdAt                    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  actualDeliveryRub             Decimal?       @map("actual_delivery_rub") @db.Decimal(12, 0)
+  actualDutyRub                 Decimal?       @map("actual_duty_rub") @db.Decimal(12, 0)
+  paidAt                        DateTime?      @map("paid_at") @db.Timestamptz(6)
+  purchasedAt                   DateTime?      @map("purchased_at") @db.Timestamptz(6)
+  trackCodeReceivedAt           DateTime?      @map("track_code_received_at") @db.Timestamptz(6)
+  actualDeliverySetAt           DateTime?      @map("actual_delivery_set_at") @db.Timestamptz(6)
+  deliveryPaidAt                DateTime?      @map("delivery_paid_at") @db.Timestamptz(6)
+  actualDutySetAt               DateTime?      @map("actual_duty_set_at") @db.Timestamptz(6)
+  dutyPaidAt                    DateTime?      @map("duty_paid_at") @db.Timestamptz(6)
+  deliveredAt                   DateTime?      @map("delivered_at") @db.Timestamptz(6)
+  cancelledAt                   DateTime?      @map("cancelled_at") @db.Timestamptz(6)
+  cancelReason                  String?        @map("cancel_reason") @db.VarChar(256)
+  createdAt                     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user            User               @relation(fields: [userId], references: [id])
-  assignedStaff   StaffAccount?      @relation("AssignedOrders", fields: [assignedStaffId], references: [id], onDelete: SetNull)
-  deliveryAddress DeliveryAddress?   @relation(fields: [deliveryAddressId], references: [id], onDelete: SetNull)
+  user            User                 @relation(fields: [userId], references: [id])
+  assignedStaff   StaffAccount?        @relation("AssignedOrders", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  deliveryAddress DeliveryAddress?     @relation(fields: [deliveryAddressId], references: [id], onDelete: SetNull)
   items           OrderItem[]
   notes           OrderNote[]
   statusHistory   OrderStatusHistory[]
@@ -182,31 +187,31 @@ model Order {
 /// master account to pay for an order. The bot polls Bybit's deposit-record
 /// endpoint and matches by (network, expectedAmountUsdt, time window).
 model CryptoPayment {
-  id                  String              @id @default(uuid()) @db.Uuid
-  orderId             String              @map("order_id") @db.Uuid
+  id                 String              @id @default(uuid()) @db.Uuid
+  orderId            String              @map("order_id") @db.Uuid
   /// Bybit chainType, e.g. TRX, BSC, ETH, TON.
-  network             String              @db.VarChar(16)
+  network            String              @db.VarChar(16)
   /// Bybit master-account deposit address for (USDT, network).
-  address             String              @db.VarChar(128)
+  address            String              @db.VarChar(128)
   /// Optional memo / address tag (used by some chains like TON).
-  addressTag          String?             @map("address_tag") @db.VarChar(64)
+  addressTag         String?             @map("address_tag") @db.VarChar(64)
   /// Exact USDT amount with unique cents suffix. Two decimals.
-  expectedAmountUsdt  Decimal             @map("expected_amount_usdt") @db.Decimal(20, 6)
-  status              CryptoPaymentStatus @default(PENDING)
-  txHash              String?             @map("tx_hash") @db.VarChar(128)
+  expectedAmountUsdt Decimal             @map("expected_amount_usdt") @db.Decimal(20, 6)
+  status             CryptoPaymentStatus @default(PENDING)
+  txHash             String?             @map("tx_hash") @db.VarChar(128)
   /// Bybit's `id` field for the matched deposit row (idempotency key).
-  bybitDepositId      String?             @map("bybit_deposit_id") @db.VarChar(64)
-  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  matchedAt           DateTime?           @map("matched_at") @db.Timestamptz(6)
-  expiresAt           DateTime            @map("expires_at") @db.Timestamptz(6)
+  bybitDepositId     String?             @map("bybit_deposit_id") @db.VarChar(64)
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  matchedAt          DateTime?           @map("matched_at") @db.Timestamptz(6)
+  expiresAt          DateTime            @map("expires_at") @db.Timestamptz(6)
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  // Idempotency: never insert two rows from the same Bybit deposit.
+  @@unique([bybitDepositId], map: "crypto_payments_bybit_deposit_id_uniq")
   // For the polling job: fast lookup of "still-pending payments per chain".
   @@index([status, network], map: "crypto_payments_status_network_idx")
   @@index([orderId, status], map: "crypto_payments_order_status_idx")
-  // Idempotency: never insert two rows from the same Bybit deposit.
-  @@unique([bybitDepositId], map: "crypto_payments_bybit_deposit_id_uniq")
   @@map("crypto_payments")
 }
 
@@ -218,29 +223,35 @@ enum CryptoPaymentStatus {
 }
 
 model OrderItem {
-  id                String   @id @default(uuid()) @db.Uuid
-  orderId           String   @map("order_id") @db.Uuid
-  dewuLink          String   @map("dewu_link") @db.Text
-  dwSpuId           String   @map("dw_spu_id") @db.VarChar(64)
-  dwSkuId           String   @map("dw_sku_id") @db.VarChar(64)
-  productTitle      String   @map("product_title") @db.VarChar(512)
-  productImage      String?  @map("product_image") @db.Text
-  categoryL1        String?  @map("category_l1") @db.VarChar(128)
-  categoryL2        String?  @map("category_l2") @db.VarChar(128)
-  categoryL3        String?  @map("category_l3") @db.VarChar(128)
-  sizeLabel         String   @map("size_label") @db.VarChar(128)
-  versionLabel      String?  @map("version_label") @db.VarChar(128)
-  quantity          Int      @default(1)
-  priceYuan         Decimal  @map("price_yuan") @db.Decimal(12, 2)
-  originalTotalUsd  Decimal  @default(0) @map("original_total_usd") @db.Decimal(12, 2)
-  totalUsd          Decimal  @map("total_usd") @db.Decimal(12, 2)
-  deliveryRub       Decimal  @map("delivery_rub") @db.Decimal(12, 0)
-  dutyRub           Decimal  @map("duty_rub") @db.Decimal(12, 0)
-  categoryGroup     String   @map("category_group") @db.VarChar(32)
-  deliveryCategory  String?  @map("delivery_category") @db.VarChar(32)
-  estimatedWeightKg Decimal  @map("estimated_weight_kg") @db.Decimal(6, 2)
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                 String    @id @default(uuid()) @db.Uuid
+  orderId            String    @map("order_id") @db.Uuid
+  dewuLink           String    @map("dewu_link") @db.Text
+  dwSpuId            String    @map("dw_spu_id") @db.VarChar(64)
+  dwSkuId            String    @map("dw_sku_id") @db.VarChar(64)
+  productTitle       String    @map("product_title") @db.VarChar(512)
+  productImage       String?   @map("product_image") @db.Text
+  categoryL1         String?   @map("category_l1") @db.VarChar(128)
+  categoryL2         String?   @map("category_l2") @db.VarChar(128)
+  categoryL3         String?   @map("category_l3") @db.VarChar(128)
+  sizeLabel          String    @map("size_label") @db.VarChar(128)
+  versionLabel       String?   @map("version_label") @db.VarChar(128)
+  quantity           Int       @default(1)
+  priceYuan          Decimal   @map("price_yuan") @db.Decimal(12, 2)
+  originalTotalUsd   Decimal   @default(0) @map("original_total_usd") @db.Decimal(12, 2)
+  totalUsd           Decimal   @map("total_usd") @db.Decimal(12, 2)
+  deliveryRub        Decimal   @map("delivery_rub") @db.Decimal(12, 0)
+  dutyRub            Decimal   @map("duty_rub") @db.Decimal(12, 0)
+  categoryGroup      String    @map("category_group") @db.VarChar(32)
+  deliveryCategory   String?   @map("delivery_category") @db.VarChar(32)
+  estimatedWeightKg  Decimal   @map("estimated_weight_kg") @db.Decimal(6, 2)
+  // RAKETA forwarder: China-side tracking number entered by the manager and
+  // the forwarder order created for this item.
+  chinaTrackNumber   String?   @map("china_track_number") @db.VarChar(64)
+  raketaOrderId      String?   @map("raketa_order_id") @db.VarChar(64)
+  raketaTrackNumber  String?   @map("raketa_track_number") @db.VarChar(64)
+  raketaRegisteredAt DateTime? @map("raketa_registered_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -276,12 +287,12 @@ model OrderStatusHistory {
 }
 
 model OrderNote {
-  id              String       @id @default(uuid()) @db.Uuid
-  orderId         String       @map("order_id") @db.Uuid
-  createdByStaffId String?     @map("created_by_staff_id") @db.Uuid
-  body            String       @db.Text
-  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id               String   @id @default(uuid()) @db.Uuid
+  orderId          String   @map("order_id") @db.Uuid
+  createdByStaffId String?  @map("created_by_staff_id") @db.Uuid
+  body             String   @db.Text
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   createdByStaff StaffAccount? @relation("CreatedOrderNotes", fields: [createdByStaffId], references: [id], onDelete: SetNull)
@@ -292,15 +303,15 @@ model OrderNote {
 }
 
 model StaffAccount {
-  id          String     @id @default(uuid()) @db.Uuid
-  telegramId  String?    @unique @map("telegram_id") @db.VarChar(32)
-  username    String?    @unique @map("username") @db.VarChar(64)
-  firstName   String?    @map("first_name") @db.VarChar(128)
-  lastName    String?    @map("last_name") @db.VarChar(128)
-  role        StaffRole
-  isActive    Boolean    @default(true) @map("is_active")
-  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id         String    @id @default(uuid()) @db.Uuid
+  telegramId String?   @unique @map("telegram_id") @db.VarChar(32)
+  username   String?   @unique @map("username") @db.VarChar(64)
+  firstName  String?   @map("first_name") @db.VarChar(128)
+  lastName   String?   @map("last_name") @db.VarChar(128)
+  role       StaffRole
+  isActive   Boolean   @default(true) @map("is_active")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   assignedOrders                Order[]                  @relation("AssignedOrders")
   createdOrderNotes             OrderNote[]              @relation("CreatedOrderNotes")
@@ -333,20 +344,20 @@ model BusinessSettings {
   createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  updatedByStaff StaffAccount?     @relation("SettingsUpdatedBy", fields: [updatedByStaffId], references: [id], onDelete: SetNull)
+  updatedByStaff StaffAccount?      @relation("SettingsUpdatedBy", fields: [updatedByStaffId], references: [id], onDelete: SetNull)
   auditLogs      SettingsAuditLog[]
 
   @@map("business_settings")
 }
 
 model SettingsAuditLog {
-  id              String      @id @default(uuid()) @db.Uuid
-  settingsId      String      @map("settings_id") @db.Uuid
-  changedByStaffId String?    @map("changed_by_staff_id") @db.Uuid
-  previousValues  Json?       @map("previous_values")
-  nextValues      Json        @map("next_values")
-  comment         String?     @db.Text
-  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  id               String   @id @default(uuid()) @db.Uuid
+  settingsId       String   @map("settings_id") @db.Uuid
+  changedByStaffId String?  @map("changed_by_staff_id") @db.Uuid
+  previousValues   Json?    @map("previous_values")
+  nextValues       Json     @map("next_values")
+  comment          String?  @db.Text
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   settings       BusinessSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
   changedByStaff StaffAccount?    @relation("SettingsAuditActor", fields: [changedByStaffId], references: [id], onDelete: SetNull)
@@ -382,23 +393,23 @@ model ProductResolveEvent {
 }
 
 model DeliveryCategoryWeight {
-  id                String   @id @default(uuid()) @db.Uuid
+  id               String   @id @default(uuid()) @db.Uuid
   // Stable lookup key built from the Poizon L1|L2|L3 chain.
-  categoryKey       String   @unique @map("category_key") @db.VarChar(640)
-  categoryL1        String?  @map("category_l1") @db.VarChar(200)
-  categoryL2        String?  @map("category_l2") @db.VarChar(200)
-  categoryL3        String?  @map("category_l3") @db.VarChar(200)
+  categoryKey      String   @unique @map("category_key") @db.VarChar(640)
+  categoryL1       String?  @map("category_l1") @db.VarChar(200)
+  categoryL2       String?  @map("category_l2") @db.VarChar(200)
+  categoryL3       String?  @map("category_l3") @db.VarChar(200)
   // Human-readable label (defaults to L3 -> L2 -> L1 -> "Unknown").
-  title             String   @db.VarChar(200)
+  title            String   @db.VarChar(200)
   // NULL = pending (manager hasn't entered a weight yet).
-  weightKg          Decimal? @map("weight_kg") @db.Decimal(8, 3)
+  weightKg         Decimal? @map("weight_kg") @db.Decimal(8, 3)
   // First time the category was encountered.
-  firstSeenAt       DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  firstSeenAt      DateTime @default(now()) @map("first_seen_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
   // Last staff member to set/edit the weight.
-  updatedByStaffId  String?  @map("updated_by_staff_id") @db.Uuid
+  updatedByStaffId String?  @map("updated_by_staff_id") @db.Uuid
   // How many times this category has been added to a cart.
-  encounterCount    Int      @default(1) @map("encounter_count")
+  encounterCount   Int      @default(1) @map("encounter_count")
 
   updatedByStaff StaffAccount? @relation("DeliveryCategoryWeightUpdates", fields: [updatedByStaffId], references: [id], onDelete: SetNull)
 

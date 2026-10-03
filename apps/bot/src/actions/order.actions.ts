@@ -233,6 +233,35 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
           }
           return;
         }
+        case MANAGER_ORDER_ACTIONS.CHINA_TRACK: {
+          const order = await apiService.getStaffOrder(payload.orderId, getActor(ctx));
+          const next = orderAdminService.nextItemWithoutChinaTrack(order);
+          if (!next) {
+            await ctx.answerCbQuery('Все товары этого заказа уже зарегистрированы в RAKETA.', {
+              show_alert: true,
+            });
+            return;
+          }
+          const callbackMessage = ctx.callbackQuery.message;
+          orderAdminService.beginChinaTrackInput(String(ctx.from?.id), {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            ...next,
+            sourceChatId: callbackMessage && 'chat' in callbackMessage ? callbackMessage.chat.id : undefined,
+            sourceMessageId: callbackMessage?.message_id,
+          });
+          await ctx.answerCbQuery();
+          await ctx.reply(orderAdminService.buildChinaTrackPrompt(order.orderNumber, next.itemLabel));
+          return;
+        }
+        case MANAGER_ORDER_ACTIONS.TOGGLE_MANUAL: {
+          const current = await apiService.getStaffOrder(payload.orderId, getActor(ctx));
+          const manual = !current.fulfillment?.manual;
+          await apiService.setFulfillmentMode(payload.orderId, manual, getActor(ctx));
+          await ctx.answerCbQuery(manual ? 'Заказ переведён на ручное оформление' : 'Автоматика RAKETA включена');
+          await refreshOrderMessage(ctx, payload.orderId);
+          return;
+        }
         case MANAGER_ORDER_ACTIONS.TRACK_CODE: {
           const order = await apiService.getStaffOrder(payload.orderId, getActor(ctx));
           const callbackMessage = ctx.callbackQuery.message;
@@ -291,6 +320,54 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
 
     if (text.startsWith('/')) {
       return next();
+    }
+
+    const pendingChinaTrack = orderAdminService.getPendingChinaTrackInput(String(from.id));
+
+    if (pendingChinaTrack) {
+      await ctx.reply('Создаю заказ в RAKETA…');
+      try {
+        const order = await apiService.setChinaTrack(
+          pendingChinaTrack.orderId,
+          { itemId: pendingChinaTrack.itemId, chinaTrackNumber: text },
+          getActor(ctx),
+        );
+        const done = order.fulfillment.items.find((item) => item.itemId === pendingChinaTrack.itemId);
+        await ctx.reply(
+          `Готово: ${pendingChinaTrack.itemLabel} зарегистрирован в RAKETA${
+            done?.raketaTrackNumber ? ` (${done.raketaTrackNumber})` : ''
+          }.`,
+        );
+
+        if (pendingChinaTrack.sourceChatId && pendingChinaTrack.sourceMessageId) {
+          await ctx.telegram
+            .editMessageText(
+              pendingChinaTrack.sourceChatId,
+              pendingChinaTrack.sourceMessageId,
+              undefined,
+              orderAdminService.buildOrderMessage(order),
+              {
+                reply_markup: orderAdminService.withOrderDetailNav(orderAdminService.buildOrderKeyboard(order)),
+                link_preview_options: { is_disabled: true },
+              },
+            )
+            .catch(() => undefined);
+        }
+
+        // Walk through the remaining items of the same order.
+        const next = orderAdminService.nextItemWithoutChinaTrack(order);
+        if (next) {
+          orderAdminService.beginChinaTrackInput(String(from.id), { ...pendingChinaTrack, ...next });
+          await ctx.reply(orderAdminService.buildChinaTrackPrompt(order.orderNumber, next.itemLabel));
+        } else {
+          orderAdminService.clearPendingIntent(String(from.id));
+        }
+      } catch (error) {
+        await ctx.reply(
+          `${extractAxiosMessage(error) ?? 'Не удалось создать заказ в RAKETA.'}\n\nМожно прислать трек ещё раз, нажать /cancel или перевести заказ на ручное оформление.`,
+        );
+      }
+      return;
     }
 
     const pendingTrackCode = orderAdminService.getPendingTrackCodeInput(String(from.id));

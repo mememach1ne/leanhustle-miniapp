@@ -36,6 +36,9 @@ type OrderWithItems = {
   deliveryFullName: string | null;
   deliveryCdekAddress: string | null;
   deliveryPhone: string | null;
+  fulfillmentManual?: boolean;
+  raketaConsolidationId?: string | null;
+  raketaLastError?: string | null;
   user?: {
     id: string;
     telegramId: string;
@@ -67,6 +70,9 @@ type OrderWithItems = {
     categoryGroup: string;
     deliveryCategory: string | null;
     estimatedWeightKg: Prisma.Decimal;
+    chinaTrackNumber?: string | null;
+    raketaOrderId?: string | null;
+    raketaTrackNumber?: string | null;
   }>;
 };
 
@@ -213,6 +219,19 @@ export const mapOrderToStaffDetailsDto = (
         comment: item.comment,
         createdAt: item.createdAt.toISOString(),
       })) ?? [],
+    fulfillment: {
+      manual: order.fulfillmentManual ?? false,
+      consolidationId: order.raketaConsolidationId ?? null,
+      lastError: order.raketaLastError ?? null,
+      items: order.items.map((item) => ({
+        itemId: item.id,
+        title: item.productTitle,
+        size: item.sizeLabel,
+        chinaTrackNumber: item.chinaTrackNumber ?? null,
+        raketaOrderId: item.raketaOrderId ?? null,
+        raketaTrackNumber: item.raketaTrackNumber ?? null,
+      })),
+    },
   };
 };
 

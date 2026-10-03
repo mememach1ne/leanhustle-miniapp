@@ -179,9 +179,37 @@ export interface CreateManualOrderResponse {
   order: StaffOrderDetailsDto;
 }
 
+export interface StaffOrderFulfillmentItemDto {
+  itemId: string;
+  title: string;
+  size: string;
+  chinaTrackNumber: string | null;
+  raketaOrderId: string | null;
+  raketaTrackNumber: string | null;
+}
+
+/** RAKETA forwarder automation state (staff only). */
+export interface StaffOrderFulfillmentDto {
+  /** The manager handles this order by hand; automation skips it. */
+  manual: boolean;
+  consolidationId: string | null;
+  lastError: string | null;
+  items: StaffOrderFulfillmentItemDto[];
+}
+
 export interface StaffOrderDetailsDto extends OrderDetailsDto {
   user: StaffOrderUserDto;
   statusHistory: StaffOrderStatusHistoryItemDto[];
+  fulfillment: StaffOrderFulfillmentDto;
+}
+
+export interface SetChinaTrackRequest {
+  itemId: string;
+  chinaTrackNumber: string;
+}
+
+export interface SetFulfillmentModeRequest {
+  manual: boolean;
 }
 
 export interface StaffOrderListItemDto {
