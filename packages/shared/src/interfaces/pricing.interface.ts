@@ -41,6 +41,8 @@ export interface PricingCalculationResult {
 export interface ManualPricingRequest {
   priceYuan: number;
   deliveryCategory: DeliveryCategory;
+  /** Optional size — picks the delivery price band (e.g. "42", "M"). */
+  size?: string;
 }
 
 export interface ManualPricingResult {

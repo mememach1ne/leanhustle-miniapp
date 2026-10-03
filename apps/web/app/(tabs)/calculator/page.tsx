@@ -329,6 +329,7 @@ function CalculatorPageContent() {
       const result = await pricingApi.calculateManual({
         priceYuan: priceNum,
         deliveryCategory: manualCategory as DeliveryCategory,
+        size: manualSize.trim() || undefined,
       });
 
       setManualPricing(result);

@@ -9,6 +9,7 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { SettingsService } from '../settings/settings.service';
+import { estimateDeliveryFromTable } from './data/delivery-price-table';
 import { CalculatePricingDto } from './dto/calculate-pricing.dto';
 import { ManualPricingDto } from './dto/manual-pricing.dto';
 import {
@@ -52,54 +53,21 @@ export class PricingService {
   }
 
   /**
-   * Pick the appropriate delivery weight + cost for a product. The lookup
-   * order is:
-   *   1. Manager-set weight in DB for the exact L1>L2>L3 chain (overrides
-   *      everything) — applies even to known enum categories so managers
-   *      can fine-tune specific subcategories.
-   *   2. Keyword classifier — picks one of the hardcoded enum values
-   *      (SNEAKERS, JACKET, etc.) by matching the title/categories.
-   *   3. GENERIC_APPAREL fallback → mark as pending (no estimate).
+   * Delivery cost for a product + size. Lookup order:
+   *   1. Price table (category profile × size band, prices from the RAKETA
+   *      calculator: China leg + CDEK to Moscow) — see data/delivery-price-table.
+   *   2. Manager-set weight in DB for the exact L1>L2>L3 chain × price per kg.
+   *   3. Unknown → delivery pending; the chain is recorded silently in DB so
+   *      it can be added to the price table later (no Telegram notification).
    */
   async resolveDelivery(input: {
     title: string;
     categoryL1?: string | null;
     categoryL2?: string | null;
     categoryL3?: string | null;
+    size?: string | null;
     deliveryPricePerKgRub: Prisma.Decimal;
   }): Promise<ResolvedDeliveryInfo> {
-    // Step 1: explicit DB override for this chain.
-    const dbLookup = await this.categoryWeightService.lookup(
-      input.categoryL1,
-      input.categoryL2,
-      input.categoryL3,
-    );
-
-    if (dbLookup) {
-      if (typeof dbLookup.weightKg === 'number') {
-        const deliveryRub = new Prisma.Decimal(dbLookup.weightKg)
-          .mul(input.deliveryPricePerKgRub)
-          .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP)
-          .toNumber();
-        return {
-          deliveryCategory: DeliveryCategory.GENERIC_APPAREL,
-          estimatedWeightKg: dbLookup.weightKg,
-          deliveryRub,
-          weightPending: false,
-        };
-      }
-      if (dbLookup.weightKg === null) {
-        // Row exists but weight isn't set yet.
-        return {
-          deliveryCategory: DeliveryCategory.OTHER,
-          estimatedWeightKg: 0,
-          deliveryRub: 0,
-          weightPending: true,
-        };
-      }
-    }
-
-    // Step 2: keyword classifier on title + categories.
     const { deliveryCategory } = this.productCategoryClassifierService.classify({
       title: input.title,
       categoryL1: input.categoryL1 ?? undefined,
@@ -107,56 +75,46 @@ export class PricingService {
       categoryL3: input.categoryL3 ?? undefined,
     });
 
-    if (deliveryCategory === DeliveryCategory.GENERIC_APPAREL) {
-      // Classifier fell back — we can't trust the weight. Mark pending.
+    const fromTable = estimateDeliveryFromTable(input);
+    if (fromTable) {
       return {
-        deliveryCategory: DeliveryCategory.OTHER,
-        estimatedWeightKg: 0,
-        deliveryRub: 0,
-        weightPending: true,
+        deliveryCategory,
+        estimatedWeightKg: fromTable.weightKg,
+        deliveryRub: fromTable.deliveryRub,
+        weightPending: false,
       };
     }
 
-    // Step 3: known enum category. Prefer manager-overridden weight from
-    // DB (so they can fine-tune e.g. "boots" without code changes), fall
-    // back to the hardcoded one.
-    const dbOverride = await this.categoryWeightService.lookupByEnumKey(deliveryCategory);
-
-    if (dbOverride === null) {
-      // Manager explicitly cleared the weight — treat as pending.
-      return {
-        deliveryCategory: DeliveryCategory.OTHER,
-        estimatedWeightKg: 0,
-        deliveryRub: 0,
-        weightPending: true,
-      };
-    }
-
-    if (typeof dbOverride === 'number') {
-      const deliveryRub = new Prisma.Decimal(dbOverride)
+    const dbLookup = await this.categoryWeightService.lookup(
+      input.categoryL1,
+      input.categoryL2,
+      input.categoryL3,
+    );
+    if (dbLookup && typeof dbLookup.weightKg === 'number') {
+      const deliveryRub = new Prisma.Decimal(dbLookup.weightKg)
         .mul(input.deliveryPricePerKgRub)
         .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP)
         .toNumber();
       return {
         deliveryCategory,
-        estimatedWeightKg: dbOverride,
+        estimatedWeightKg: dbLookup.weightKg,
         deliveryRub,
         weightPending: false,
       };
     }
 
-    // Fallback to hardcoded weight (DB not seeded yet).
-    const { estimatedWeightKg, deliveryRub } =
-      this.deliveryEstimationService.estimateDeliveryRub({
-        deliveryCategory,
-        deliveryPricePerKgRub: input.deliveryPricePerKgRub,
-      });
+    // Remember the unknown chain (fire-and-forget) for the next table update.
+    if (input.categoryL1 || input.categoryL2 || input.categoryL3) {
+      void this.categoryWeightService
+        .recordEncounter(input.categoryL1, input.categoryL2, input.categoryL3)
+        .catch(() => undefined);
+    }
 
     return {
-      deliveryCategory,
-      estimatedWeightKg,
-      deliveryRub,
-      weightPending: false,
+      deliveryCategory: DeliveryCategory.OTHER,
+      estimatedWeightKg: 0,
+      deliveryRub: 0,
+      weightPending: true,
     };
   }
 
@@ -194,10 +152,16 @@ export class PricingService {
 
     const categoryGroup = getCategoryGroupFromDeliveryCategory(dto.deliveryCategory);
 
-    const { estimatedWeightKg, deliveryRub } = this.deliveryEstimationService.estimateDeliveryRub({
+    const fromTable = estimateDeliveryFromTable({
       deliveryCategory: dto.deliveryCategory,
-      deliveryPricePerKgRub: settings.deliveryPricePerKgRub,
+      size: dto.size,
     });
+    const { estimatedWeightKg, deliveryRub } = fromTable
+      ? { estimatedWeightKg: fromTable.weightKg, deliveryRub: fromTable.deliveryRub }
+      : this.deliveryEstimationService.estimateDeliveryRub({
+          deliveryCategory: dto.deliveryCategory,
+          deliveryPricePerKgRub: settings.deliveryPricePerKgRub,
+        });
 
     const dutyResult = this.dutyCalculationService.calculate({
       priceYuan,
@@ -234,6 +198,13 @@ export class PricingService {
       dutyProcessingFeeRub: Prisma.Decimal;
     },
     discountPercentPoints = 0,
+    item: {
+      title?: string | null;
+      categoryL1?: string | null;
+      categoryL2?: string | null;
+      categoryL3?: string | null;
+      size?: string | null;
+    } = {},
   ): { totalUsd: Prisma.Decimal; deliveryRub: number; dutyRub: number } {
     const commissionPercent = this.effectiveCommissionPercent(
       settings.commissionPercent,
@@ -244,10 +215,16 @@ export class PricingService {
       .mul(new Prisma.Decimal(1).plus(commissionPercent.div(100)))
       .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
-    const { deliveryRub } = this.deliveryEstimationService.estimateDeliveryRub({
+    const fromTable = estimateDeliveryFromTable({
+      ...item,
       deliveryCategory: deliveryCategory as DeliveryCategory,
-      deliveryPricePerKgRub: settings.deliveryPricePerKgRub,
     });
+    const { deliveryRub } = fromTable
+      ? { deliveryRub: fromTable.deliveryRub }
+      : this.deliveryEstimationService.estimateDeliveryRub({
+          deliveryCategory: deliveryCategory as DeliveryCategory,
+          deliveryPricePerKgRub: settings.deliveryPricePerKgRub,
+        });
 
     const dutyRub = this.dutyCalculationService.calculateDutyRub({
       priceYuan,
@@ -292,6 +269,7 @@ export class PricingService {
       categoryL1: dto.product.categoryL1,
       categoryL2: dto.product.categoryL2,
       categoryL3: dto.product.categoryL3,
+      size: sku.size,
       deliveryPricePerKgRub: settings.deliveryPricePerKgRub,
     });
 

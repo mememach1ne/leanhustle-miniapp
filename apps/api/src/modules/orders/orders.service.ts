@@ -157,6 +157,13 @@ export class OrdersService {
             item.deliveryCategory ?? 'OTHER',
             settings,
             loyaltyDiscount,
+            {
+              title: item.productTitle,
+              categoryL1: item.categoryL1,
+              categoryL2: item.categoryL2,
+              categoryL3: item.categoryL3,
+              size: item.sizeLabel,
+            },
           );
           return {
             ...item,
