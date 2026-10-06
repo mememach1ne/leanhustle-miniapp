@@ -112,7 +112,9 @@ export class RaketaFulfillmentService {
     const label = order.items.length > 1 ? `${order.orderNumber}-${index + 1}` : order.orderNumber;
 
     try {
-      const created = await this.raketa.createOrder({
+      // Retry-safe: a previous attempt may have created the order already.
+      const existing = await this.raketa.findOrderByChinaTrack(chinaTrack);
+      const created = existing ?? await this.raketa.createOrder({
         title: `${label}) ${ruTitle}`.slice(0, 190),
         china_track_number: chinaTrack,
         seller_id: RAKETA_POIZON_SELLER_ID,
@@ -153,7 +155,7 @@ export class RaketaFulfillmentService {
             fromStatus: order.status,
             toStatus: order.status,
             changedByStaffId: staff.id,
-            comment: `RAKETA: заказ «${label}) ${ruTitle}» создан${
+            comment: `RAKETA: заказ «${existing ? existing.title : `${label}) ${ruTitle}`}» ${existing ? 'привязан' : 'создан'}${
               created.raketa_track_number ? ` (${created.raketa_track_number})` : ''
             }, трек Китая ${chinaTrack}.`,
           },

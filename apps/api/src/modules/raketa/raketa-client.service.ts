@@ -93,15 +93,36 @@ export class RaketaClientService {
     return own.id;
   }
 
+  /** Creates an order; RAKETA answers `{ message, order_id }`. Returns the full order. */
   async createOrder(payload: RaketaCreateOrderPayload): Promise<RaketaOrder> {
-    const body = await this.request<{ data?: RaketaOrder; message?: RaketaOrder }>(
+    const body = await this.request<{ order_id?: string; data?: { id?: string } }>(
       'POST',
       '/customer_order',
       payload,
     );
-    const order = body.data ?? body.message;
-    if (!order?.id) throw new RaketaApiError('RAKETA не вернула ID созданного заказа.');
-    return order;
+    const id = body.order_id ?? body.data?.id;
+    if (!id) throw new RaketaApiError('RAKETA не вернула ID созданного заказа.');
+    try {
+      return await this.getOrder(id);
+    } catch {
+      return { id, title: payload.title, china_track_number: payload.china_track_number };
+    }
+  }
+
+  /** Recent orders with this China track number (to avoid duplicates on retries). */
+  async findOrderByChinaTrack(chinaTrack: string, pages = 3): Promise<RaketaOrder | null> {
+    const wanted = chinaTrack.toUpperCase();
+    for (let page = 1; page <= pages; page++) {
+      const body = await this.request<{ data?: RaketaOrder[] | { data?: RaketaOrder[] } }>(
+        'GET',
+        `/customer_orders?page=${page}`,
+      );
+      const list = Array.isArray(body.data) ? body.data : (body.data?.data ?? []);
+      const hit = list.find((o) => (o.china_track_number ?? '').toUpperCase() === wanted);
+      if (hit) return hit;
+      if (list.length === 0) break;
+    }
+    return null;
   }
 
   async getOrder(id: string): Promise<RaketaOrder> {
