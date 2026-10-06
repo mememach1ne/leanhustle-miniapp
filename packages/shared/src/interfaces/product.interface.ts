@@ -17,6 +17,8 @@ export interface DewuResolvedProduct {
   resolvedUrl: string;
   dwSpuId: string;
   title: string;
+  /** Original (Chinese) title from Poizon — the forwarder needs it. */
+  titleCn?: string;
   brand?: string;
   mainImage?: string;
   gallery: ProductImage[];

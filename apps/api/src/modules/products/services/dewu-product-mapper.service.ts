@@ -87,6 +87,7 @@ export class DewuProductMapperService {
       resolvedUrl: resolvedLink.resolvedUrl,
       dwSpuId: String(data.dwSpuId),
       title: data.distSpuTitle || data.dwSpuTitle || '',
+      titleCn: (data as { titleRaw?: string }).titleRaw || undefined,
       brand: data.distBrandName,
       mainImage: data.image,
       gallery,

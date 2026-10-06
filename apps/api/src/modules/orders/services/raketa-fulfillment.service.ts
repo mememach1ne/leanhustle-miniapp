@@ -284,21 +284,26 @@ export class RaketaFulfillmentService {
   }
 
   /**
-   * Admin tool: register a purchase that isn't a customer order (for
-   * yourself / without commission) straight in RAKETA.
+   * Admin tool: register purchases that aren't customer orders (for
+   * yourself / without commission) straight in RAKETA. One RAKETA order per
+   * item; with a recipient + CDEK point, one item gets them on its order and
+   * several items are grouped into one consolidation.
    */
-  async createQuickOrder(input: {
-    link: string;
-    productTitle: string;
-    categoryL1?: string | null;
-    categoryL2?: string | null;
-    categoryL3?: string | null;
-    dwSpuId: string;
-    size: string;
-    priceYuan: number;
-    quantity: number;
-    chinaTrackNumber: string;
+  async createQuickOrders(input: {
     label?: string | null;
+    items: Array<{
+      link: string;
+      productTitle: string;
+      categoryL1?: string | null;
+      categoryL2?: string | null;
+      categoryL3?: string | null;
+      dwSpuId: string;
+      size: string;
+      priceYuan: number;
+      quantity: number;
+      chinaTrackNumber: string;
+      titleCn?: string | null;
+    }>;
     delivery?: {
       fullName: string;
       phone: string;
@@ -312,84 +317,102 @@ export class RaketaFulfillmentService {
       };
     };
   }): Promise<{
-    id: string;
-    raketaTrackNumber: string | null;
-    title: string;
-    existed: boolean;
+    orders: Array<{ id: string; raketaTrackNumber: string | null; title: string; existed: boolean }>;
+    consolidationId: string | null;
     deliveryAssigned: boolean;
     deliveryError: string | null;
   }> {
-    const track = input.chinaTrackNumber.replace(/\s+/g, '').toUpperCase();
-    if (!CHINA_TRACK_RE.test(track) || RAKETA_NUMBER_RE.test(track)) {
-      throw new BadRequestException(
-        'Китайский трек: латинские буквы и цифры, от 9 символов (например SF1234567890).',
-      );
-    }
-    const ruTitle = buildRaketaItemTitle({
-      title: input.productTitle,
-      categoryL1: input.categoryL1,
-      categoryL2: input.categoryL2,
-      categoryL3: input.categoryL3,
+    const tracks = input.items.map((item) => item.chinaTrackNumber.replace(/\s+/g, '').toUpperCase());
+    tracks.forEach((track, i) => {
+      if (!CHINA_TRACK_RE.test(track) || RAKETA_NUMBER_RE.test(track)) {
+        throw new BadRequestException(
+          `Товар ${i + 1}: китайский трек — латинские буквы и цифры, от 9 символов (например SF1234567890).`,
+        );
+      }
     });
-    const label = (input.label ?? '').trim().slice(0, 40) || 'Личный';
-    try {
-      const { order, existed } = await this.findOrCreate({
-        title: `${label}) ${ruTitle}`,
-        track,
-        ruTitle,
-        link: input.link,
-        dwSpuId: input.dwSpuId,
-        productTitle: input.productTitle,
-        size: input.size,
-        quantity: input.quantity,
-        priceYuan: input.priceYuan,
-      });
-      this.logger.log(`RAKETA quick order ${order.id} ${existed ? 'found' : 'created'} (${track})`);
+    if (new Set(tracks).size !== tracks.length) {
+      throw new BadRequestException('У каждого товара должен быть свой китайский трек.');
+    }
 
-      // Optional recipient + CDEK point; a failure here doesn't undo the order.
-      let deliveryAssigned = false;
-      let deliveryError: string | null = null;
-      if (input.delivery) {
-        try {
-          const name = splitFullName(input.delivery.fullName);
-          if (!name) throw new Error('ФИО: нужны фамилия и имя на русском.');
-          const phone10 = input.delivery.phone.replace(/\D/g, '').replace(/^[78](\d{10})$/, '$1');
-          if (!/^\d{10}$/.test(phone10)) throw new Error('Телефон должен быть в формате +7XXXXXXXXXX.');
-          const point = input.delivery.pickupPoint;
-          const recipientId = await this.raketa.createRecipient({ ...name, phone10 });
-          const addressId = await this.raketa.createCdekAddress({
-            title: `${input.delivery.fullName} — ${point.city}`,
-            cityId: point.cityId,
-            city: point.city,
-            region: point.region ?? null,
-            pvzCode: point.pvzCode,
-            pvzIndex: point.pvzIndex ?? null,
-            street: input.delivery.pointAddress,
+    const label = (input.label ?? '').trim().slice(0, 40) || 'Личный';
+    const many = input.items.length > 1;
+    const orders: Array<{ id: string; raketaTrackNumber: string | null; title: string; existed: boolean }> = [];
+
+    for (const [i, item] of input.items.entries()) {
+      const ruTitle = buildRaketaItemTitle({
+        title: item.productTitle,
+        categoryL1: item.categoryL1,
+        categoryL2: item.categoryL2,
+        categoryL3: item.categoryL3,
+      });
+      const title = `${many ? `${label}-${i + 1}` : label}) ${ruTitle}`;
+      try {
+        const { order, existed } = await this.findOrCreate({
+          title,
+          track: tracks[i],
+          ruTitle,
+          link: item.link,
+          dwSpuId: item.dwSpuId,
+          productTitle: item.productTitle,
+          size: item.size,
+          quantity: item.quantity,
+          priceYuan: item.priceYuan,
+          titleCn: item.titleCn,
+        });
+        orders.push({ id: order.id, raketaTrackNumber: order.raketa_track_number ?? null, title: order.title || title, existed });
+        this.logger.log(`RAKETA quick order ${order.id} ${existed ? 'found' : 'created'} (${tracks[i]})`);
+      } catch (error) {
+        const done = orders.length
+          ? ` Уже созданы: ${orders.map((o) => o.raketaTrackNumber ?? o.id).join(', ')}.`
+          : '';
+        throw new BadRequestException(`RAKETA: товар ${i + 1} — ${errorText(error)}.${done}`);
+      }
+    }
+
+    // Optional recipient + CDEK point; a failure here doesn't undo the orders.
+    let consolidationId: string | null = null;
+    let deliveryAssigned = false;
+    let deliveryError: string | null = null;
+    if (input.delivery) {
+      try {
+        const name = splitFullName(input.delivery.fullName);
+        if (!name) throw new Error('ФИО: нужны фамилия и имя на русском.');
+        const phone10 = input.delivery.phone.replace(/\D/g, '').replace(/^[78](\d{10})$/, '$1');
+        if (!/^\d{10}$/.test(phone10)) throw new Error('Телефон должен быть в формате +7XXXXXXXXXX.');
+        const point = input.delivery.pickupPoint;
+        const recipientId = await this.raketa.createRecipient({ ...name, phone10 });
+        const addressId = await this.raketa.createCdekAddress({
+          title: `${input.delivery.fullName} — ${point.city}`,
+          cityId: point.cityId,
+          city: point.city,
+          region: point.region ?? null,
+          pvzCode: point.pvzCode,
+          pvzIndex: point.pvzIndex ?? null,
+          street: input.delivery.pointAddress,
+        });
+        if (many) {
+          consolidationId = await this.raketa.createConsolidation({
+            title: `${label} ${orders.length} шт`,
+            orderIds: orders.map((o) => o.id),
+            recipientId,
+            addressId,
           });
+        } else {
           await this.raketa.assignOrderDelivery({
-            orderId: order.id,
+            orderId: orders[0].id,
             declarantId: await this.raketa.getOwnDeclarantId(),
             recipientId,
             addressId,
           });
-          deliveryAssigned = true;
-        } catch (error) {
-          deliveryError = errorText(error);
-          this.logger.warn(`RAKETA quick order delivery failed (${order.id}): ${deliveryError}`);
         }
+        deliveryAssigned = true;
+      } catch (error) {
+        deliveryError = errorText(error);
+        this.logger.warn(`RAKETA quick orders delivery failed: ${deliveryError}`);
       }
-
-      return {
-        id: order.id,
-        raketaTrackNumber: order.raketa_track_number ?? null,
-        title: order.title || `${label}) ${ruTitle}`,
-        existed,
-        deliveryAssigned,
-        deliveryError,
-      };
-    } catch (error) {
-      throw new BadRequestException(`RAKETA: не удалось создать заказ — ${errorText(error)}`);
     }
+
+    return { orders, consolidationId, deliveryAssigned, deliveryError };
   }
 
   /** Reuses an existing RAKETA order with this China track, otherwise creates one. */
@@ -403,6 +426,7 @@ export class RaketaFulfillmentService {
     size: string;
     quantity: number;
     priceYuan: number;
+    titleCn?: string | null;
   }): Promise<{ order: RaketaOrder; existed: boolean }> {
     // Retry-safe: a previous attempt may have created the order already.
     const existing = await this.raketa.findOrderByTrack(input.track);
@@ -418,7 +442,9 @@ export class RaketaFulfillmentService {
           {
             link: input.link,
             item_title: input.ruTitle,
-            discription_cn: await this.chineseDescription(input.dwSpuId, input.productTitle, input.size),
+            discription_cn: input.titleCn
+              ? `${input.titleCn} 尺码 ${input.size}`.slice(0, 500)
+              : await this.chineseDescription(input.dwSpuId, input.productTitle, input.size),
             count: input.quantity,
             price_cn: input.priceYuan.toFixed(0),
             additional_services: [],

@@ -196,10 +196,8 @@ export const deliveryAddressesApi = {
 };
 
 export interface RaketaQuickOrderResult {
-  id: string;
-  raketaTrackNumber: string | null;
-  title: string;
-  existed: boolean;
+  orders: Array<{ id: string; raketaTrackNumber: string | null; title: string; existed: boolean }>;
+  consolidationId: string | null;
   deliveryAssigned: boolean;
   deliveryError: string | null;
 }
@@ -323,17 +321,20 @@ export const adminApi = {
   },
   /** Admin-only: create an order straight in the RAKETA cabinet. */
   async createRaketaQuickOrder(payload: {
-    link: string;
-    dwSpuId: string;
-    productTitle: string;
-    categoryL1?: string;
-    categoryL2?: string;
-    categoryL3?: string;
-    size: string;
-    priceYuan: number;
-    quantity: number;
-    chinaTrackNumber: string;
     label?: string;
+    items: Array<{
+      link: string;
+      dwSpuId: string;
+      productTitle: string;
+      titleCn?: string;
+      categoryL1?: string;
+      categoryL2?: string;
+      categoryL3?: string;
+      size: string;
+      priceYuan: number;
+      quantity: number;
+      chinaTrackNumber: string;
+    }>;
     delivery?: {
       fullName: string;
       phone: string;
@@ -341,8 +342,9 @@ export const adminApi = {
       pickupPoint: DeliveryPickupPoint;
     };
   }): Promise<RaketaQuickOrderResult> {
+    // One engine + RAKETA round-trip per item.
     const response = await apiClient.post<RaketaQuickOrderResult>('/admin/raketa/quick-order', payload, {
-      timeout: 90000,
+      timeout: 60000 + payload.items.length * 30000,
     });
     return response.data;
   },

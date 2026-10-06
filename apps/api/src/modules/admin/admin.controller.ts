@@ -160,7 +160,7 @@ export class AdminController {
     if (!staff || staff.role !== StaffRole.ADMIN) {
       throw new ForbiddenException('Создавать заказы в RAKETA напрямую может только администратор.');
     }
-    return this.raketaFulfillment.createQuickOrder(dto);
+    return this.raketaFulfillment.createQuickOrders(dto);
   }
 
   @Post('orders/manual/resolve-product')

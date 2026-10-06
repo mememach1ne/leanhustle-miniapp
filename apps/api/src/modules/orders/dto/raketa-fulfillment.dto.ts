@@ -1,5 +1,8 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsInt,
   IsNotEmpty,
@@ -53,7 +56,13 @@ export class SetFulfillmentModeDto {
   manual!: boolean;
 }
 
-export class RaketaQuickOrderDto {
+export class RaketaQuickItemDto {
+  /** Chinese title from the resolved product (skips a second engine call). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  titleCn?: string;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(500)
@@ -102,6 +111,15 @@ export class RaketaQuickOrderDto {
   @IsNotEmpty()
   @MaxLength(64)
   chinaTrackNumber!: string;
+}
+
+export class RaketaQuickOrderDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => RaketaQuickItemDto)
+  items!: RaketaQuickItemDto[];
 
   /** Prefix of the RAKETA order title, e.g. a name ("Сергей"). */
   @IsOptional()
