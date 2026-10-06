@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { adminApi } from '../../lib/api-client';
 import { extractAxiosMessage } from '../../lib/error-utils';
 import { FeedbackMessage } from './feedback-message';
+import { type PickedPoint, PickupPointPicker } from './pickup-point-picker';
 import { SectionCard } from './section-card';
 
 const inputClass =
@@ -24,6 +25,10 @@ export function RaketaQuickOrderForm({ onClose }: { onClose: () => void }) {
   const [quantity, setQuantity] = useState('1');
   const [chinaTrack, setChinaTrack] = useState('');
   const [label, setLabel] = useState('');
+  const [withDelivery, setWithDelivery] = useState(false);
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientPhone, setRecipientPhone] = useState('+7');
+  const [point, setPoint] = useState<PickedPoint | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -58,6 +63,20 @@ export function RaketaQuickOrderForm({ onClose }: { onClose: () => void }) {
       setError('Введите китайский трек.');
       return;
     }
+    if (withDelivery) {
+      if (!/^[А-Яа-яЁё-]+(\s+[А-Яа-яЁё-]+){1,2}$/.test(recipientName.trim())) {
+        setError('ФИО получателя: фамилия и имя (и отчество) на русском.');
+        return;
+      }
+      if (!/^\+7\d{10}$/.test(recipientPhone.trim())) {
+        setError('Телефон получателя в формате +7XXXXXXXXXX.');
+        return;
+      }
+      if (!point) {
+        setError('Выберите пункт СДЭК.');
+        return;
+      }
+    }
 
     setSubmitting(true);
     setError(null);
@@ -75,12 +94,24 @@ export function RaketaQuickOrderForm({ onClose }: { onClose: () => void }) {
         quantity: qty,
         chinaTrackNumber: chinaTrack.trim(),
         label: label.trim() || undefined,
+        delivery:
+          withDelivery && point
+            ? {
+                fullName: recipientName.trim().replace(/\s+/g, ' '),
+                phone: recipientPhone.trim(),
+                pointAddress: point.label.replace(/\s*\([A-Za-z0-9_-]+\)\s*$/, ''),
+                pickupPoint: point.pickupPoint,
+              }
+            : undefined,
       });
       setSuccess(
         `${result.existed ? 'Заказ с этим треком уже был в RAKETA' : 'Заказ создан в RAKETA'}: ${
           result.raketaTrackNumber ?? result.id
-        } — «${result.title}».`,
+        } — «${result.title}».${result.deliveryAssigned ? ' Получатель и пункт СДЭК указаны.' : ''}`,
       );
+      if (result.deliveryError) {
+        setError(`Заказ создан, но получателя/пункт указать не удалось: ${result.deliveryError}`);
+      }
       setChinaTrack('');
     } catch (err) {
       setError(extractAxiosMessage(err) ?? 'Не удалось создать заказ в RAKETA.');
@@ -217,6 +248,47 @@ export function RaketaQuickOrderForm({ onClose }: { onClose: () => void }) {
                 />
               </div>
             </div>
+
+            <label className="flex items-center gap-2 text-xs text-white/80">
+              <input
+                type="checkbox"
+                checked={withDelivery}
+                onChange={(e) => setWithDelivery(e.target.checked)}
+                className="h-4 w-4 accent-[var(--accent)]"
+              />
+              Сразу указать получателя и пункт СДЭК
+            </label>
+
+            {withDelivery ? (
+              <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs text-white/60">ФИО получателя</label>
+                    <input
+                      type="text"
+                      value={recipientName}
+                      onChange={(e) => setRecipientName(e.target.value)}
+                      placeholder="Иванов Иван Иванович"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-white/60">Телефон</label>
+                    <input
+                      type="tel"
+                      value={recipientPhone}
+                      onChange={(e) => setRecipientPhone(e.target.value)}
+                      placeholder="+79991234567"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-white/60">Пункт СДЭК</label>
+                  <PickupPointPicker value={point} onChange={setPoint} />
+                </div>
+              </div>
+            ) : null}
 
             <button
               type="button"

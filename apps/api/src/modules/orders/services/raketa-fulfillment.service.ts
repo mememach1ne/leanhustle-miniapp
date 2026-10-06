@@ -299,7 +299,26 @@ export class RaketaFulfillmentService {
     quantity: number;
     chinaTrackNumber: string;
     label?: string | null;
-  }): Promise<{ id: string; raketaTrackNumber: string | null; title: string; existed: boolean }> {
+    delivery?: {
+      fullName: string;
+      phone: string;
+      pointAddress: string;
+      pickupPoint: {
+        cityId: string;
+        city: string;
+        region?: string | null;
+        pvzCode: string;
+        pvzIndex?: string | null;
+      };
+    };
+  }): Promise<{
+    id: string;
+    raketaTrackNumber: string | null;
+    title: string;
+    existed: boolean;
+    deliveryAssigned: boolean;
+    deliveryError: string | null;
+  }> {
     const track = input.chinaTrackNumber.replace(/\s+/g, '').toUpperCase();
     if (!CHINA_TRACK_RE.test(track) || RAKETA_NUMBER_RE.test(track)) {
       throw new BadRequestException(
@@ -326,11 +345,47 @@ export class RaketaFulfillmentService {
         priceYuan: input.priceYuan,
       });
       this.logger.log(`RAKETA quick order ${order.id} ${existed ? 'found' : 'created'} (${track})`);
+
+      // Optional recipient + CDEK point; a failure here doesn't undo the order.
+      let deliveryAssigned = false;
+      let deliveryError: string | null = null;
+      if (input.delivery) {
+        try {
+          const name = splitFullName(input.delivery.fullName);
+          if (!name) throw new Error('ФИО: нужны фамилия и имя на русском.');
+          const phone10 = input.delivery.phone.replace(/\D/g, '').replace(/^[78](\d{10})$/, '$1');
+          if (!/^\d{10}$/.test(phone10)) throw new Error('Телефон должен быть в формате +7XXXXXXXXXX.');
+          const point = input.delivery.pickupPoint;
+          const recipientId = await this.raketa.createRecipient({ ...name, phone10 });
+          const addressId = await this.raketa.createCdekAddress({
+            title: `${input.delivery.fullName} — ${point.city}`,
+            cityId: point.cityId,
+            city: point.city,
+            region: point.region ?? null,
+            pvzCode: point.pvzCode,
+            pvzIndex: point.pvzIndex ?? null,
+            street: input.delivery.pointAddress,
+          });
+          await this.raketa.assignOrderDelivery({
+            orderId: order.id,
+            declarantId: await this.raketa.getOwnDeclarantId(),
+            recipientId,
+            addressId,
+          });
+          deliveryAssigned = true;
+        } catch (error) {
+          deliveryError = errorText(error);
+          this.logger.warn(`RAKETA quick order delivery failed (${order.id}): ${deliveryError}`);
+        }
+      }
+
       return {
         id: order.id,
         raketaTrackNumber: order.raketa_track_number ?? null,
         title: order.title || `${label}) ${ruTitle}`,
         existed,
+        deliveryAssigned,
+        deliveryError,
       };
     } catch (error) {
       throw new BadRequestException(`RAKETA: не удалось создать заказ — ${errorText(error)}`);

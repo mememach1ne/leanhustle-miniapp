@@ -10,6 +10,7 @@ import { EmptyState } from '../../../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../../../components/ui/feedback-message';
 import { LoadingBlock } from '../../../../../components/ui/loading-block';
 import { PageSection } from '../../../../../components/ui/page-section';
+import { RaketaOrderPanel } from '../../../../../components/ui/raketa-order-panel';
 import { SectionCard } from '../../../../../components/ui/section-card';
 import { adminApi } from '../../../../../lib/api-client';
 import { extractAxiosMessage } from '../../../../../lib/error-utils';
@@ -366,6 +367,23 @@ export default function AdminOrderDetailPage() {
           ) : null}
         </div>
       </SectionCard>
+
+      <RaketaOrderPanel
+        order={order}
+        busy={actionLoading}
+        onChinaTrack={(itemId, track) =>
+          runAction(() => adminApi.setChinaTrack(id, itemId, track), 'Товар зарегистрирован в RAKETA.')
+        }
+        onAssignDelivery={() =>
+          runAction(() => adminApi.assignRaketaDelivery(id), 'Доставка оформлена в RAKETA.')
+        }
+        onToggleManual={(manual) =>
+          runAction(
+            () => adminApi.setFulfillmentMode(id, manual),
+            manual ? 'Заказ переведён на ручное оформление.' : 'Автоматика RAKETA включена.',
+          )
+        }
+      />
 
       {/* Actions */}
       <SectionCard>

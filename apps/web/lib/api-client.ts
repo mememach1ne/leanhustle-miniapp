@@ -17,6 +17,7 @@ import type {
   CryptoPaymentIntentDto,
   DeliveryAddressDto,
   DeliveryCityDto,
+  DeliveryPickupPoint,
   DeliveryPointDto,
   DewuResolvedProduct,
   LoyaltyStatusDto,
@@ -194,6 +195,15 @@ export const deliveryAddressesApi = {
   },
 };
 
+export interface RaketaQuickOrderResult {
+  id: string;
+  raketaTrackNumber: string | null;
+  title: string;
+  existed: boolean;
+  deliveryAssigned: boolean;
+  deliveryError: string | null;
+}
+
 /** City / CDEK pickup point directory for the delivery address form. */
 export const deliveryPointsApi = {
   async searchCities(q: string): Promise<DeliveryCityDto[]> {
@@ -324,13 +334,16 @@ export const adminApi = {
     quantity: number;
     chinaTrackNumber: string;
     label?: string;
-  }): Promise<{ id: string; raketaTrackNumber: string | null; title: string; existed: boolean }> {
-    const response = await apiClient.post<{
-      id: string;
-      raketaTrackNumber: string | null;
-      title: string;
-      existed: boolean;
-    }>('/admin/raketa/quick-order', payload, { timeout: 60000 });
+    delivery?: {
+      fullName: string;
+      phone: string;
+      pointAddress: string;
+      pickupPoint: DeliveryPickupPoint;
+    };
+  }): Promise<RaketaQuickOrderResult> {
+    const response = await apiClient.post<RaketaQuickOrderResult>('/admin/raketa/quick-order', payload, {
+      timeout: 90000,
+    });
     return response.data;
   },
   async getOrderById(id: string): Promise<StaffOrderDetailsDto> {
@@ -339,6 +352,27 @@ export const adminApi = {
   },
   async updateOrderStatus(id: string, status: string): Promise<StaffOrderDetailsDto> {
     const response = await apiClient.post<StaffOrderDetailsDto>(`/admin/orders/${id}/status`, { status });
+    return response.data;
+  },
+  // RAKETA forwarder automation
+  async setChinaTrack(id: string, itemId: string, chinaTrackNumber: string): Promise<StaffOrderDetailsDto> {
+    const response = await apiClient.post<StaffOrderDetailsDto>(
+      `/admin/orders/${id}/china-track`,
+      { itemId, chinaTrackNumber },
+      { timeout: 60000 },
+    );
+    return response.data;
+  },
+  async setFulfillmentMode(id: string, manual: boolean): Promise<StaffOrderDetailsDto> {
+    const response = await apiClient.post<StaffOrderDetailsDto>(`/admin/orders/${id}/fulfillment-mode`, { manual });
+    return response.data;
+  },
+  async assignRaketaDelivery(id: string): Promise<StaffOrderDetailsDto> {
+    const response = await apiClient.post<StaffOrderDetailsDto>(
+      `/admin/orders/${id}/raketa-delivery`,
+      {},
+      { timeout: 60000 },
+    );
     return response.data;
   },
   async setTrackCode(id: string, trackCode: string): Promise<StaffOrderDetailsDto> {

@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsInt,
@@ -9,7 +10,33 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
+
+import { PickupPointDto } from '../../delivery-addresses/dto/pickup-point.dto';
+
+/** Optional recipient + CDEK point for a quick RAKETA order. */
+export class RaketaQuickDeliveryDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(256)
+  fullName!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20)
+  phone!: string;
+
+  /** Human-readable point address, e.g. "Москва, Мичуринский пр-т, 16". */
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(512)
+  pointAddress!: string;
+
+  @ValidateNested()
+  @Type(() => PickupPointDto)
+  pickupPoint!: PickupPointDto;
+}
 
 export class SetChinaTrackDto {
   @IsUUID()
@@ -81,4 +108,9 @@ export class RaketaQuickOrderDto {
   @IsString()
   @MaxLength(40)
   label?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RaketaQuickDeliveryDto)
+  delivery?: RaketaQuickDeliveryDto;
 }

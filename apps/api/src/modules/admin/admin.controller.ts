@@ -38,7 +38,11 @@ import { CreateManualOrderDto } from '../orders/dto/create-manual-order.dto';
 import { SetActualDeliveryDto, SetActualDutyDto } from '../orders/dto/set-actual-amount.dto';
 import { UpdateOrderStatusDto } from '../orders/dto/update-order-status.dto';
 import { UpdateOrderTrackCodeDto } from '../orders/dto/update-order-track-code.dto';
-import { RaketaQuickOrderDto } from '../orders/dto/raketa-fulfillment.dto';
+import {
+  RaketaQuickOrderDto,
+  SetChinaTrackDto,
+  SetFulfillmentModeDto,
+} from '../orders/dto/raketa-fulfillment.dto';
 import { OrdersService } from '../orders/orders.service';
 import { RaketaFulfillmentService } from '../orders/services/raketa-fulfillment.service';
 import { ResolveProductDto } from '../products/dto/resolve-product.dto';
@@ -187,6 +191,37 @@ export class AdminController {
     @CurrentStaff() staff?: StaffAccount,
   ): Promise<StaffOrderDetailsDto> {
     return this.ordersService.updateStatusByStaff(id, dto.status, staff);
+  }
+
+  // --- RAKETA forwarder automation (same as the bot) ---
+
+  @Post('orders/:id/china-track')
+  async setChinaTrack(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetChinaTrackDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new ForbiddenException('Staff access is required.');
+    return this.raketaFulfillment.registerChinaTrack(id, dto.itemId, dto.chinaTrackNumber, staff);
+  }
+
+  @Post('orders/:id/fulfillment-mode')
+  async setFulfillmentMode(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetFulfillmentModeDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new ForbiddenException('Staff access is required.');
+    return this.raketaFulfillment.setManual(id, dto.manual, staff);
+  }
+
+  @Post('orders/:id/raketa-delivery')
+  async assignRaketaDelivery(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new ForbiddenException('Staff access is required.');
+    return this.raketaFulfillment.assignDelivery(id, staff);
   }
 
   @Post('orders/:id/track-code')
