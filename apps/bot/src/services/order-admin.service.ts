@@ -596,7 +596,7 @@ export class OrderAdminService {
     return [
       `Заказ ${orderNumber}, ${itemLabel}.`,
       '',
-      'Пришлите китайский трек-номер посылки (например SF1234567890) — заказ в RAKETA создастся автоматически.',
+      'Пришлите китайский трек-номер посылки (например SF1234567890) — заказ в RAKETA создастся автоматически. Если заказ уже есть в RAKETA, пришлите его номер (RA…) — он привяжется.',
       'Для отмены — /cancel.',
     ].join('\n');
   }
@@ -1961,8 +1961,8 @@ export class OrderAdminService {
         .filter((item) => item.chinaTrackNumber)
         .map(
           (item) =>
-            `• ${item.title.slice(0, 40)}: ${item.chinaTrackNumber}${
-              item.raketaTrackNumber ? ` → ${item.raketaTrackNumber}` : item.raketaOrderId ? ' → создан' : ''
+            `• ${item.title.slice(0, 40)}: ${
+              item.raketaTrackNumber ? `${item.raketaTrackNumber} (Китай ${item.chinaTrackNumber})` : `Китай ${item.chinaTrackNumber}${item.raketaOrderId ? ' → создан' : ''}`
             }`,
         ),
       ...(fulfillment.lastError ? [`Ошибка RAKETA: ${fulfillment.lastError.slice(0, 300)}`] : []),

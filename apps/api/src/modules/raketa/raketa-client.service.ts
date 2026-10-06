@@ -110,17 +110,21 @@ export class RaketaClientService {
   }
 
   /**
-   * Existing order with this China track number (to avoid duplicates on
-   * retries). The list endpoint has no track field, so search by text and
-   * confirm on the order card.
+   * Finds an order by its China track or its RAKETA number (RA…). The list
+   * endpoint has neither field, so search by text and confirm on the card.
    */
-  async findOrderByChinaTrack(chinaTrack: string): Promise<RaketaOrder | null> {
-    const wanted = chinaTrack.toUpperCase();
-    const query = new URLSearchParams({ text: chinaTrack, offset: '0' }).toString();
+  async findOrderByTrack(track: string): Promise<RaketaOrder | null> {
+    const wanted = track.toUpperCase();
+    const query = new URLSearchParams({ text: track, offset: '0' }).toString();
     const body = await this.request<{ data?: Array<{ id: string }> }>('GET', `/customer_orders?${query}`);
     for (const candidate of (body.data ?? []).slice(0, 10)) {
       const order = await this.getOrder(candidate.id);
-      if ((order.china_track_number ?? '').toUpperCase() === wanted) return order;
+      if (
+        (order.china_track_number ?? '').toUpperCase() === wanted ||
+        (order.raketa_track_number ?? '').toUpperCase() === wanted
+      ) {
+        return order;
+      }
     }
     return null;
   }
