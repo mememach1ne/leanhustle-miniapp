@@ -113,8 +113,8 @@ export class RaketaFulfillmentService {
 
     try {
       // Retry-safe: a previous attempt may have created the order already.
-      const existing = await this.raketa.findOrderByChinaTrack(chinaTrack);
-      const created = existing ?? await this.raketa.createOrder({
+      let existing = await this.raketa.findOrderByChinaTrack(chinaTrack);
+      const create = async () => this.raketa.createOrder({
         title: `${label}) ${ruTitle}`.slice(0, 190),
         china_track_number: chinaTrack,
         seller_id: RAKETA_POIZON_SELLER_ID,
@@ -138,6 +138,17 @@ export class RaketaFulfillmentService {
         consolidation_id: null,
         draft: false,
       });
+      let created;
+      try {
+        created = existing ?? (await create());
+      } catch (error) {
+        // RAKETA already has an order with this track (e.g. an earlier attempt
+        // whose response we couldn't read) — find it and link instead.
+        if (!/уже создан/i.test(error instanceof Error ? error.message : '')) throw error;
+        existing = await this.raketa.scanRecentOrdersForChinaTrack(chinaTrack);
+        if (!existing) throw error;
+        created = existing;
+      }
 
       await this.prisma.$transaction([
         this.prisma.orderItem.update({

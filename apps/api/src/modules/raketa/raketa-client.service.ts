@@ -109,18 +109,36 @@ export class RaketaClientService {
     }
   }
 
-  /** Recent orders with this China track number (to avoid duplicates on retries). */
-  async findOrderByChinaTrack(chinaTrack: string, pages = 3): Promise<RaketaOrder | null> {
+  /**
+   * Existing order with this China track number (to avoid duplicates on
+   * retries). The list endpoint has no track field, so search by text and
+   * confirm on the order card.
+   */
+  async findOrderByChinaTrack(chinaTrack: string): Promise<RaketaOrder | null> {
     const wanted = chinaTrack.toUpperCase();
-    for (let page = 1; page <= pages; page++) {
-      const body = await this.request<{ data?: RaketaOrder[] | { data?: RaketaOrder[] } }>(
+    const query = new URLSearchParams({ text: chinaTrack, offset: '0' }).toString();
+    const body = await this.request<{ data?: Array<{ id: string }> }>('GET', `/customer_orders?${query}`);
+    for (const candidate of (body.data ?? []).slice(0, 10)) {
+      const order = await this.getOrder(candidate.id);
+      if ((order.china_track_number ?? '').toUpperCase() === wanted) return order;
+    }
+    return null;
+  }
+
+  /** Slow fallback: open the latest `limit` orders one by one and compare tracks. */
+  async scanRecentOrdersForChinaTrack(chinaTrack: string, limit = 30): Promise<RaketaOrder | null> {
+    const wanted = chinaTrack.toUpperCase();
+    for (let offset = 0; offset < limit; offset += 10) {
+      const body = await this.request<{ data?: Array<{ id: string }> }>(
         'GET',
-        `/customer_orders?page=${page}`,
+        `/customer_orders?offset=${offset}`,
       );
-      const list = Array.isArray(body.data) ? body.data : (body.data?.data ?? []);
-      const hit = list.find((o) => (o.china_track_number ?? '').toUpperCase() === wanted);
-      if (hit) return hit;
-      if (list.length === 0) break;
+      const list = body.data ?? [];
+      for (const candidate of list) {
+        const order = await this.getOrder(candidate.id);
+        if ((order.china_track_number ?? '').toUpperCase() === wanted) return order;
+      }
+      if (list.length < 10) break;
     }
     return null;
   }
