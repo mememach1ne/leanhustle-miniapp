@@ -34,6 +34,14 @@ const RAKETA_NUMBER_RE = /^RA\d{6,}$/;
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+/** "Иванов Иван Иванович" → RAKETA recipient name parts (Cyrillic only). */
+function splitFullName(fullName: string): { lastName: string; name: string; middleName: string | null } | null {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length < 2 || parts.length > 3) return null;
+  if (!parts.every((part) => /^[А-Яа-яЁё-]+$/.test(part))) return null;
+  return { lastName: parts[0], name: parts[1], middleName: parts[2] ?? null };
+}
+
 /**
  * Stage 1 of the RAKETA automation: once the manager enters the China-side
  * tracking number for an item, register that item as an order in the
@@ -114,6 +122,7 @@ export class RaketaFulfillmentService {
         const found = await this.raketa.findOrderByTrack(track);
         if (!found) throw new Error(`в кабинете не найден заказ ${track}`);
         await this.linkItem(order, item.id, found, staff, 'привязан по номеру RAKETA');
+        await this.assignDeliveryIfReady(orderId, staff);
         return this.ordersService.getOrderForStaff(orderId);
       }
 
@@ -140,6 +149,7 @@ export class RaketaFulfillmentService {
       });
       if (existed) {
         await this.linkItem(order, item.id, created, staff, 'привязан');
+        await this.assignDeliveryIfReady(orderId, staff);
         return this.ordersService.getOrderForStaff(orderId);
       }
 
@@ -150,6 +160,124 @@ export class RaketaFulfillmentService {
       this.logger.warn(`RAKETA registration failed for ${order.orderNumber}: ${message}`);
       await this.prisma.order.update({ where: { id: order.id }, data: { raketaLastError: message.slice(0, 1000) } });
       throw new BadRequestException(`RAKETA: не удалось создать заказ — ${message}`);
+    }
+
+    await this.assignDeliveryIfReady(orderId, staff);
+    return this.ordersService.getOrderForStaff(orderId);
+  }
+
+  /** Runs the delivery step once every item is registered; errors are kept on the order. */
+  private async assignDeliveryIfReady(orderId: string, staff: StaffAccount): Promise<void> {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
+    if (!order || order.fulfillmentManual || order.raketaDeliveryAssignedAt) return;
+    if (!order.items.every((item) => item.raketaOrderId)) return;
+    try {
+      await this.assignDelivery(orderId, staff);
+    } catch (error) {
+      // Already stored as raketaLastError — the bot shows it with a retry button.
+      this.logger.warn(`RAKETA delivery step failed for ${order.orderNumber}: ${errorText(error)}`);
+    }
+  }
+
+  /**
+   * Stage 3: recipient + CDEK pickup-point address at RAKETA; one item → set
+   * on that order, several items → one consolidation with all of them.
+   */
+  async assignDelivery(orderId: string, staff: StaffAccount): Promise<StaffOrderDetailsDto> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: { orderBy: { createdAt: 'asc' } } },
+    });
+    if (!order) throw new NotFoundException('Заказ не найден.');
+    if (order.fulfillmentManual) {
+      throw new BadRequestException('Заказ ведётся вручную — автоматика RAKETA для него выключена.');
+    }
+    if (order.raketaDeliveryAssignedAt) return this.ordersService.getOrderForStaff(orderId);
+
+    const missing = order.items.filter((item) => !item.raketaOrderId).length;
+    if (missing > 0) {
+      throw new BadRequestException(`Сначала зарегистрируйте в RAKETA все товары (осталось ${missing}).`);
+    }
+    if (!order.deliveryPvzCode || !order.deliveryCityId || !order.deliveryCity) {
+      throw new BadRequestException(
+        'У заказа нет пункта СДЭК из справочника (адрес введён вручную). Попросите клиента выбрать пункт в приложении или оформите доставку вручную.',
+      );
+    }
+    const name = splitFullName(order.deliveryFullName ?? '');
+    if (!name) {
+      throw new BadRequestException(
+        `ФИО получателя «${order.deliveryFullName ?? ''}» не подходит RAKETA: нужны фамилия и имя на русском.`,
+      );
+    }
+    const phone10 = (order.deliveryPhone ?? '').replace(/\D/g, '').replace(/^[78](\d{10})$/, '$1');
+    if (!/^\d{10}$/.test(phone10)) {
+      throw new BadRequestException(`Телефон получателя «${order.deliveryPhone ?? ''}» не подходит RAKETA.`);
+    }
+
+    try {
+      const recipientId =
+        order.raketaRecipientId ??
+        (await this.raketa.createRecipient({ ...name, phone10 }));
+      if (!order.raketaRecipientId) {
+        await this.prisma.order.update({ where: { id: order.id }, data: { raketaRecipientId: recipientId } });
+      }
+
+      const addressId =
+        order.raketaAddressId ??
+        (await this.raketa.createCdekAddress({
+          title: `${order.deliveryFullName} — ${order.deliveryCity}`,
+          cityId: order.deliveryCityId,
+          city: order.deliveryCity,
+          region: order.deliveryRegion,
+          pvzCode: order.deliveryPvzCode,
+          pvzIndex: order.deliveryPvzIndex,
+          street: (order.deliveryCdekAddress ?? '').replace(/\s*\([A-Za-z0-9_-]+\)\s*$/, ''),
+        }));
+      if (!order.raketaAddressId) {
+        await this.prisma.order.update({ where: { id: order.id }, data: { raketaAddressId: addressId } });
+      }
+
+      let summary: string;
+      if (order.items.length > 1) {
+        const consolidationId =
+          order.raketaConsolidationId ??
+          (await this.raketa.createConsolidation({
+            title: `${order.orderNumber} ${name.lastName} ${order.items.length} шт`,
+            orderIds: order.items.map((item) => item.raketaOrderId as string),
+            recipientId,
+            addressId,
+          }));
+        await this.prisma.order.update({ where: { id: order.id }, data: { raketaConsolidationId: consolidationId } });
+        summary = `создано объединение из ${order.items.length} заказов`;
+      } else {
+        await this.raketa.assignOrderDelivery({
+          orderId: order.items[0].raketaOrderId as string,
+          declarantId: await this.raketa.getOwnDeclarantId(),
+          recipientId,
+          addressId,
+        });
+        summary = 'получатель и адрес указаны в заказе';
+      }
+
+      await this.prisma.$transaction([
+        this.prisma.order.update({
+          where: { id: order.id },
+          data: { raketaDeliveryAssignedAt: new Date(), raketaLastError: null },
+        }),
+        this.prisma.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            fromStatus: order.status,
+            toStatus: order.status,
+            changedByStaffId: staff.id,
+            comment: `RAKETA: ${summary}; СДЭК ${order.deliveryPvzCode}, ${order.deliveryCity}.`,
+          },
+        }),
+      ]);
+    } catch (error) {
+      const message = errorText(error);
+      await this.prisma.order.update({ where: { id: order.id }, data: { raketaLastError: message.slice(0, 1000) } });
+      throw new BadRequestException(`RAKETA: не удалось оформить доставку — ${message}`);
     }
 
     return this.ordersService.getOrderForStaff(orderId);

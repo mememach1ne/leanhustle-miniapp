@@ -15,6 +15,7 @@ export const MANAGER_ORDER_ACTIONS = {
   // RAKETA forwarder automation.
   CHINA_TRACK: 'ctk',
   TOGGLE_MANUAL: 'man',
+  RAKETA_DELIVERY: 'rdl',
 } as const;
 
 export type ManagerOrderAction =

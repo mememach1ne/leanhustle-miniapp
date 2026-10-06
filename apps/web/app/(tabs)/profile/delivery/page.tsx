@@ -1,14 +1,15 @@
 'use client';
 
-import type { DeliveryAddressDto } from '@lean-poizon/shared';
+import type { DeliveryAddressDto, DeliveryPickupPoint } from '@lean-poizon/shared';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { EmptyState } from '../../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../../components/ui/feedback-message';
-import { BoxIcon, LockIcon, MapPinIcon } from '../../../../components/ui/icons';
+import { BoxIcon, LockIcon } from '../../../../components/ui/icons';
 import { LoadingBlock } from '../../../../components/ui/loading-block';
 import { PageSection } from '../../../../components/ui/page-section';
+import { type PickedPoint, PickupPointPicker } from '../../../../components/ui/pickup-point-picker';
 import { SectionCard } from '../../../../components/ui/section-card';
 import { deliveryAddressesApi } from '../../../../lib/api-client';
 import { extractAxiosMessage } from '../../../../lib/error-utils';
@@ -17,13 +18,12 @@ import { useAuthStore } from '../../../../store/auth-store';
 import { useDeliveryAddressesStore } from '../../../../store/delivery-addresses-store';
 
 const PHONE_REGEX = /^\+7\d{10}$/;
-const CDEK_OFFICES_URL = 'https://www.cdek.ru/ru/offices/';
-
 interface AddressFormData {
   fullName: string;
   cdekAddress: string;
   phone: string;
   isDefault: boolean;
+  pickupPoint?: DeliveryPickupPoint;
 }
 
 const EMPTY_FORM: AddressFormData = { fullName: '', cdekAddress: '', phone: '+7', isDefault: false };
@@ -42,22 +42,28 @@ function AddressForm({
   isBusy: boolean;
 }) {
   const [form, setForm] = useState<AddressFormData>(initial);
+  const [picked, setPicked] = useState<PickedPoint | null>(
+    initial.pickupPoint ? { pickupPoint: initial.pickupPoint, label: initial.cdekAddress } : null,
+  );
   const [validationError, setValidationError] = useState<string | null>(null);
+  // Old addresses were typed by hand — they have to be re-picked from the list.
+  const legacyAddress = !initial.pickupPoint && initial.cdekAddress ? initial.cdekAddress : null;
 
   const handleSubmit = () => {
-    const trimmed = {
-      fullName: form.fullName.trim(),
-      cdekAddress: form.cdekAddress.trim(),
-      phone: form.phone.trim(),
-      isDefault: form.isDefault,
-    };
-
-    if (!trimmed.fullName) {
-      setValidationError('Укажите ФИО');
+    if (!picked) {
+      setValidationError('Выберите пункт СДЭК из списка');
       return;
     }
-    if (!trimmed.cdekAddress) {
-      setValidationError('Укажите адрес СДЭК');
+    const trimmed = {
+      fullName: form.fullName.trim().replace(/\s+/g, ' '),
+      cdekAddress: picked.label,
+      phone: form.phone.trim(),
+      isDefault: form.isDefault,
+      pickupPoint: picked.pickupPoint,
+    };
+
+    if (!/^[А-Яа-яЁё-]+(\s+[А-Яа-яЁё-]+){1,2}$/.test(trimmed.fullName)) {
+      setValidationError('Укажите фамилию, имя и отчество (если есть) на русском, например «Иванов Иван Иванович»');
       return;
     }
     if (!PHONE_REGEX.test(trimmed.phone)) {
@@ -87,27 +93,13 @@ function AddressForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs text-[var(--muted)]">Адрес пункта СДЭК</label>
-          <input
-            type="text"
-            value={form.cdekAddress}
-            onChange={(e) => setForm({ ...form, cdekAddress: e.target.value })}
-            placeholder="г. Москва, ул. Примерная, д. 1"
-            className={inputClass}
-            maxLength={512}
-          />
-          <a
-            href={CDEK_OFFICES_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent)] transition hover:underline"
-          >
-            <MapPinIcon className="h-4 w-4" />
-            Найти ближайший пункт СДЭК на карте
-          </a>
-          <p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">
-            Откроется сайт СДЭК — выберите удобный пункт и скопируйте его адрес сюда.
-          </p>
+          <label className="mb-1 block text-xs text-[var(--muted)]">Пункт выдачи СДЭК</label>
+          {legacyAddress && !picked ? (
+            <p className="mb-2 text-[11px] leading-4 text-amber-200/80">
+              Сейчас указано: «{legacyAddress}». Выберите этот пункт из списка — так заказ оформится автоматически.
+            </p>
+          ) : null}
+          <PickupPointPicker value={picked} onChange={setPicked} />
         </div>
         <div>
           <label className="mb-1 block text-xs text-[var(--muted)]">Телефон</label>
@@ -178,6 +170,11 @@ function AddressCard({
           ) : null}
         </div>
         <p className="text-sm text-[var(--muted)]">{address.cdekAddress}</p>
+        {!address.pickupPoint ? (
+          <p className="mt-1 text-[11px] text-amber-200/80">
+            Пункт введён вручную — нажмите «Изменить» и выберите его из списка.
+          </p>
+        ) : null}
         <p className="text-sm text-[var(--muted)]">{address.phone}</p>
       </div>
       <div className="mt-4 flex gap-3">
@@ -328,6 +325,7 @@ export default function DeliveryPage() {
             cdekAddress: addr.cdekAddress,
             phone: addr.phone,
             isDefault: addr.isDefault,
+            pickupPoint: addr.pickupPoint ?? undefined,
           }}
           submitLabel="Сохранить"
           onSubmit={(data) => handleUpdate(addr.id, data)}

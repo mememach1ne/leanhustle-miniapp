@@ -1957,6 +1957,14 @@ export class OrderAdminService {
     return [
       '',
       `RAKETA: зарегистрировано ${registered.length} из ${fulfillment.items.length}`,
+      `Пункт СДЭК: ${fulfillment.pickupPoint ?? 'не выбран из справочника (адрес введён вручную)'}`,
+      ...(fulfillment.deliveryAssigned
+        ? [
+            fulfillment.items.length > 1
+              ? 'Объединение и адрес в RAKETA: оформлены'
+              : 'Получатель и адрес в RAKETA: указаны',
+          ]
+        : []),
       ...fulfillment.items
         .filter((item) => item.chinaTrackNumber)
         .map(
@@ -2113,6 +2121,18 @@ export class OrderAdminService {
           {
             text: 'Китайский трек → RAKETA',
             callback_data: encodeManagerOrderCallback(MANAGER_ORDER_ACTIONS.CHINA_TRACK, order.id),
+          },
+        ]);
+      }
+      const allRegistered = order.fulfillment.items.every((item) => item.raketaOrderId);
+      if (!order.fulfillment.manual && allRegistered && !order.fulfillment.deliveryAssigned) {
+        buttons.push([
+          {
+            text:
+              order.fulfillment.items.length > 1
+                ? 'Создать объединение в RAKETA'
+                : 'Указать получателя и адрес в RAKETA',
+            callback_data: encodeManagerOrderCallback(MANAGER_ORDER_ACTIONS.RAKETA_DELIVERY, order.id),
           },
         ]);
       }

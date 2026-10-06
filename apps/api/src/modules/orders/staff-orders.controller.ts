@@ -62,6 +62,15 @@ export class StaffOrdersController {
     return this.raketaFulfillment.registerChinaTrack(id, dto.itemId, dto.chinaTrackNumber, staff);
   }
 
+  @Post(':id/raketa-delivery')
+  async assignRaketaDelivery(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new UnauthorizedException('Staff access is required.');
+    return this.raketaFulfillment.assignDelivery(id, staff);
+  }
+
   @Post(':id/fulfillment-mode')
   async setFulfillmentMode(
     @Param('id', ParseUUIDPipe) id: string,

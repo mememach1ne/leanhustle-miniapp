@@ -39,6 +39,40 @@ export interface RaketaOrder {
   stage_name?: string | null;
 }
 
+/** RAKETA's carrier id for CDEK and its standard tariff. */
+export const RAKETA_CDEK_TK_ID = '78cbeab6-821e-48c8-9c2e-028a1ea99805';
+export const RAKETA_CDEK_TARIFF_CODE = 'STND';
+
+export interface RaketaCity {
+  id: string;
+  city: string;
+  region: string | null;
+}
+
+export interface RaketaPickupPoint {
+  id: string;
+  pvz_code: string;
+  address: string;
+  name?: string | null;
+  work_time?: string | null;
+  index?: string | null;
+  GPS?: string | null;
+  delivery_sub_type?: string | null;
+}
+
+interface RaketaOrderDetails extends RaketaOrder {
+  seller?: { id: number } | null;
+  additional_services?: unknown[];
+  items?: Array<{
+    id: string;
+    link: string;
+    item_title: string;
+    discription_cn: string;
+    count: number;
+    price_cn: string;
+  }>;
+}
+
 interface RaketaDeclarant {
   id: string;
   display_name: string;
@@ -69,6 +103,8 @@ export class RaketaClientService {
   private token: string | null = null;
   private loginInFlight: Promise<string> | null = null;
   private declarantId: string | null = null;
+  private readonly cityCache = new Map<string, { value: RaketaCity[]; expiresAt: number }>();
+  private readonly pvzCache = new Map<string, { value: RaketaPickupPoint[]; expiresAt: number }>();
 
   constructor(@Inject(ConfigService) configService: ConfigService) {
     this.baseUrl = (configService.get<string>('raketa.apiUrl') || 'https://my.raketacn.ru/api').replace(
@@ -145,6 +181,150 @@ export class RaketaClientService {
       if (list.length < 10) break;
     }
     return null;
+  }
+
+  /** City search in the RAKETA (FIAS) directory. Cached for an hour. */
+  async searchCities(text: string): Promise<RaketaCity[]> {
+    const key = text.trim().toLowerCase();
+    const cached = this.cityCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const body = await this.request<{ data?: RaketaCity[] }>(
+      'GET',
+      `/city_list?${new URLSearchParams({ text: text.trim() }).toString()}`,
+    );
+    const value = (body.data ?? []).slice(0, 20);
+    this.cityCache.set(key, { value, expiresAt: Date.now() + 60 * 60 * 1000 });
+    return value;
+  }
+
+  /** CDEK pickup points in a city (tariff "Стандарт"). Cached for 12 hours. */
+  async getCdekPickupPoints(cityId: string): Promise<RaketaPickupPoint[]> {
+    const cached = this.pvzCache.get(cityId);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const tariffs = await this.request<{ data?: Array<{ id: string; tariff_code: string }> }>(
+      'GET',
+      `/get_tariff_list/${RAKETA_CDEK_TK_ID}/pvz/${encodeURIComponent(cityId)}`,
+    );
+    const list = tariffs.data ?? [];
+    const tariff = list.find((t) => t.tariff_code === RAKETA_CDEK_TARIFF_CODE) ?? list[0];
+    if (!tariff) return [];
+    const body = await this.request<{ data?: RaketaPickupPoint[] }>(
+      'GET',
+      `/pvz_list/${RAKETA_CDEK_TK_ID}/${encodeURIComponent(cityId)}/${tariff.id}`,
+    );
+    const value = body.data ?? [];
+    this.pvzCache.set(cityId, { value, expiresAt: Date.now() + 12 * 60 * 60 * 1000 });
+    return value;
+  }
+
+  /** Creates a recipient (Cyrillic names, phone as 10 digits). Returns its id. */
+  async createRecipient(input: {
+    lastName: string;
+    name: string;
+    middleName: string | null;
+    phone10: string;
+  }): Promise<string> {
+    const body = await this.request<{ recipient_id?: string }>('POST', '/customer_recipient', {
+      name: input.name,
+      last_name: input.lastName,
+      middle_name: input.middleName ?? '',
+      phone: input.phone10,
+      avatar: '1',
+    });
+    if (!body.recipient_id) throw new RaketaApiError('RAKETA не вернула ID получателя.');
+    return body.recipient_id;
+  }
+
+  /** Creates a CDEK pickup-point address. Returns its id. */
+  async createCdekAddress(input: {
+    title: string;
+    cityId: string;
+    city: string;
+    region: string | null;
+    pvzCode: string;
+    pvzIndex: string | null;
+    street: string;
+  }): Promise<string> {
+    const body = await this.request<{ address_id?: string }>('POST', '/customer_address', {
+      title: input.title.slice(0, 190),
+      country: 'Россия',
+      city_id: input.cityId,
+      city: input.city,
+      region: input.region ?? input.city,
+      tk: 'cdek',
+      delivery_type: 'pvz',
+      tariff_code: RAKETA_CDEK_TARIFF_CODE,
+      pvz_code: input.pvzCode,
+      index: input.pvzIndex ?? '',
+      street: input.street,
+      full_address: '',
+      house_number: '',
+      apartment: '',
+      entrance_number: '',
+      intercom_code: '',
+      floor_number: '',
+      is_apartment: false,
+    });
+    if (!body.address_id) throw new RaketaApiError('RAKETA не вернула ID адреса.');
+    return body.address_id;
+  }
+
+  /** Groups several orders into one consolidation with recipient + address. */
+  async createConsolidation(input: {
+    title: string;
+    orderIds: string[];
+    recipientId: string;
+    addressId: string;
+  }): Promise<string> {
+    const body = await this.request<{ consolidation_id?: string }>('POST', '/consolidation', {
+      insurance: false,
+      orders: input.orderIds.map((id) => ({ id })),
+      customer_address_id: input.addressId,
+      customer_recipient_id: input.recipientId,
+      tc_tariff_token: null,
+      additional_services: [],
+      title: input.title.slice(0, 250),
+      tk_city_list_id: null,
+    });
+    if (!body.consolidation_id) throw new RaketaApiError('RAKETA не вернула ID объединения.');
+    return body.consolidation_id;
+  }
+
+  /** Sets recipient + address on a single (not consolidated) order. */
+  async assignOrderDelivery(input: {
+    orderId: string;
+    declarantId: string;
+    recipientId: string;
+    addressId: string;
+  }): Promise<void> {
+    const res = await this.request<{ data: RaketaOrderDetails }>(
+      'GET',
+      `/customer_order/${encodeURIComponent(input.orderId)}`,
+    );
+    const order = res.data;
+    await this.request('PUT', `/customer_order/${encodeURIComponent(input.orderId)}`, {
+      title: order.title,
+      china_track_number: order.china_track_number,
+      seller_id: order.seller?.id ?? null,
+      declarant_id: input.declarantId,
+      items: (order.items ?? []).map((item) => ({
+        id: item.id,
+        link: item.link,
+        item_title: item.item_title,
+        discription_cn: item.discription_cn,
+        count: item.count,
+        price_cn: item.price_cn,
+        additional_services: [],
+      })),
+      additional_services: (order.additional_services ?? []).map((service) => service),
+      delivery_type: null,
+      receive_type: null,
+      customer_recipient_id: input.recipientId,
+      customer_address_id: input.addressId,
+      tc_tariff_token: null,
+      consolidation_id: null,
+      draft: false,
+    });
   }
 
   async getOrder(id: string): Promise<RaketaOrder> {

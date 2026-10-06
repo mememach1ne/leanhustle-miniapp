@@ -16,6 +16,8 @@ import type {
   CreateManualOrderRequest,
   CryptoPaymentIntentDto,
   DeliveryAddressDto,
+  DeliveryCityDto,
+  DeliveryPointDto,
   DewuResolvedProduct,
   LoyaltyStatusDto,
   ManagerHelpRequest,
@@ -189,6 +191,21 @@ export const deliveryAddressesApi = {
   },
   async remove(id: string): Promise<void> {
     await apiClient.delete(`/delivery-addresses/${id}`);
+  },
+};
+
+/** City / CDEK pickup point directory for the delivery address form. */
+export const deliveryPointsApi = {
+  async searchCities(q: string): Promise<DeliveryCityDto[]> {
+    const response = await apiClient.get<DeliveryCityDto[]>('/delivery-points/cities', { params: { q } });
+    return response.data;
+  },
+  async getCdekPoints(cityId: string): Promise<DeliveryPointDto[]> {
+    const response = await apiClient.get<DeliveryPointDto[]>('/delivery-points/cdek', {
+      params: { cityId },
+      timeout: 30000,
+    });
+    return response.data;
   },
 };
 

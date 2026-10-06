@@ -3,7 +3,16 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateDeliveryAddressDto } from './dto/create-delivery-address.dto';
+import { PickupPointDto } from './dto/pickup-point.dto';
 import { UpdateDeliveryAddressDto } from './dto/update-delivery-address.dto';
+
+const pickupPointColumns = (point?: PickupPointDto) => ({
+  cityId: point?.cityId ?? null,
+  city: point?.city ?? null,
+  region: point?.region ?? null,
+  pvzCode: point?.pvzCode ?? null,
+  pvzIndex: point?.pvzIndex ?? null,
+});
 
 @Injectable()
 export class DeliveryAddressesService {
@@ -38,6 +47,7 @@ export class DeliveryAddressesService {
           cdekAddress: dto.cdekAddress,
           phone: dto.phone,
           isDefault: dto.isDefault ?? false,
+          ...pickupPointColumns(dto.pickupPoint),
         },
       });
     });
@@ -63,6 +73,13 @@ export class DeliveryAddressesService {
           ...(dto.cdekAddress !== undefined ? { cdekAddress: dto.cdekAddress } : {}),
           ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
           ...(dto.isDefault !== undefined ? { isDefault: dto.isDefault } : {}),
+          // Editing the address text without re-picking a point drops the
+          // stale point, so automation never ships to a mismatched PVZ.
+          ...(dto.pickupPoint
+            ? pickupPointColumns(dto.pickupPoint)
+            : dto.cdekAddress !== undefined
+              ? pickupPointColumns(undefined)
+              : {}),
         },
       });
     });
@@ -94,6 +111,11 @@ export class DeliveryAddressesService {
     phone: string;
     isDefault: boolean;
     createdAt: Date;
+    cityId: string | null;
+    city: string | null;
+    region: string | null;
+    pvzCode: string | null;
+    pvzIndex: string | null;
   }): DeliveryAddressDto {
     return {
       id: address.id,
@@ -102,6 +124,16 @@ export class DeliveryAddressesService {
       phone: address.phone,
       isDefault: address.isDefault,
       createdAt: address.createdAt.toISOString(),
+      pickupPoint:
+        address.cityId && address.city && address.pvzCode
+          ? {
+              cityId: address.cityId,
+              city: address.city,
+              region: address.region,
+              pvzCode: address.pvzCode,
+              pvzIndex: address.pvzIndex,
+            }
+          : null,
     };
   }
 }

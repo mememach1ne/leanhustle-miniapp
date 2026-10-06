@@ -192,6 +192,15 @@ export class ApiService {
     return response.data;
   }
 
+  async assignRaketaDelivery(orderId: string, actor: BotActorIdentity): Promise<StaffOrderDetailsDto> {
+    const response = await this.http.post<StaffOrderDetailsDto>(
+      `/staff/orders/${orderId}/raketa-delivery`,
+      {},
+      { headers: this.buildHeaders(actor), timeout: 60_000 },
+    );
+    return response.data;
+  }
+
   async setFulfillmentMode(
     orderId: string,
     manual: boolean,

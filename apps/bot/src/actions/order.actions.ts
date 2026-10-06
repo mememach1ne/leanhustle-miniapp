@@ -254,6 +254,21 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
           await ctx.reply(orderAdminService.buildChinaTrackPrompt(order.orderNumber, next.itemLabel));
           return;
         }
+        case MANAGER_ORDER_ACTIONS.RAKETA_DELIVERY: {
+          await ctx.answerCbQuery('Отправляю в RAKETA…');
+          try {
+            const order = await apiService.assignRaketaDelivery(payload.orderId, getActor(ctx));
+            await ctx.reply(
+              order.fulfillment.items.length > 1
+                ? `Заказ ${order.orderNumber}: объединение в RAKETA создано, получатель и пункт СДЭК указаны.`
+                : `Заказ ${order.orderNumber}: получатель и пункт СДЭК указаны в RAKETA.`,
+            );
+          } catch (error) {
+            await ctx.reply(extractAxiosMessage(error) ?? 'Не удалось оформить доставку в RAKETA.');
+          }
+          await refreshOrderMessage(ctx, payload.orderId);
+          return;
+        }
         case MANAGER_ORDER_ACTIONS.TOGGLE_MANUAL: {
           const current = await apiService.getStaffOrder(payload.orderId, getActor(ctx));
           const manual = !current.fulfillment?.manual;

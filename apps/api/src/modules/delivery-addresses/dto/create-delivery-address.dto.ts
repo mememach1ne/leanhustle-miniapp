@@ -1,4 +1,7 @@
-import { IsBoolean, IsNotEmpty, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, ValidateNested } from 'class-validator';
+
+import { PickupPointDto } from './pickup-point.dto';
 
 export class CreateDeliveryAddressDto {
   @IsString()
@@ -18,4 +21,9 @@ export class CreateDeliveryAddressDto {
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PickupPointDto)
+  pickupPoint?: PickupPointDto;
 }

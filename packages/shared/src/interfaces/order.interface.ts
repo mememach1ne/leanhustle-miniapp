@@ -194,6 +194,10 @@ export interface StaffOrderFulfillmentDto {
   manual: boolean;
   consolidationId: string | null;
   lastError: string | null;
+  /** Recipient + address were sent to RAKETA (order or consolidation). */
+  deliveryAssigned: boolean;
+  /** CDEK pickup point picked from the directory, e.g. "MSK1005, Москва"; null for hand-typed addresses. */
+  pickupPoint: string | null;
   items: StaffOrderFulfillmentItemDto[];
 }
 

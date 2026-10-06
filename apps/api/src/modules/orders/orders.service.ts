@@ -205,6 +205,11 @@ export class OrdersService {
             deliveryFullName: deliveryAddress.fullName,
             deliveryCdekAddress: deliveryAddress.cdekAddress,
             deliveryPhone: deliveryAddress.phone,
+            deliveryCityId: deliveryAddress.cityId,
+            deliveryCity: deliveryAddress.city,
+            deliveryRegion: deliveryAddress.region,
+            deliveryPvzCode: deliveryAddress.pvzCode,
+            deliveryPvzIndex: deliveryAddress.pvzIndex,
           },
         });
 
@@ -335,6 +340,16 @@ export class OrdersService {
         phone: address.phone,
         isDefault: address.isDefault,
         createdAt: address.createdAt.toISOString(),
+        pickupPoint:
+          address.cityId && address.city && address.pvzCode
+            ? {
+                cityId: address.cityId,
+                city: address.city,
+                region: address.region,
+                pvzCode: address.pvzCode,
+                pvzIndex: address.pvzIndex,
+              }
+            : null,
       })),
     };
   }
@@ -475,6 +490,12 @@ export class OrdersService {
             deliveryFullName,
             deliveryCdekAddress,
             deliveryPhone,
+            // Reuse the pickup point if this is one of the client's saved addresses.
+            deliveryCityId: existingAddress?.cityId ?? null,
+            deliveryCity: existingAddress?.city ?? null,
+            deliveryRegion: existingAddress?.region ?? null,
+            deliveryPvzCode: existingAddress?.pvzCode ?? null,
+            deliveryPvzIndex: existingAddress?.pvzIndex ?? null,
             customerComment: dto.delivery.comment ?? null,
           },
         });

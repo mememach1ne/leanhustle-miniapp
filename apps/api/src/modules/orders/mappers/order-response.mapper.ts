@@ -39,6 +39,9 @@ type OrderWithItems = {
   fulfillmentManual?: boolean;
   raketaConsolidationId?: string | null;
   raketaLastError?: string | null;
+  raketaDeliveryAssignedAt?: Date | null;
+  deliveryPvzCode?: string | null;
+  deliveryCity?: string | null;
   user?: {
     id: string;
     telegramId: string;
@@ -223,6 +226,10 @@ export const mapOrderToStaffDetailsDto = (
       manual: order.fulfillmentManual ?? false,
       consolidationId: order.raketaConsolidationId ?? null,
       lastError: order.raketaLastError ?? null,
+      deliveryAssigned: Boolean(order.raketaDeliveryAssignedAt),
+      pickupPoint: order.deliveryPvzCode
+        ? `${order.deliveryPvzCode}${order.deliveryCity ? `, ${order.deliveryCity}` : ''}`
+        : null,
       items: order.items.map((item) => ({
         itemId: item.id,
         title: item.productTitle,
