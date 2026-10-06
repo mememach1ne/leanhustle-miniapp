@@ -289,7 +289,31 @@ export const adminApi = {
     const response = await apiClient.post<DewuResolvedProduct>(
       '/admin/orders/manual/resolve-product',
       { link },
+      // Price engine resolves average ~12s and can exceed 15s.
+      { timeout: 30000 },
     );
+    return response.data;
+  },
+  /** Admin-only: create an order straight in the RAKETA cabinet. */
+  async createRaketaQuickOrder(payload: {
+    link: string;
+    dwSpuId: string;
+    productTitle: string;
+    categoryL1?: string;
+    categoryL2?: string;
+    categoryL3?: string;
+    size: string;
+    priceYuan: number;
+    quantity: number;
+    chinaTrackNumber: string;
+    label?: string;
+  }): Promise<{ id: string; raketaTrackNumber: string | null; title: string; existed: boolean }> {
+    const response = await apiClient.post<{
+      id: string;
+      raketaTrackNumber: string | null;
+      title: string;
+      existed: boolean;
+    }>('/admin/raketa/quick-order', payload, { timeout: 60000 });
     return response.data;
   },
   async getOrderById(id: string): Promise<StaffOrderDetailsDto> {

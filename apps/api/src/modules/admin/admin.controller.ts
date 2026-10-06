@@ -38,7 +38,9 @@ import { CreateManualOrderDto } from '../orders/dto/create-manual-order.dto';
 import { SetActualDeliveryDto, SetActualDutyDto } from '../orders/dto/set-actual-amount.dto';
 import { UpdateOrderStatusDto } from '../orders/dto/update-order-status.dto';
 import { UpdateOrderTrackCodeDto } from '../orders/dto/update-order-track-code.dto';
+import { RaketaQuickOrderDto } from '../orders/dto/raketa-fulfillment.dto';
 import { OrdersService } from '../orders/orders.service';
+import { RaketaFulfillmentService } from '../orders/services/raketa-fulfillment.service';
 import { ResolveProductDto } from '../products/dto/resolve-product.dto';
 import { ProductsService } from '../products/products.service';
 import { UpdateSettingsDto } from '../settings/dto/update-settings.dto';
@@ -65,6 +67,7 @@ export class AdminController {
   private readonly productsService: ProductsService;
   private readonly profitReportService: ProfitReportService;
   private readonly catalogSyncService: CatalogSyncService;
+  private readonly raketaFulfillment: RaketaFulfillmentService;
 
   constructor(
     @Inject(AdminService) adminService: AdminService,
@@ -75,7 +78,9 @@ export class AdminController {
     @Inject(ProductsService) productsService: ProductsService,
     @Inject(ProfitReportService) profitReportService: ProfitReportService,
     @Inject(CatalogSyncService) catalogSyncService: CatalogSyncService,
+    @Inject(RaketaFulfillmentService) raketaFulfillment: RaketaFulfillmentService,
   ) {
+    this.raketaFulfillment = raketaFulfillment;
     this.profitReportService = profitReportService;
     this.adminService = adminService;
     this.ordersService = ordersService;
@@ -140,6 +145,18 @@ export class AdminController {
     @CurrentStaff() staff?: StaffAccount,
   ): Promise<ManualOrderClientLookupResponse> {
     return this.ordersService.lookupManualOrderClient(staff, username);
+  }
+
+  /** Admin-only: register a non-customer purchase (for yourself) in RAKETA. */
+  @Post('raketa/quick-order')
+  async createRaketaQuickOrder(
+    @Body() dto: RaketaQuickOrderDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ) {
+    if (!staff || staff.role !== StaffRole.ADMIN) {
+      throw new ForbiddenException('Создавать заказы в RAKETA напрямую может только администратор.');
+    }
+    return this.raketaFulfillment.createQuickOrder(dto);
   }
 
   @Post('orders/manual/resolve-product')

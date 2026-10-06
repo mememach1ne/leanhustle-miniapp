@@ -33,6 +33,6 @@ import { StaffOrdersController } from './staff-orders.controller';
     OrderNotificationsService,
     RaketaFulfillmentService,
   ],
-  exports: [OrdersService, OrderNotificationsService],
+  exports: [OrdersService, OrderNotificationsService, RaketaFulfillmentService],
 })
 export class OrdersModule {}

@@ -127,50 +127,19 @@ export class RaketaFulfillmentService {
       });
       const label = order.items.length > 1 ? `${order.orderNumber}-${index + 1}` : order.orderNumber;
 
-      // Retry-safe: a previous attempt may have created the order already.
-      const existing = await this.raketa.findOrderByTrack(track);
-      if (existing) {
-        await this.linkItem(order, item.id, existing, staff, 'привязан');
-        return this.ordersService.getOrderForStaff(orderId);
-      }
-
-      let created: RaketaOrder;
-      try {
-        created = await this.raketa.createOrder({
-          title: `${label}) ${ruTitle}`.slice(0, 190),
-          china_track_number: track,
-          seller_id: RAKETA_POIZON_SELLER_ID,
-          declarant_id: await this.raketa.getOwnDeclarantId(),
-          items: [
-            {
-              link: item.dewuLink,
-              item_title: ruTitle,
-              discription_cn: await this.chineseDescription(item.dwSpuId, item.productTitle, item.sizeLabel),
-              count: item.quantity,
-              price_cn: Number(item.priceYuan).toFixed(0),
-              additional_services: [],
-            },
-          ],
-          additional_services: [],
-          delivery_type: null,
-          receive_type: null,
-          customer_recipient_id: null,
-          customer_address_id: null,
-          tc_tariff_token: null,
-          consolidation_id: null,
-          draft: false,
-        });
-      } catch (error) {
-        // RAKETA already has an order with this track (e.g. an earlier attempt
-        // whose response we couldn't read) — find it among recent orders.
-        if (!/уже создан/i.test(errorText(error))) throw error;
-        const found = await this.raketa.scanRecentOrdersForChinaTrack(track);
-        if (!found) {
-          throw new Error(
-            'RAKETA пишет, что заказ с этим треком уже создан, но найти его не удалось — пришлите его номер RAKETA (RA…), и он привяжется.',
-          );
-        }
-        await this.linkItem(order, item.id, found, staff, 'привязан');
+      const { order: created, existed } = await this.findOrCreate({
+        title: `${label}) ${ruTitle}`,
+        track,
+        ruTitle,
+        link: item.dewuLink,
+        dwSpuId: item.dwSpuId,
+        productTitle: item.productTitle,
+        size: item.sizeLabel,
+        quantity: item.quantity,
+        priceYuan: Number(item.priceYuan),
+      });
+      if (existed) {
+        await this.linkItem(order, item.id, created, staff, 'привязан');
         return this.ordersService.getOrderForStaff(orderId);
       }
 
@@ -184,6 +153,116 @@ export class RaketaFulfillmentService {
     }
 
     return this.ordersService.getOrderForStaff(orderId);
+  }
+
+  /**
+   * Admin tool: register a purchase that isn't a customer order (for
+   * yourself / without commission) straight in RAKETA.
+   */
+  async createQuickOrder(input: {
+    link: string;
+    productTitle: string;
+    categoryL1?: string | null;
+    categoryL2?: string | null;
+    categoryL3?: string | null;
+    dwSpuId: string;
+    size: string;
+    priceYuan: number;
+    quantity: number;
+    chinaTrackNumber: string;
+    label?: string | null;
+  }): Promise<{ id: string; raketaTrackNumber: string | null; title: string; existed: boolean }> {
+    const track = input.chinaTrackNumber.replace(/\s+/g, '').toUpperCase();
+    if (!CHINA_TRACK_RE.test(track) || RAKETA_NUMBER_RE.test(track)) {
+      throw new BadRequestException(
+        'Китайский трек: латинские буквы и цифры, от 9 символов (например SF1234567890).',
+      );
+    }
+    const ruTitle = buildRaketaItemTitle({
+      title: input.productTitle,
+      categoryL1: input.categoryL1,
+      categoryL2: input.categoryL2,
+      categoryL3: input.categoryL3,
+    });
+    const label = (input.label ?? '').trim().slice(0, 40) || 'Личный';
+    try {
+      const { order, existed } = await this.findOrCreate({
+        title: `${label}) ${ruTitle}`,
+        track,
+        ruTitle,
+        link: input.link,
+        dwSpuId: input.dwSpuId,
+        productTitle: input.productTitle,
+        size: input.size,
+        quantity: input.quantity,
+        priceYuan: input.priceYuan,
+      });
+      this.logger.log(`RAKETA quick order ${order.id} ${existed ? 'found' : 'created'} (${track})`);
+      return {
+        id: order.id,
+        raketaTrackNumber: order.raketa_track_number ?? null,
+        title: order.title || `${label}) ${ruTitle}`,
+        existed,
+      };
+    } catch (error) {
+      throw new BadRequestException(`RAKETA: не удалось создать заказ — ${errorText(error)}`);
+    }
+  }
+
+  /** Reuses an existing RAKETA order with this China track, otherwise creates one. */
+  private async findOrCreate(input: {
+    title: string;
+    track: string;
+    ruTitle: string;
+    link: string;
+    dwSpuId: string;
+    productTitle: string;
+    size: string;
+    quantity: number;
+    priceYuan: number;
+  }): Promise<{ order: RaketaOrder; existed: boolean }> {
+    // Retry-safe: a previous attempt may have created the order already.
+    const existing = await this.raketa.findOrderByTrack(input.track);
+    if (existing) return { order: existing, existed: true };
+
+    try {
+      const order = await this.raketa.createOrder({
+        title: input.title.slice(0, 190),
+        china_track_number: input.track,
+        seller_id: RAKETA_POIZON_SELLER_ID,
+        declarant_id: await this.raketa.getOwnDeclarantId(),
+        items: [
+          {
+            link: input.link,
+            item_title: input.ruTitle,
+            discription_cn: await this.chineseDescription(input.dwSpuId, input.productTitle, input.size),
+            count: input.quantity,
+            price_cn: input.priceYuan.toFixed(0),
+            additional_services: [],
+          },
+        ],
+        additional_services: [],
+        delivery_type: null,
+        receive_type: null,
+        customer_recipient_id: null,
+        customer_address_id: null,
+        tc_tariff_token: null,
+        consolidation_id: null,
+        draft: false,
+      });
+      return { order, existed: false };
+    } catch (error) {
+      // RAKETA already has an order with this track (e.g. an earlier attempt
+      // whose response we couldn't read) — find it among recent orders.
+      if (!/уже создан/i.test(errorText(error))) throw error;
+      const found = await this.raketa.scanRecentOrdersForChinaTrack(input.track);
+      if (!found) {
+        throw new Error(
+          'RAKETA пишет, что заказ с этим треком уже создан, но найти его не удалось — пришлите его номер RAKETA (RA…), и он привяжется.',
+        );
+      }
+      return { order: found, existed: true };
+    }
   }
 
   private async linkItem(
