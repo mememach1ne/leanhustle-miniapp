@@ -18,6 +18,7 @@ import { DeliveryAddressesModule } from '../delivery-addresses/delivery-addresse
 import { HealthModule } from '../health/health.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
 import { OrdersModule } from '../orders/orders.module';
+import { PartnersModule } from '../partners/partners.module';
 import { PricingModule } from '../pricing/pricing.module';
 import { ProductsModule } from '../products/products.module';
 import { SettingsModule } from '../settings/settings.module';
@@ -58,6 +59,7 @@ import { UsersModule } from '../users/users.module';
     DeliveryAddressesModule,
     OrdersModule,
     CryptoPaymentsModule,
+    PartnersModule,
     PricingModule,
     SettingsModule,
     LoyaltyModule,

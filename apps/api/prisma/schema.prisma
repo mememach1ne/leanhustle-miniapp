@@ -40,25 +40,36 @@ enum SettingsScope {
 }
 
 model User {
-  id                       String   @id @default(uuid()) @db.Uuid
-  telegramId               String   @unique @map("telegram_id") @db.VarChar(32)
-  username                 String?  @map("username") @db.VarChar(64)
-  firstName                String   @map("first_name") @db.VarChar(128)
-  lastName                 String?  @map("last_name") @db.VarChar(128)
-  photoUrl                 String?  @map("photo_url") @db.Text
-  languageCode             String?  @map("language_code") @db.VarChar(16)
-  isChannelSubscriber      Boolean  @default(false) @map("is_channel_subscriber")
-  hasUsedSubscriberBenefit Boolean  @default(false) @map("has_used_subscriber_benefit")
-  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  lastActiveAt             DateTime @default(now()) @map("last_active_at") @db.Timestamptz(6)
+  id                       String    @id @default(uuid()) @db.Uuid
+  telegramId               String    @unique @map("telegram_id") @db.VarChar(32)
+  username                 String?   @map("username") @db.VarChar(64)
+  firstName                String    @map("first_name") @db.VarChar(128)
+  lastName                 String?   @map("last_name") @db.VarChar(128)
+  photoUrl                 String?   @map("photo_url") @db.Text
+  languageCode             String?   @map("language_code") @db.VarChar(16)
+  isChannelSubscriber      Boolean   @default(false) @map("is_channel_subscriber")
+  hasUsedSubscriberBenefit Boolean   @default(false) @map("has_used_subscriber_benefit")
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lastActiveAt             DateTime  @default(now()) @map("last_active_at") @db.Timestamptz(6)
+  /// Own referral code (t.me/lh_poizonbot?start=ref_<code>), created on demand.
+  referralCode             String?   @unique @map("referral_code") @db.VarChar(16)
+  /// Who invited this user (set once, on the first visit through a ref link).
+  referredById             String?   @map("referred_by_id") @db.Uuid
+  referredAt               DateTime? @map("referred_at") @db.Timestamptz(6)
 
   cart                 Cart?
   orders               Order[]
   deliveryAddresses    DeliveryAddress[]
   productResolveEvents ProductResolveEvent[]
+  referredBy           User?                 @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals            User[]                @relation("Referrals")
+  referralRewards      ReferralReward[]      @relation("RewardReferrer")
+  referredRewards      ReferralReward[]      @relation("RewardReferred")
+  referralPayouts      ReferralPayout[]
 
   @@index([lastActiveAt], map: "users_last_active_at_idx")
+  @@index([referredById], map: "users_referred_by_id_idx")
   @@map("users")
 }
 
@@ -190,6 +201,9 @@ model Order {
   // Tracking: RAKETA number of the whole parcel (RAC… / single item RA…) + CDEK track.
   raketaParcelTrack             String?        @map("raketa_parcel_track") @db.VarChar(64)
   raketaTkTrack                 String?        @map("raketa_tk_track") @db.VarChar(64)
+  // Profit ledger: when the order's commission was split / reversed.
+  profitAccountedAt             DateTime?      @map("profit_accounted_at") @db.Timestamptz(6)
+  profitReversedAt              DateTime?      @map("profit_reversed_at") @db.Timestamptz(6)
   // Manager-entered actual amounts. NULL means "not yet known" — show
   // estimated value (deliveryRub / dutyRub) to the customer.
   actualDeliveryRub             Decimal?       @map("actual_delivery_rub") @db.Decimal(12, 0)
@@ -215,6 +229,8 @@ model Order {
   statusHistory   OrderStatusHistory[]
   cryptoPayments  CryptoPayment[]
   walletInvoices  WalletInvoice[]
+  referralReward  ReferralReward?
+  profitEntries   ProfitEntry[]
 
   @@index([userId, createdAt], map: "orders_user_id_created_at_idx")
   @@index([status, createdAt], map: "orders_status_created_at_idx")
@@ -343,15 +359,23 @@ model OrderNote {
 }
 
 model StaffAccount {
-  id         String    @id @default(uuid()) @db.Uuid
-  telegramId String?   @unique @map("telegram_id") @db.VarChar(32)
-  username   String?   @unique @map("username") @db.VarChar(64)
-  firstName  String?   @map("first_name") @db.VarChar(128)
-  lastName   String?   @map("last_name") @db.VarChar(128)
-  role       StaffRole
-  isActive   Boolean   @default(true) @map("is_active")
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                     String    @id @default(uuid()) @db.Uuid
+  telegramId             String?   @unique @map("telegram_id") @db.VarChar(32)
+  username               String?   @unique @map("username") @db.VarChar(64)
+  firstName              String?   @map("first_name") @db.VarChar(128)
+  lastName               String?   @map("last_name") @db.VarChar(128)
+  role                   StaffRole
+  isActive               Boolean   @default(true) @map("is_active")
+  /// The project owner: manages partners and their shares.
+  isOwner                Boolean   @default(false) @map("is_owner")
+  /// Partner's share of net profit (%); null = not a partner.
+  profitSharePercent     Decimal?  @map("profit_share_percent") @db.Decimal(5, 2)
+  /// Where the partner's profit is withdrawn (USDT): Bybit chain + address.
+  payoutChain            String?   @map("payout_chain") @db.VarChar(16)
+  payoutAddress          String?   @map("payout_address") @db.VarChar(128)
+  payoutAddressChangedAt DateTime? @map("payout_address_changed_at") @db.Timestamptz(6)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   assignedOrders                Order[]                  @relation("AssignedOrders")
   createdOrderNotes             OrderNote[]              @relation("CreatedOrderNotes")
@@ -359,6 +383,9 @@ model StaffAccount {
   settingsAuditLogs             SettingsAuditLog[]       @relation("SettingsAuditActor")
   updatedSettings               BusinessSettings[]       @relation("SettingsUpdatedBy")
   deliveryCategoryWeightUpdates DeliveryCategoryWeight[] @relation("DeliveryCategoryWeightUpdates")
+  profitEntries                 ProfitEntry[]
+  profitWithdrawals             ProfitWithdrawal[]
+  processedReferralPayouts      ReferralPayout[]         @relation("ReferralPayoutProcessor")
 
   @@index([role, isActive], map: "staff_accounts_role_is_active_idx")
   @@map("staff_accounts")
@@ -558,4 +585,89 @@ model WalletInvoice {
   @@index([status], map: "wallet_invoices_status_idx")
   @@index([orderId], map: "wallet_invoices_order_id_idx")
   @@map("wallet_invoices")
+}
+
+/// Referral bonus for one order of an invited user (share of our commission).
+model ReferralReward {
+  id            String    @id @default(uuid()) @db.Uuid
+  referrerId    String    @map("referrer_id") @db.Uuid
+  referredId    String    @map("referred_id") @db.Uuid
+  orderId       String    @unique @map("order_id") @db.Uuid
+  commissionUsd Decimal   @map("commission_usd") @db.Decimal(12, 2)
+  percent       Decimal   @db.Decimal(5, 2)
+  amountUsd     Decimal   @map("amount_usd") @db.Decimal(12, 2)
+  /// PENDING (order not delivered yet) | AVAILABLE | CANCELLED | PAID
+  status        String    @default("PENDING") @db.VarChar(16)
+  payoutId      String?   @map("payout_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  availableAt   DateTime? @map("available_at") @db.Timestamptz(6)
+
+  referrer User  @relation("RewardReferrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred User  @relation("RewardReferred", fields: [referredId], references: [id], onDelete: Cascade)
+  order    Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId, status], map: "referral_rewards_referrer_idx")
+  @@map("referral_rewards")
+}
+
+/// A referral payout request; paid by a manager by hand.
+model ReferralPayout {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  amountUsd          Decimal   @map("amount_usd") @db.Decimal(12, 2)
+  /// REQUESTED | PAID | REJECTED
+  status             String    @default("REQUESTED") @db.VarChar(16)
+  note               String?   @db.Text
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  processedAt        DateTime? @map("processed_at") @db.Timestamptz(6)
+  processedByStaffId String?   @map("processed_by_staff_id") @db.Uuid
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  processedBy StaffAccount? @relation("ReferralPayoutProcessor", fields: [processedByStaffId], references: [id], onDelete: SetNull)
+
+  @@map("referral_payouts")
+}
+
+/// Partner balance movement (USD): + order share, − reversal / withdrawal.
+model ProfitEntry {
+  id            String   @id @default(uuid()) @db.Uuid
+  staffId       String   @map("staff_id") @db.Uuid
+  orderId       String?  @map("order_id") @db.Uuid
+  /// ORDER | REVERSAL | WITHDRAWAL | ADJUSTMENT
+  kind          String   @db.VarChar(16)
+  amountUsd     Decimal  @map("amount_usd") @db.Decimal(12, 2)
+  commissionUsd Decimal? @map("commission_usd") @db.Decimal(12, 2)
+  referralUsd   Decimal? @map("referral_usd") @db.Decimal(12, 2)
+  sharePercent  Decimal? @map("share_percent") @db.Decimal(5, 2)
+  withdrawalId  String?  @map("withdrawal_id") @db.Uuid
+  note          String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  staff StaffAccount @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  order Order?       @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@unique([staffId, orderId, kind], map: "profit_entries_staff_order_kind_key")
+  @@index([staffId, createdAt], map: "profit_entries_staff_idx")
+  @@map("profit_entries")
+}
+
+/// USDT withdrawal of a partner's balance through Bybit.
+model ProfitWithdrawal {
+  id              String   @id @default(uuid()) @db.Uuid
+  staffId         String   @map("staff_id") @db.Uuid
+  amountUsd       Decimal  @map("amount_usd") @db.Decimal(12, 2)
+  chain           String   @db.VarChar(16)
+  address         String   @db.VarChar(128)
+  /// MANUAL | MONTHLY
+  trigger         String   @db.VarChar(16)
+  /// PENDING | SENT | FAILED
+  status          String   @default("PENDING") @db.VarChar(16)
+  bybitWithdrawId String?  @map("bybit_withdraw_id") @db.VarChar(64)
+  error           String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  staff StaffAccount @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@map("profit_withdrawals")
 }

@@ -121,6 +121,22 @@ const sendSubscriptionGate = async (ctx: BotContext) => {
 
 export const registerStartCommand = (bot: Telegraf<BotContext>) => {
   bot.start(async (ctx) => {
+    // Referral link t.me/<bot>?start=ref_<code>: remember who invited this
+    // (new) user, then show the usual start screen.
+    const refCode = /^ref_([a-z0-9]{6,16})$/i.exec(ctx.payload ?? '')?.[1];
+    if (refCode && ctx.from) {
+      await apiService
+        .attachReferral({
+          code: refCode,
+          telegramId: String(ctx.from.id),
+          username: ctx.from.username,
+          firstName: ctx.from.first_name,
+          lastName: ctx.from.last_name,
+          languageCode: ctx.from.language_code,
+        })
+        .catch((error) => console.error('[referral] attach failed:', error instanceof Error ? error.message : error));
+    }
+
     // "Pay by link" order: t.me/<bot>?start=pay_<token> attaches the order to
     // this user; the api then sends the order card with a "Оплатить" button.
     const payToken = /^pay_([A-Za-z0-9_-]{16,64})$/.exec(ctx.payload ?? '')?.[1];

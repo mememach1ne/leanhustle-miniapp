@@ -30,10 +30,12 @@ import type {
   OrderDetailsDto,
   OrderListItemDto,
   OrderTrackingDto,
+  PartnerDashboardDto,
   PaymentNetwork,
   PricingCalculationRequest,
   PricingCalculationResult,
   ProfitReportDto,
+  ReferralSummaryDto,
   ResolveProductRequest,
   SettingsAuditLogItemDto,
   StaffOrderDetailsDto,
@@ -255,6 +257,40 @@ export const ordersApi = {
   },
   async getDeliveryPaymentLink(id: string): Promise<DeliveryPaymentLinkResponse> {
     const response = await apiClient.post<DeliveryPaymentLinkResponse>(`/orders/${id}/delivery-payment-link`, {});
+    return response.data;
+  },
+};
+
+export const referralsApi = {
+  async getMine(): Promise<ReferralSummaryDto> {
+    const response = await apiClient.get<ReferralSummaryDto>('/referrals/me');
+    return response.data;
+  },
+  async requestPayout(): Promise<ReferralSummaryDto> {
+    const response = await apiClient.post<ReferralSummaryDto>('/referrals/payout', {});
+    return response.data;
+  },
+};
+
+export const partnersApi = {
+  async getDashboard(): Promise<PartnerDashboardDto> {
+    const response = await apiClient.get<PartnerDashboardDto>('/admin/partners/dashboard');
+    return response.data;
+  },
+  async setShares(shares: Array<{ staffId: string; sharePercent: number | null }>): Promise<PartnerDashboardDto> {
+    const response = await apiClient.put<PartnerDashboardDto>('/admin/partners/shares', { shares });
+    return response.data;
+  },
+  async setPayoutAddress(chain: string, address: string): Promise<PartnerDashboardDto> {
+    const response = await apiClient.put<PartnerDashboardDto>('/admin/partners/payout-address', { chain, address });
+    return response.data;
+  },
+  async withdraw(): Promise<PartnerDashboardDto> {
+    const response = await apiClient.post<PartnerDashboardDto>('/admin/partners/withdraw', {});
+    return response.data;
+  },
+  async processReferralPayout(id: string, result: 'paid' | 'rejected'): Promise<PartnerDashboardDto> {
+    const response = await apiClient.post<PartnerDashboardDto>(`/admin/partners/referral-payouts/${id}/${result}`, {});
     return response.data;
   },
 };

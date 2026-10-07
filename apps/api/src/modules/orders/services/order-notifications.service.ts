@@ -456,6 +456,22 @@ export class OrderNotificationsService {
     );
   }
 
+  /** Plain message to specific Telegram users (e.g. the profit partners). */
+  async notifyTelegramIds(chatIds: string[], text: string): Promise<void> {
+    const botToken = this.configService.get<string>('telegram.botToken');
+    if (!botToken || chatIds.length === 0) return;
+    await Promise.allSettled(
+      chatIds.map((chatId) =>
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          signal: AbortSignal.timeout(10_000),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+        }),
+      ),
+    );
+  }
+
   /** Plain message to every manager (RAKETA automation events). */
   async notifyManagers(text: string, orderId?: string): Promise<void> {
     const botToken = this.configService.get<string>('telegram.botToken');

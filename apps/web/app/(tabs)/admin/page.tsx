@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
+import { PartnerProfitPanel } from '../../../components/admin/partner-profit-panel';
 import { AnalyticsPanel } from '../../../components/ui/analytics-panel';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../components/ui/feedback-message';
@@ -100,7 +101,15 @@ export default function AdminPage() {
       {activeTab === 'settings' ? <SettingsPanel /> : null}
       {activeTab === 'users' ? <UsersPanel /> : null}
       {activeTab === 'profit' ? (
-        <ProfitReportPanel onClose={() => setActiveTab('analytics')} />
+        <>
+          <PartnerProfitPanel />
+          <details className="mt-4">
+            <summary className="cursor-pointer text-xs text-[var(--accent)]">Отчёт за период и Excel</summary>
+            <div className="mt-3">
+              <ProfitReportPanel onClose={() => setActiveTab('analytics')} />
+            </div>
+          </details>
+        </>
       ) : null}
     </PageSection>
   );

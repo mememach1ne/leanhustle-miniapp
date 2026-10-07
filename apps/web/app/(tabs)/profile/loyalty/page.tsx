@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { LoyaltyDetail } from '../../../../components/profile/loyalty-detail';
+import { ReferralCard } from '../../../../components/profile/referral-card';
 import { PageSection } from '../../../../components/ui/page-section';
 
 export default function LoyaltyPage() {
@@ -15,6 +16,7 @@ export default function LoyaltyPage() {
         ← Назад к профилю
       </Link>
       <LoyaltyDetail />
+      <ReferralCard />
     </PageSection>
   );
 }

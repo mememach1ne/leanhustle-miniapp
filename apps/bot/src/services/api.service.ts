@@ -395,6 +395,21 @@ export class ApiService {
     return response.data;
   }
 
+  /** Referral link t.me/<bot>?start=ref_<code>: ties a NEW user to the referrer. */
+  async attachReferral(payload: {
+    code: string;
+    telegramId: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    languageCode?: string;
+  }): Promise<{ attached: boolean }> {
+    const response = await this.http.post<{ attached: boolean }>('/referrals-internal/attach', payload, {
+      headers: { 'x-internal-bot-token': botEnv.internalApiToken },
+    });
+    return response.data;
+  }
+
   /** Website login through the bot: vouch for this Telegram user. */
   async confirmBotLogin(payload: {
     token: string;

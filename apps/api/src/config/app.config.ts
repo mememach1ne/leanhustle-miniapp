@@ -46,6 +46,10 @@ export default () => ({
     // Wallet -> Account Transfer permission. See docs/bybit-setup.md.
     bybitApiKey: process.env.BYBIT_API_KEY ?? '',
     bybitApiSecret: process.env.BYBIT_API_SECRET ?? '',
+    // Separate key for partners' profit withdrawals (Withdrawal permission,
+    // IP-bound, address whitelist). Empty = withdrawals disabled.
+    bybitWithdrawApiKey: process.env.BYBIT_WITHDRAW_API_KEY ?? '',
+    bybitWithdrawApiSecret: process.env.BYBIT_WITHDRAW_API_SECRET ?? '',
     bybitRestBase: process.env.BYBIT_REST_BASE ?? 'https://api.bybit.com',
     // Comma-separated list of payment-network enum values to surface to
     // the user. Defaults to all supported. Use this to hide a chain
