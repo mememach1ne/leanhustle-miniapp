@@ -30,7 +30,7 @@ export default () => ({
     cryptoBotToken: process.env.CRYPTOBOT_API_TOKEN ?? '',
     cryptoBotApiUrl: process.env.CRYPTOBOT_API_URL ?? 'https://pay.crypt.bot/api',
     xRocketToken: process.env.XROCKET_API_TOKEN ?? '',
-    xRocketApiUrl: process.env.XROCKET_API_URL ?? 'https://pay.xrocket.tg',
+    xRocketApiUrl: process.env.XROCKET_API_URL ?? 'https://pay.api.xrocket.exchange',
   },
   integrations: {
     // Dewu / Poizon product API (via dajisaas.com). The previous RapidAPI

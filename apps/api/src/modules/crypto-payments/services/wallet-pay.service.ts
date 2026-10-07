@@ -46,7 +46,7 @@ export class WalletPayService {
       cryptoBotToken: config.get<string>('wallets.cryptoBotToken') ?? '',
       cryptoBotApiUrl: (config.get<string>('wallets.cryptoBotApiUrl') ?? 'https://pay.crypt.bot/api').replace(/\/$/, ''),
       xRocketToken: config.get<string>('wallets.xRocketToken') ?? '',
-      xRocketApiUrl: (config.get<string>('wallets.xRocketApiUrl') ?? 'https://pay.xrocket.tg').replace(/\/$/, ''),
+      xRocketApiUrl: (config.get<string>('wallets.xRocketApiUrl') ?? 'https://pay.api.xrocket.exchange').replace(/\/$/, ''),
     };
   }
 
@@ -275,40 +275,60 @@ export class WalletPayService {
     return new Map((r.items ?? []).map((i) => [String(i.invoice_id), i.status]));
   }
 
-  // ---------------- Rocket Pay (@xRocket) ----------------
+  // ---------------- xRocket Pay API (@xRocket, Bearer token) ----------------
 
   private async xRocket<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
     const res = await fetch(`${this.cfg.xRocketApiUrl}${path}`, {
       method,
       signal: AbortSignal.timeout(15_000),
-      headers: { 'Rocket-Pay-Key': this.cfg.xRocketToken, 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: {
+        Authorization: `Bearer ${this.cfg.xRocketToken}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
       body: body ? JSON.stringify(body) : undefined,
     });
-    const json = (await res.json().catch(() => null)) as { success?: boolean; data?: T; message?: unknown } | null;
-    if (!json?.success || json.data === undefined) {
-      throw new Error(`xRocket ${path}: ${JSON.stringify(json?.message ?? `HTTP ${res.status}`).slice(0, 200)}`);
+    const json = (await res.json().catch(() => null)) as (T & { title?: string; detail?: string }) | null;
+    if (!res.ok || !json) {
+      // Errors are RFC 9457 problem details: { type, title, detail }.
+      throw new Error(`xRocket ${path}: ${json?.detail ?? json?.title ?? `HTTP ${res.status}`}`.slice(0, 300));
     }
-    return json.data;
+    return json;
   }
 
   private async xRocketCreate(amount: number, description: string, orderId: string) {
-    const r = await this.xRocket<{ id: number; link: string }>('POST', '/tg-invoices', {
-      amount: Number(amount.toFixed(2)),
-      currency: 'USDT',
-      numPayments: 1,
-      description,
-      payload: orderId,
-      expiredIn: INVOICE_TTL_SECONDS,
-      commentsEnabled: false,
-    });
-    return { id: String(r.id), url: r.link };
+    const r = await this.xRocket<{ id: string; links?: { telegramBotLink?: string; webLink?: string } }>(
+      'POST',
+      '/api/v1/invoices',
+      {
+        priceAmount: amount.toFixed(2),
+        priceCurrency: 'USDT',
+        payCurrencies: ['USDT'],
+        payoutCurrency: 'USDT',
+        numPayments: 1,
+        description,
+        clientInvoiceId: `${orderId}-${Date.now()}`,
+        expiresIn: INVOICE_TTL_SECONDS * 1000,
+        // We add the fee to the amount ourselves — don't let xRocket charge it again.
+        isFeePaidByUser: false,
+      },
+    );
+    const url = r.links?.telegramBotLink ?? r.links?.webLink;
+    if (!r.id || !url) throw new Error('xRocket did not return an invoice link');
+    return { id: String(r.id), url };
   }
 
   private async xRocketStatuses(ids: string[]): Promise<Map<string, RemoteStatus>> {
     const out = new Map<string, RemoteStatus>();
     for (const id of ids) {
-      const r = await this.xRocket<{ status: RemoteStatus }>('GET', `/tg-invoices/${encodeURIComponent(id)}`);
-      out.set(id, r.status);
+      const r = await this.xRocket<{ status: string }>(
+        'GET',
+        `/api/v1/invoice?${new URLSearchParams({ invoiceId: id })}`,
+      );
+      out.set(
+        id,
+        r.status === 'paid' ? 'paid' : r.status === 'expired' || r.status === 'cancelled' ? 'expired' : 'active',
+      );
     }
     return out;
   }
