@@ -23,7 +23,7 @@ Git: `github.com/mememach1ne/leanhustle-miniapp`, ветка `master`. Комм�
   1. `git push`, затем на сервере `cd /opt/app && git pull -q`.
   2. Если менялась схема — **сначала** миграция (до рестарта, иначе Prisma падает на новых колонках):
      `bash scripts/apply-sql.sh apps/api/prisma/migrations/<ts>_<name>/migration.sql`, затем `cd apps/api && npx prisma generate`. Миграции пишем руками, аддитивно (`ADD COLUMN IF NOT EXISTS`).
-  3. Если менялся `packages/shared` — пересобрать dist: блок `SKIP_SHARED` из `scripts/deploy.sh` (`bash -c "$(sed -n '/if \[ "$SKIP_SHARED" = false \]; then/,/^fi$/p' scripts/deploy.sh)"`).
+  3. Если менялся `packages/shared` — пересобрать dist: блок `SKIP_SHARED` из `scripts/deploy.sh` (`SKIP_SHARED=false bash -c "$(sed -n '/if \[ "$SKIP_SHARED" = false \]; then/,/^fi$/p' scripts/deploy.sh)"`).
   4. Если менялся web — `pnpm --filter @lean-poizon/web build` (иногда падает на `next/font` из-за сети — просто повторить; между неудачной и удачной сборкой сайт отдаёт 502).
   5. `pm2 restart api bot web` (только нужные). Проверка: `https://china.leanhustle.net/backend-api/health`.
 - Redis не запущен — кэши работают вхолостую, не падают. HTML отдаётся с `no-store` (`export const dynamic = 'force-dynamic'` в layout).
@@ -43,6 +43,12 @@ Git: `github.com/mememach1ne/leanhustle-miniapp`, ветка `master`. Комм�
   1. Китайский трек на вещь (бот «Китайский трек → RAKETA» / админка) → заказ в RAKETA (название без латиницы `raketa/raketa-title.ts`, китайское описание = engine `titleRaw`, продавец Poizon id 5, декларант — владелец). Можно прислать **RA-номер** — привяжет существующий. Дубли по треку не создаются.
   2. Когда все вещи зарегистрированы и у заказа есть ПВЗ → получатель + адрес СДЭК (переиспользуются существующие) → 1 вещь: на заказ (PUT), несколько: **объединение** (`raketa_title` или «LP042 Иванов N шт»).
   3. `orders.fulfillment_manual` — «оформить вручную», автоматика не трогает.
+  4. **Оплата доставки** — `orders/services/raketa-delivery-payment.service.ts`, cron каждые 10 мин:
+     - все вещи объединения «На складе в Китае» → сервер жмёт «Собрать» (`POST /close_consolidation/{id}`) и пишет менеджерам; RAKETA пакует 4–6 ч;
+     - появилась цена (`GET /price/{consolidation|order}/{id}`, `controls.pay_button`) → клиенту сумма строк `price`+`services` (межд. доставка + по РФ + пошлина + страховка, без скидок) → ссылка пополнения баланса RAKETA (`POST /billing {amount:{value}}` → `returnUrl`), статус `DELIVERY_PAYMENT_PENDING`, `actualDeliveryRub/actualDutyRub` заполняются;
+     - оплата ловится в `GET /billing_history?transaction_filter=plus`: новая строка (не из снимка `raketa_topup_seen_ids`) с той же суммой; суммы открытых ссылок уникальны (+1 ₽ при совпадении) → `DELIVERY_PAID` (+`dutyPaidAt`), затем `POST /pay/{id}/{kind}`;
+     - объединения не из наших заказов: тоже «Собрать» + сообщение менеджерам с ценой (таблица `raketa_consolidations`). Заказ без клиента — только сообщение с ценой.
+     - Клиент: кнопка «Оплатить доставку» в уведомлении и на странице заказа (`POST /orders/:id/delivery-payment-link`, ссылка обновляется через 6 ч).
 - Админка: `/admin/orders/new` — единая страница создания: клиент по @username (или без клиента: только RAKETA / «оплатит по ссылке»), все размеры, цена от движка или вручную, комиссия %, страховка, «уже оплачен», треки. Ссылка-приглашение `t.me/lh_poizonbot?start=pay_<token>` (`orders.claim_token`, `orders.user_id` nullable) → бот → `POST /orders-claim` (internal token) привязывает заказ.
 - Справочные ID: CDEK tk `78cbeab6-821e-48c8-9c2e-028a1ea99805`, тариф `STND`, Москва `0c5b2444-70a0-4932-980c-b4dc0d3f02b5`. Публичный калькулятор: `https://calculator.my.raketacn.ru/api/tk_calculate/{tk}?city_id=…&length&width&height&weight` (цены в копейках).
 
@@ -56,10 +62,9 @@ Git: `github.com/mememach1ne/leanhustle-miniapp`, ветка `master`. Комм�
 - Deep links: `login_<code>` (вход на сайт), `pay_<token>` (привязка заказа).
 
 ## Открытые задачи
-- Оплата доставки клиентом через пополнение баланса RAKETA (`POST /billing {amount}` → `returnUrl`) и авто-оплата объединения (`/pay/{id}/consolidation`) — не сделано.
+- Оплата доставки через RAKETA (п. 4 выше) выкачена 2026-10-07, вживую ещё не проверена: формат ответов `/billing`, `/billing_history` (`summ`), `/price/*` взят из бандла кабинета. Ошибки — в `raketa_last_error` и логах `pm2 logs api | grep RAKETA`.
 - Доставка считается по Москве; для регионов СДЭК дороже — нет надбавки/расчёта по городу.
 - Впервые проверить вживую: создание объединения/получателя/адреса и флаг страховки в RAKETA — ошибки RAKETA видны в карточке заказа (`raketa_last_error`).
-- Бот («Другие маркетплейсы») ещё пишет «Рыбка», на сайте/в аппе — Goofish.
 
 ## Соглашения / осторожно
 - Держись стиля существующего кода. Секреты — в `apps/*/.env`; не коммить и не печатать их.
