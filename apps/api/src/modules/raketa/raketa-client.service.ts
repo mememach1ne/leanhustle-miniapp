@@ -462,10 +462,24 @@ export class RaketaClientService {
     await this.request('POST', `/close_consolidation/${encodeURIComponent(id)}`, {});
   }
 
-  /** Price lines + total + pay controls of a consolidation or a single order. */
+  /**
+   * Price lines + total + pay controls of a consolidation or a single order.
+   * RAKETA sends amounts in kopecks (300865 = 3 008,65 ₽); returned in rubles.
+   */
   async getPrice(kind: 'consolidation' | 'order', id: string): Promise<RaketaPrice> {
     const body = await this.request<{ data: RaketaPrice }>('GET', `/price/${kind}/${encodeURIComponent(id)}`);
-    return body.data;
+    const toRub = (value: unknown) => {
+      const kopecks = parseMoney(value);
+      return kopecks === null ? null : Math.round(kopecks) / 100;
+    };
+    const lines = (list?: RaketaPriceLine[]) => list?.map((line) => ({ ...line, sum: toRub(line.sum) }));
+    return {
+      ...body.data,
+      price: lines(body.data.price),
+      services: lines(body.data.services),
+      discounts: lines(body.data.discounts),
+      total: toRub(body.data.total),
+    };
   }
 
   /** Pays a consolidation / single order from the RAKETA balance. */

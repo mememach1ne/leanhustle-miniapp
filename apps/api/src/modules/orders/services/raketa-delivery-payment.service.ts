@@ -22,6 +22,8 @@ import { OrderNotificationsService } from './order-notifications.service';
 /** A ready-made top-up link is reused for this long, then a fresh one is made. */
 const TOPUP_LINK_TTL_MS = 6 * 60 * 60 * 1000;
 const RAKETA_DUTY_LINE_ID = 'customs_duty';
+/** Sanity cap: a delivery bill above this is surely a parsing error — never sent to a client. */
+const MAX_CLIENT_AMOUNT_RUB = 50_000;
 
 /** Goods are bought — delivery can be asked for. */
 const ASK_DELIVERY_STATUSES: OrderStatus[] = [OrderStatus.PAID_AWAITING_PURCHASE, OrderStatus.PURCHASED];
@@ -303,6 +305,15 @@ export class RaketaDeliveryPaymentService {
   private async requestClientPayment(order: CycleOrder, lines: RaketaPriceLineView[]): Promise<void> {
     let amount = Math.ceil(lines.reduce((sum, line) => sum + line.amountRub, 0));
     if (amount <= 0) return;
+    if (amount > MAX_CLIENT_AMOUNT_RUB) {
+      const message = `RAKETA: подозрительная сумма доставки ${rub(amount)} — ссылка клиенту не отправлена, проверьте цену в кабинете.`;
+      if (order.raketaLastError !== message) {
+        await this.prisma.order.update({ where: { id: order.id }, data: { raketaLastError: message } });
+        await this.notifications.notifyManagers(`${message}
+Заказ ${order.orderNumber}.`, order.id);
+      }
+      return;
+    }
     const duty = Math.ceil(
       lines.filter((line) => line.id === RAKETA_DUTY_LINE_ID).reduce((sum, line) => sum + line.amountRub, 0),
     );
@@ -374,7 +385,12 @@ export class RaketaDeliveryPaymentService {
   ): Promise<void> {
     const expected = Number(order.raketaTopupAmount);
     const seen = new Set(Array.isArray(order.raketaTopupSeenIds) ? (order.raketaTopupSeenIds as string[]) : []);
-    const candidates = rows.filter((row) => !seen.has(row.id) && Math.abs(row.amount - expected) < 1);
+    // Billing history may report kopecks like /price does — accept both.
+    const candidates = rows.filter(
+      (row) =>
+        !seen.has(row.id) &&
+        (Math.abs(row.amount - expected) < 1 || Math.abs(row.amount - expected * 100) < 100),
+    );
     if (candidates.length === 0) return;
 
     const used = await this.prisma.order.findMany({
