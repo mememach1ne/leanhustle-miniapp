@@ -64,4 +64,4 @@ Git: `github.com/mememach1ne/leanhustle-miniapp`, ветка `master`. Комм�
 ## Соглашения / осторожно
 - Держись стиля существующего кода. Секреты — в `apps/*/.env`; не коммить и не печатать их.
 - **Не** используй широкие kill-паттерны вроде `pkill -f 'node server.js'` на сервере — под них попадает и `lh-workbot`. Управляй через pm2 по имени.
-- Атрибуция коммитов: в конце сообщения `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
+- Атрибуция коммитов: в конце сообщения `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
