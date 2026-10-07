@@ -15,8 +15,20 @@ export const getOrderStatusLabel = (
       return 'Оплачен, ожидается выкуп';
     case OrderStatus.PURCHASED:
       return 'Выкуплен';
+    case OrderStatus.DELIVERY_PAYMENT_PENDING:
+      return 'Ожидает оплаты доставки';
+    case OrderStatus.DELIVERY_PAID:
+      return 'Доставка оплачена';
+    case OrderStatus.DUTY_PAYMENT_PENDING:
+      return 'Ожидает оплаты пошлины';
+    case OrderStatus.DUTY_PAID:
+      return 'Пошлина оплачена';
     case OrderStatus.TRACK_CODE_RECEIVED:
-      return 'Трек-код получен';
+      return 'В пути';
+    case OrderStatus.DELIVERED:
+      return 'Доставлен';
+    case OrderStatus.CANCELLED:
+      return 'Отменён';
     default:
       return status;
   }
@@ -29,11 +41,16 @@ export const getOrderStatusTone = (
     case OrderStatus.CREATED:
       return 'neutral';
     case OrderStatus.PAYMENT_PENDING:
+    case OrderStatus.DELIVERY_PAYMENT_PENDING:
+    case OrderStatus.DUTY_PAYMENT_PENDING:
       return 'warning';
     case OrderStatus.PAID_AWAITING_PURCHASE:
+    case OrderStatus.DELIVERY_PAID:
+    case OrderStatus.DUTY_PAID:
+    case OrderStatus.TRACK_CODE_RECEIVED:
       return 'accent';
     case OrderStatus.PURCHASED:
-    case OrderStatus.TRACK_CODE_RECEIVED:
+    case OrderStatus.DELIVERED:
       return 'success';
     default:
       return 'neutral';

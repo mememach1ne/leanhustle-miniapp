@@ -22,6 +22,29 @@ import { useAuthStore } from '../../../../../store/auth-store';
 import { useCalculatorStore } from '../../../../../store/calculator-store';
 import { useOrdersStore } from '../../../../../store/orders-store';
 
+const formatRub = (value: number) =>
+  `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value)} ₽`;
+
+/** «Waiting for the delivery payment» survives reopening the order (per device). */
+const PAY_WAIT_KEY = (orderId: string) => `lh:delivery-pay-wait:${orderId}`;
+const PAY_WAIT_TTL_MS = 24 * 60 * 60 * 1000;
+const readPayWait = (orderId: string): boolean => {
+  try {
+    const at = Number(localStorage.getItem(PAY_WAIT_KEY(orderId)));
+    return Number.isFinite(at) && at > 0 && Date.now() - at < PAY_WAIT_TTL_MS;
+  } catch {
+    return false;
+  }
+};
+const writePayWait = (orderId: string, on: boolean) => {
+  try {
+    if (on) localStorage.setItem(PAY_WAIT_KEY(orderId), String(Date.now()));
+    else localStorage.removeItem(PAY_WAIT_KEY(orderId));
+  } catch {
+    // storage unavailable — the state just won't survive a reload
+  }
+};
+
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat('ru-RU', {
     dateStyle: 'medium',
@@ -45,6 +68,36 @@ export default function OrderDetailsPage() {
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [isOpeningPayment, setIsOpeningPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [awaitingPayment, setAwaitingPayment] = useState(false);
+  const orderLoaded = order?.id === orderId;
+  const deliveryPaymentOpen = Boolean(order?.deliveryPayment);
+
+  useEffect(() => {
+    if (orderId) setAwaitingPayment(readPayWait(orderId));
+  }, [orderId]);
+
+  // While waiting: quietly refresh the order so it flips to «Доставка оплачена» by itself.
+  useEffect(() => {
+    if (!orderId || !orderLoaded) return;
+    if (!deliveryPaymentOpen) {
+      if (awaitingPayment) {
+        writePayWait(orderId, false);
+        setAwaitingPayment(false);
+      }
+      return;
+    }
+    if (!awaitingPayment) return;
+    const timer = setInterval(() => {
+      ordersApi
+        .getOrderById(orderId)
+        .then((fresh) => {
+          if (!fresh.deliveryPayment) hapticNotification('success');
+          setCurrentOrder(fresh);
+        })
+        .catch(() => undefined);
+    }, 20_000);
+    return () => clearInterval(timer);
+  }, [orderId, orderLoaded, awaitingPayment, deliveryPaymentOpen, setCurrentOrder]);
 
   const handlePayDelivery = async () => {
     if (!order) return;
@@ -53,6 +106,8 @@ export default function OrderDetailsPage() {
     try {
       const { url } = await ordersApi.getDeliveryPaymentLink(order.id);
       hapticImpact('medium');
+      writePayWait(order.id, true);
+      setAwaitingPayment(true);
       const webApp = getTelegramWebApp();
       if (webApp?.openLink) webApp.openLink(url);
       else window.location.href = url;
@@ -305,23 +360,43 @@ export default function OrderDetailsPage() {
           </p>
           <div className="mt-4 space-y-2">
             {order.deliveryPayment.lines.map((line) => (
-              <InfoRow key={line.name} label={line.name} value={`${line.amountRub} ₽`} />
+              <InfoRow key={line.name} label={line.name} value={formatRub(line.amountRub)} />
             ))}
-            <InfoRow label="К оплате" value={`${order.deliveryPayment.amountRub} ₽`} accent />
+            <InfoRow label="К оплате" value={formatRub(order.deliveryPayment.amountRub)} accent />
           </div>
           {paymentError ? (
             <div className="mt-3">
               <FeedbackMessage tone="error">{paymentError}</FeedbackMessage>
             </div>
           ) : null}
-          <button
-            type="button"
-            onClick={handlePayDelivery}
-            disabled={isOpeningPayment}
-            className="mt-4 w-full rounded-[20px] bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isOpeningPayment ? 'Открываем оплату...' : `Оплатить доставку ${order.deliveryPayment.amountRub} ₽`}
-          </button>
+          {awaitingPayment ? (
+            <>
+              <button
+                type="button"
+                onClick={handlePayDelivery}
+                disabled={isOpeningPayment}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-[20px] border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-100 transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-200/30 border-t-amber-200" />
+                {isOpeningPayment ? 'Открываем оплату...' : 'Ожидаем оплату…'}
+              </button>
+              <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                Оплата подтвердится автоматически в течение нескольких минут — статус заказа обновится сам. Если
+                окно оплаты закрылось или оплата не прошла, нажмите на кнопку ещё раз.
+              </p>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={handlePayDelivery}
+              disabled={isOpeningPayment}
+              className="mt-4 w-full rounded-[20px] bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isOpeningPayment
+                ? 'Открываем оплату...'
+                : `Оплатить доставку ${formatRub(order.deliveryPayment.amountRub)}`}
+            </button>
+          )}
         </SectionCard>
       ) : null}
 

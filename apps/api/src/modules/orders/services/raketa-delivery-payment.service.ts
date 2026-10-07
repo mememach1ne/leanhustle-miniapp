@@ -90,6 +90,27 @@ export class RaketaDeliveryPaymentService {
     }
   }
 
+  /**
+   * Faster top-up check (every 2 min) while some client has an open link, so
+   * «Ожидаем оплату» doesn't hang for the full 10-minute cycle.
+   */
+  @Cron('30 */2 * * * *')
+  async runTopUpCheck(): Promise<void> {
+    if (this.running || !this.raketa.isConfigured) return;
+    const open = await this.prisma.order.count({
+      where: { status: OrderStatus.DELIVERY_PAYMENT_PENDING, raketaTopupAmount: { not: null }, raketaTopupBillingId: null },
+    });
+    if (open === 0) return;
+    this.running = true;
+    try {
+      await this.detectTopUps();
+    } catch (error) {
+      this.logger.warn(`RAKETA top-up check failed: ${errorText(error)}`);
+    } finally {
+      this.running = false;
+    }
+  }
+
   /** Client asks for the payment link (site / Mini App «Оплатить доставку»). */
   async getPaymentLinkForUser(userId: string, orderId: string): Promise<{ url: string; amountRub: number }> {
     const order = await this.prisma.order.findFirst({ where: { id: orderId, userId } });

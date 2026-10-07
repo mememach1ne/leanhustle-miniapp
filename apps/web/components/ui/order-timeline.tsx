@@ -8,8 +8,16 @@ const ALL_STATUSES: OrderStatus[] = [
   OrderStatus.PAYMENT_PENDING,
   OrderStatus.PAID_AWAITING_PURCHASE,
   OrderStatus.PURCHASED,
+  OrderStatus.DELIVERY_PAYMENT_PENDING,
+  OrderStatus.DELIVERY_PAID,
+  OrderStatus.DUTY_PAYMENT_PENDING,
+  OrderStatus.DUTY_PAID,
   OrderStatus.TRACK_CODE_RECEIVED,
+  OrderStatus.DELIVERED,
 ];
+
+/** Duty steps are shown only for orders that actually went through them. */
+const DUTY_STATUSES = new Set<OrderStatus>([OrderStatus.DUTY_PAYMENT_PENDING, OrderStatus.DUTY_PAID]);
 
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat('ru-RU', {
@@ -28,13 +36,16 @@ export function OrderTimeline({
     (statusHistory ?? []).map((item) => [item.toStatus, item.createdAt]),
   );
 
-  const currentIndex = ALL_STATUSES.indexOf(currentStatus);
+  const statuses = ALL_STATUSES.filter(
+    (status) => !DUTY_STATUSES.has(status) || status === currentStatus || historyMap.has(status),
+  );
+  const currentIndex = statuses.indexOf(currentStatus);
 
   return (
     <div className="space-y-0">
-      {ALL_STATUSES.map((status, index) => {
+      {statuses.map((status, index) => {
         const isCompleted = index <= currentIndex;
-        const isLast = index === ALL_STATUSES.length - 1;
+        const isLast = index === statuses.length - 1;
         const date = historyMap.get(status);
 
         return (
