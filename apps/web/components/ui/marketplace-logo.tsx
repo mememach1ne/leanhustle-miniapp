@@ -1,5 +1,14 @@
 /* eslint-disable @next/next/no-img-element -- tiny static icons, no optimisation needed */
-export type Marketplace = 'poizon' | 'taobao' | '1688' | '95' | 'goofish' | 'pinduoduo' | 'cdek';
+export type Marketplace =
+  | 'poizon'
+  | 'taobao'
+  | '1688'
+  | '95'
+  | 'goofish'
+  | 'pinduoduo'
+  | 'cdek'
+  | 'cryptobot'
+  | 'xrocket';
 
 /**
  * Official app icons of the Chinese marketplaces and CDEK (128px, from the

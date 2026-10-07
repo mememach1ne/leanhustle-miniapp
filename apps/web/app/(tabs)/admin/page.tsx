@@ -463,6 +463,10 @@ function SettingsPanel() {
         eurToRub: String(s.eurToRub),
         commissionPercent: String(s.commissionPercent),
         deliveryPricePerKgRub: String(s.deliveryPricePerKgRub),
+        cryptoBotFeePercent: String(s.cryptoBotFeePercent),
+        xRocketFeePercent: String(s.xRocketFeePercent),
+        referralPercent: String(s.referralPercent),
+        referralMinPayoutUsd: String(s.referralMinPayoutUsd),
       });
       setLoyaltyEnabled(s.loyaltyEnabled);
       setTiers(s.loyaltyTiers);
@@ -566,6 +570,10 @@ function SettingsPanel() {
     eurToRub: 'EUR → RUB (ЦБ)',
     commissionPercent: 'Комиссия (%)',
     deliveryPricePerKgRub: 'Доставка за кг (₽)',
+    cryptoBotFeePercent: 'Комиссия CryptoBot (%)',
+    xRocketFeePercent: 'Комиссия xRocket (%)',
+    referralPercent: 'Рефералу от комиссии (%)',
+    referralMinPayoutUsd: 'Мин. вывод рефералу ($)',
   };
 
   return (

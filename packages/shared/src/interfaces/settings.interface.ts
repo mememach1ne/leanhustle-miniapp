@@ -10,6 +10,12 @@ export interface BusinessSettingsDto {
   dutyThresholdEur: number;
   dutyPercent: number;
   dutyProcessingFeeRub: number;
+  /** Fees of the Telegram wallet payments (%), paid by the client on top. */
+  cryptoBotFeePercent: number;
+  xRocketFeePercent: number;
+  /** Referral program: share of our commission for the referrer (%) and the minimum payout (USD). */
+  referralPercent: number;
+  referralMinPayoutUsd: number;
   loyaltyEnabled: boolean;
   loyaltyTiers: LoyaltyTier[];
   updatedAt: string;
@@ -21,6 +27,10 @@ export interface UpdateBusinessSettingsRequest {
   eurToRub?: number;
   commissionPercent?: number;
   deliveryPricePerKgRub?: number;
+  cryptoBotFeePercent?: number;
+  xRocketFeePercent?: number;
+  referralPercent?: number;
+  referralMinPayoutUsd?: number;
   loyaltyEnabled?: boolean;
   loyaltyTiers?: LoyaltyTier[];
 }

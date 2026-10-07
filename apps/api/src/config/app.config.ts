@@ -24,6 +24,14 @@ export default () => ({
     jwtSecret: process.env.JWT_SECRET ?? '',
     jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1d',
   },
+  // Telegram wallet payments. Tokens: @CryptoBot → Crypto Pay → app,
+  // @xRocket → Rocket Pay → app. Empty token = method hidden.
+  wallets: {
+    cryptoBotToken: process.env.CRYPTOBOT_API_TOKEN ?? '',
+    cryptoBotApiUrl: process.env.CRYPTOBOT_API_URL ?? 'https://pay.crypt.bot/api',
+    xRocketToken: process.env.XROCKET_API_TOKEN ?? '',
+    xRocketApiUrl: process.env.XROCKET_API_URL ?? 'https://pay.xrocket.tg',
+  },
   integrations: {
     // Dewu / Poizon product API (via dajisaas.com). The previous RapidAPI
     // provider stopped working and we migrated to a Chinese OpenAPI gateway.

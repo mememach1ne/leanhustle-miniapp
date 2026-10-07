@@ -265,14 +265,18 @@ export default function AdminOrderDetailPage() {
             <span
               className={[
                 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold',
-                order.paidVia === 'CRYPTO_AUTO'
+                order.paidVia !== 'MANUAL'
                   ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
                   : 'border-white/15 bg-white/5 text-white/70',
               ].join(' ')}
             >
               {order.paidVia === 'CRYPTO_AUTO'
-                ? '⚡ Автооплата клиента (крипта)'
-                : '✍️ Оплату отметил менеджер'}
+                ? '⚡ Автооплата клиента (USDT)'
+                : order.paidVia === 'CRYPTOBOT'
+                  ? '⚡ Автооплата клиента (CryptoBot)'
+                  : order.paidVia === 'XROCKET'
+                    ? '⚡ Автооплата клиента (xRocket)'
+                    : '✍️ Оплату отметил менеджер'}
             </span>
           </div>
         ) : null}

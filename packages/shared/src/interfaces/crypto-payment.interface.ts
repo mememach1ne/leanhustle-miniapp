@@ -47,3 +47,31 @@ export interface CryptoPaymentIntentDto {
   /** Set when status = MATCHED. Bybit-side transaction id. */
   txHash?: string | null;
 }
+
+/** Telegram wallet used to pay for the goods. */
+export type WalletProvider = 'CRYPTOBOT' | 'XROCKET';
+
+/** A wallet the client can pick, with its fee (paid by the client) and the total. */
+export interface WalletOptionDto {
+  provider: WalletProvider;
+  title: string;
+  feePercent: number;
+  /** Order total + fee, USDT. */
+  amountUsdt: number;
+}
+
+export interface WalletInvoiceDto {
+  id: string;
+  provider: WalletProvider;
+  /** Opens the invoice in the wallet bot (t.me link). */
+  payUrl: string;
+  baseUsd: number;
+  feePercent: number;
+  amountUsdt: number;
+  status: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
+  expiresAt: string;
+}
+
+export interface CreateWalletInvoiceRequest {
+  provider: WalletProvider;
+}

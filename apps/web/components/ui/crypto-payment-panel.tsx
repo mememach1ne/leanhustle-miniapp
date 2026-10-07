@@ -1,6 +1,6 @@
 'use client';
 
-import type { CryptoPaymentIntentDto } from '@lean-poizon/shared';
+import type { CryptoPaymentIntentDto, WalletInvoiceDto, WalletOptionDto, WalletProvider } from '@lean-poizon/shared';
 import {
   PAYMENT_NETWORK_ETA,
   PAYMENT_NETWORK_LABELS,
@@ -12,13 +12,24 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { cryptoPaymentsApi } from '../../lib/api-client';
 import { extractAxiosMessage } from '../../lib/error-utils';
-import { hapticNotification } from '../../lib/telegram-web-app';
+import { getTelegramWebApp, hapticNotification } from '../../lib/telegram-web-app';
 import { FeedbackMessage } from './feedback-message';
 import { ChatIcon, CheckCircleIcon } from './icons';
+import { MarketplaceLogo } from './marketplace-logo';
 import { NetworkLogo } from './network-logo';
 import { SectionCard } from './section-card';
 
 const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
+
+const WALLET_LOGO: Record<WalletProvider, 'cryptobot' | 'xrocket'> = { CRYPTOBOT: 'cryptobot', XROCKET: 'xrocket' };
+
+/** Wallet invoices are t.me links — open them inside Telegram when we're in the Mini App. */
+const openPayUrl = (url: string) => {
+  const webApp = getTelegramWebApp();
+  if (url.startsWith('https://t.me/') && webApp?.openTelegramLink) webApp.openTelegramLink(url);
+  else if (webApp?.openLink) webApp.openLink(url);
+  else window.open(url, '_blank', 'noopener');
+};
 
 interface Props {
   orderId: string;
@@ -37,6 +48,9 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copyOk, setCopyOk] = useState<'address' | 'amount' | null>(null);
+  const [wallets, setWallets] = useState<WalletOptionDto[]>([]);
+  const [walletInvoice, setWalletInvoice] = useState<WalletInvoiceDto | null>(null);
+  const [walletDismissed, setWalletDismissed] = useState(false);
   const onMatchedRef = useRef(onMatched);
   onMatchedRef.current = onMatched;
 
@@ -45,13 +59,16 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
     let cancelled = false;
     void (async () => {
       try {
-        const [latest, list] = await Promise.all([
+        const [latest, list, walletInfo] = await Promise.all([
           cryptoPaymentsApi.getStatus(orderId),
           cryptoPaymentsApi.getNetworks().catch(() => ({ networks: [] })),
+          cryptoPaymentsApi.getWallets(orderId).catch(() => ({ options: [], latest: null })),
         ]);
         if (cancelled) return;
         setIntent(latest);
         setNetworks(list.networks);
+        setWallets(walletInfo.options);
+        setWalletInvoice(walletInfo.latest);
       } catch (err) {
         if (cancelled) return;
         setError(extractAxiosMessage(err) ?? 'Не удалось загрузить статус оплаты.');
@@ -83,6 +100,46 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
     }, 5000);
     return () => clearInterval(interval);
   }, [intent, orderId]);
+
+  const walletWaiting =
+    !walletDismissed &&
+    walletInvoice?.status === 'PENDING' &&
+    new Date(walletInvoice.expiresAt).getTime() > Date.now();
+
+  // While a wallet invoice is open: check every 5 s whether it's paid.
+  useEffect(() => {
+    if (!walletWaiting) return;
+    const interval = setInterval(async () => {
+      try {
+        const { latest } = await cryptoPaymentsApi.getWallets(orderId);
+        if (!latest) return;
+        setWalletInvoice(latest);
+        if (latest.status === 'PAID') {
+          hapticNotification('success');
+          onMatchedRef.current();
+        }
+      } catch {
+        // keep polling
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [walletWaiting, orderId]);
+
+  const payWithWallet = async (provider: WalletProvider) => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const invoice = await cryptoPaymentsApi.createWalletInvoice(orderId, provider);
+      setWalletInvoice(invoice);
+      setWalletDismissed(false);
+      openPayUrl(invoice.payUrl);
+    } catch (err) {
+      setError(extractAxiosMessage(err) ?? 'Не удалось создать счёт. Попробуйте другой способ оплаты.');
+      hapticNotification('error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const pickNetwork = useCallback(
     async (network: PaymentNetwork) => {
@@ -143,10 +200,69 @@ export function CryptoPaymentPanel({ orderId, onMatched }: Props) {
     );
   }
 
+  if (walletWaiting && walletInvoice) {
+    const title = walletInvoice.provider === 'CRYPTOBOT' ? 'CryptoBot' : 'xRocket';
+    return (
+      <SectionCard>
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+          <MarketplaceLogo marketplace={WALLET_LOGO[walletInvoice.provider]} className="h-6 w-6" />
+          Оплата через {title}
+        </h3>
+        <p className="mt-2 text-xs leading-5 text-white/60">
+          Счёт на <span className="font-semibold text-white">{walletInvoice.amountUsdt.toFixed(2)} USDT</span>{' '}
+          (товар {walletInvoice.baseUsd.toFixed(2)} + комиссия {title} {walletInvoice.feePercent}%). Оплатите его в
+          боте — заказ подтвердится автоматически.
+        </p>
+        <button
+          type="button"
+          onClick={() => openPayUrl(walletInvoice.payUrl)}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-[20px] border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-100 transition active:scale-[0.99]"
+        >
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-200/30 border-t-amber-200" />
+          Ожидаем оплату…
+        </button>
+        <p className="mt-2 text-[11px] text-white/50">Если окно оплаты закрылось — нажмите на кнопку ещё раз.</p>
+        <button type="button" onClick={() => setWalletDismissed(true)} className="mt-3 text-xs text-[var(--accent)]">
+          Выбрать другой способ оплаты
+        </button>
+      </SectionCard>
+    );
+  }
+
   if (!intent || intent.status === 'EXPIRED' || intent.status === 'CANCELLED') {
     return (
       <SectionCard>
-        <h3 className="text-sm font-semibold text-white">Оплата USDT</h3>
+        {wallets.length ? (
+          <div className="mb-5">
+            <h3 className="text-sm font-semibold text-white">Через кошелёк в Telegram</h3>
+            <p className="mt-1 text-xs text-white/60">
+              Оплата в пару нажатий. Комиссию платёжки оплачивает покупатель — она уже включена в сумму.
+            </p>
+            <div className="mt-3 space-y-1.5">
+              {wallets.map((wallet) => (
+                <button
+                  key={wallet.provider}
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => payWithWallet(wallet.provider)}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/10 disabled:opacity-50"
+                >
+                  <MarketplaceLogo marketplace={WALLET_LOGO[wallet.provider]} className="h-7 w-7 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    {wallet.title}
+                    <span className="block text-[11px] text-white/50">
+                      комиссия {wallet.feePercent}% — оплачивает покупатель
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold">{wallet.amountUsdt.toFixed(2)} USDT</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <h3 className="text-sm font-semibold text-white">
+          {wallets.length ? 'Напрямую USDT — без комиссии' : 'Оплата USDT'}
+        </h3>
         <p className="mt-1 text-xs text-white/60">
           Выберите сеть USDT, в которой вам удобно отправить оплату. Мы
           сгенерируем точную сумму, и после поступления заказ автоматически

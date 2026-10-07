@@ -26,6 +26,8 @@ enum OrderStatus {
 enum PaymentSource {
   MANUAL
   CRYPTO_AUTO
+  CRYPTOBOT
+  XROCKET
 }
 
 enum StaffRole {
@@ -212,6 +214,7 @@ model Order {
   notes           OrderNote[]
   statusHistory   OrderStatusHistory[]
   cryptoPayments  CryptoPayment[]
+  walletInvoices  WalletInvoice[]
 
   @@index([userId, createdAt], map: "orders_user_id_created_at_idx")
   @@index([status, createdAt], map: "orders_status_created_at_idx")
@@ -372,6 +375,12 @@ model BusinessSettings {
   dutyThresholdEur      Decimal       @map("duty_threshold_eur") @db.Decimal(12, 2)
   dutyPercent           Decimal       @map("duty_percent") @db.Decimal(5, 2)
   dutyProcessingFeeRub  Decimal       @map("duty_processing_fee_rub") @db.Decimal(12, 2)
+  /// Fees of the Telegram wallet payments, added on top for the client.
+  cryptoBotFeePercent   Decimal       @default(3) @map("cryptobot_fee_percent") @db.Decimal(5, 2)
+  xRocketFeePercent     Decimal       @default(1.5) @map("xrocket_fee_percent") @db.Decimal(5, 2)
+  /// Referral program: share of our commission paid to the referrer.
+  referralPercent       Decimal       @default(0) @map("referral_percent") @db.Decimal(5, 2)
+  referralMinPayoutUsd  Decimal       @default(20) @map("referral_min_payout_usd") @db.Decimal(12, 2)
   /// Loyalty program: reduce commission by tier once a subscriber's
   /// cumulative goods spend crosses a threshold.
   loyaltyEnabled        Boolean       @default(true) @map("loyalty_enabled")
@@ -522,4 +531,31 @@ model RaketaState {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("raketa_state")
+}
+
+/// Invoice in a Telegram wallet (CryptoBot / xRocket) for an order's goods.
+model WalletInvoice {
+  id         String    @id @default(uuid()) @db.Uuid
+  orderId    String    @map("order_id") @db.Uuid
+  /// CRYPTOBOT | XROCKET
+  provider   String    @db.VarChar(16)
+  externalId String    @map("external_id") @db.VarChar(64)
+  payUrl     String    @map("pay_url") @db.Text
+  /// Order total before the wallet's fee.
+  baseUsd    Decimal   @map("base_usd") @db.Decimal(12, 2)
+  feePercent Decimal   @map("fee_percent") @db.Decimal(5, 2)
+  /// What the client pays: base + fee.
+  amountUsdt Decimal   @map("amount_usdt") @db.Decimal(12, 2)
+  /// PENDING | PAID | EXPIRED | CANCELLED
+  status     String    @default("PENDING") @db.VarChar(16)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  paidAt     DateTime? @map("paid_at") @db.Timestamptz(6)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalId], map: "wallet_invoices_provider_external_id_key")
+  @@index([status], map: "wallet_invoices_status_idx")
+  @@index([orderId], map: "wallet_invoices_order_id_idx")
+  @@map("wallet_invoices")
 }

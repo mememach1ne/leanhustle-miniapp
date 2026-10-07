@@ -54,6 +54,33 @@ export class UpdateSettingsDto {
   @Min(0.01)
   deliveryPricePerKgRub?: number;
 
+  /** CryptoBot fee (%) added to the client's amount. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(20)
+  cryptoBotFeePercent?: number;
+
+  /** xRocket fee (%) added to the client's amount. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(20)
+  xRocketFeePercent?: number;
+
+  /** Share of our commission paid to the referrer (%). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  referralPercent?: number;
+
+  /** Minimum referral balance (USD) for a payout request. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  referralMinPayoutUsd?: number;
+
   @IsOptional()
   @IsBoolean()
   loyaltyEnabled?: boolean;

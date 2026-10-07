@@ -1,4 +1,9 @@
-import type { CryptoPaymentIntentDto, PaymentNetwork } from '@lean-poizon/shared';
+import type {
+  CryptoPaymentIntentDto,
+  PaymentNetwork,
+  WalletInvoiceDto,
+  WalletOptionDto,
+} from '@lean-poizon/shared';
 import {
   Body,
   Controller,
@@ -14,8 +19,9 @@ import type { User } from '@prisma/client';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CreateCryptoPaymentIntentDto } from './dto/create-intent.dto';
+import { CreateCryptoPaymentIntentDto, CreateWalletInvoiceDto } from './dto/create-intent.dto';
 import { CryptoPaymentService } from './services/crypto-payment.service';
+import { WalletPayService } from './services/wallet-pay.service';
 
 /**
  * Dedicated prefix to avoid the `/orders/:id` route collision in
@@ -28,7 +34,31 @@ export class CryptoPaymentsController {
   constructor(
     @Inject(CryptoPaymentService)
     private readonly service: CryptoPaymentService,
+    @Inject(WalletPayService)
+    private readonly wallets: WalletPayService,
   ) {}
+
+  /** CryptoBot / xRocket options for this order (fee paid by the client). */
+  @Get('orders/:id/wallets')
+  async getWallets(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) orderId: string,
+  ): Promise<{ options: WalletOptionDto[]; latest: WalletInvoiceDto | null }> {
+    const [options, latest] = await Promise.all([
+      this.wallets.getOptions(user.id, orderId),
+      this.wallets.getLatest(user.id, orderId),
+    ]);
+    return { options, latest };
+  }
+
+  @Post('orders/:id/wallet-invoice')
+  async createWalletInvoice(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) orderId: string,
+    @Body() dto: CreateWalletInvoiceDto,
+  ): Promise<WalletInvoiceDto> {
+    return this.wallets.createInvoice(user.id, orderId, dto.provider);
+  }
 
   /**
    * Returns the list of USDT networks we accept right now. The mini-app

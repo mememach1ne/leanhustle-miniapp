@@ -41,6 +41,9 @@ import type {
   UpdateBusinessSettingsRequest,
   UpdateDeliveryAddressRequest,
   UserProfile,
+  WalletInvoiceDto,
+  WalletOptionDto,
+  WalletProvider,
 } from '@lean-poizon/shared';
 import axios from 'axios';
 
@@ -264,6 +267,18 @@ export const loyaltyApi = {
 };
 
 export const cryptoPaymentsApi = {
+  async getWallets(orderId: string): Promise<{ options: WalletOptionDto[]; latest: WalletInvoiceDto | null }> {
+    const response = await apiClient.get<{ options: WalletOptionDto[]; latest: WalletInvoiceDto | null }>(
+      `/crypto-payments/orders/${orderId}/wallets`,
+    );
+    return response.data;
+  },
+  async createWalletInvoice(orderId: string, provider: WalletProvider): Promise<WalletInvoiceDto> {
+    const response = await apiClient.post<WalletInvoiceDto>(`/crypto-payments/orders/${orderId}/wallet-invoice`, {
+      provider,
+    });
+    return response.data;
+  },
   async getNetworks(): Promise<{ networks: PaymentNetwork[] }> {
     const response = await apiClient.get<{ networks: PaymentNetwork[] }>(
       '/crypto-payments/networks',

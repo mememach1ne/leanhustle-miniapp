@@ -1907,8 +1907,12 @@ export class OrderAdminService {
         ? [
             `Оплата: ${
               order.paidVia === 'CRYPTO_AUTO'
-                ? '⚡ автооплата клиента (крипта)'
-                : '✍️ отметил менеджер'
+                ? '⚡ автооплата клиента (USDT)'
+                : order.paidVia === 'CRYPTOBOT'
+                  ? '⚡ автооплата клиента (CryptoBot)'
+                  : order.paidVia === 'XROCKET'
+                    ? '⚡ автооплата клиента (xRocket)'
+                    : '✍️ отметил менеджер'
             }`,
           ]
         : []),

@@ -30,6 +30,10 @@ const UPDATABLE_SETTING_KEYS = [
   'eurToRub',
   'commissionPercent',
   'deliveryPricePerKgRub',
+  'cryptoBotFeePercent',
+  'xRocketFeePercent',
+  'referralPercent',
+  'referralMinPayoutUsd',
 ] as const;
 
 type UpdatableSettingKey = (typeof UPDATABLE_SETTING_KEYS)[number];
@@ -284,6 +288,10 @@ export class SettingsService {
       dutyThresholdEur: this.toNumber(settings.dutyThresholdEur),
       dutyPercent: this.toNumber(settings.dutyPercent),
       dutyProcessingFeeRub: this.toNumber(settings.dutyProcessingFeeRub),
+      cryptoBotFeePercent: this.toNumber(settings.cryptoBotFeePercent),
+      xRocketFeePercent: this.toNumber(settings.xRocketFeePercent),
+      referralPercent: this.toNumber(settings.referralPercent),
+      referralMinPayoutUsd: this.toNumber(settings.referralMinPayoutUsd),
       loyaltyEnabled: settings.loyaltyEnabled,
       loyaltyTiers: this.parseTiers(settings.loyaltyTiers),
       updatedAt: settings.updatedAt.toISOString(),
