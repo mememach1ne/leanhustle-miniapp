@@ -10,8 +10,7 @@ import { EmptyState } from '../../../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../../../components/ui/feedback-message';
 import { LockIcon } from '../../../../../components/ui/icons';
 import { InfoRow } from '../../../../../components/ui/info-row';
-import { OrderTimeline } from '../../../../../components/ui/order-timeline';
-import { OrderTrackingCard } from '../../../../../components/ui/order-tracking-card';
+import { OrderProgress } from '../../../../../components/ui/order-progress';
 import { PageSection } from '../../../../../components/ui/page-section';
 import { ProductMiniCard } from '../../../../../components/ui/product-mini-card';
 import { SectionCard } from '../../../../../components/ui/section-card';
@@ -430,12 +429,12 @@ export default function OrderDetailsPage() {
         </SectionCard>
       ) : null}
 
-      {tracking ? <OrderTrackingCard tracking={tracking} /> : null}
-
-      <SectionCard>
-        <h3 className="mb-4 text-lg font-semibold text-white">Прогресс заявки</h3>
-        <OrderTimeline currentStatus={order.status} statusHistory={order.statusHistory} />
-      </SectionCard>
+      <OrderProgress
+        status={order.status}
+        createdAt={order.createdAt}
+        statusHistory={order.statusHistory}
+        tracking={tracking}
+      />
 
       <div className="space-y-4">
         {order.items.map((item) => (

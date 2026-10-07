@@ -102,6 +102,8 @@ export interface OrderTrackingStepDto {
   done: boolean;
   /** The latest reached milestone. */
   current: boolean;
+  /** When it was reached (ISO), if RAKETA reported it. */
+  at?: string | null;
 }
 
 /** Item of a consolidated order while the items travel to the China warehouse separately. */

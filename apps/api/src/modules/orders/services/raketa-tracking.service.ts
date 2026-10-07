@@ -25,6 +25,29 @@ const DELIVERED = 6;
 const ARRIVED_EVENT = 'china_arrived_at_RAKETA_warehouse_in_China';
 const ASSEMBLED_EVENT = 'china_union_assembly_is_complete';
 
+/** Event that dates each milestone (first match), by RAKETA event id. */
+const MILESTONE_EVENT: Array<(id: string) => boolean> = [
+  (id) => id === 'created',
+  (id) => id === ASSEMBLED_EVENT || id === ARRIVED_EVENT,
+  (id) => id.startsWith('china_sen'),
+  (id) => id.startsWith('ut_'),
+  (id) => id.startsWith('rf_arrived'),
+  (id) => id.startsWith('rf_sen') || id.startsWith('rf_transit'),
+  (id) => id === 'delivered',
+];
+
+/**
+ * Bookkeeping events of the forwarder (shipping data, payment requests) and
+ * ones that repeat our own steps — not shown in the client's history.
+ */
+const HIDDEN_EVENTS = new Set([
+  'created',
+  'paid',
+  'requires_russian_shipping_data',
+  'russian_shipping_data_filled',
+  'requires_payment_for_services',
+]);
+
 /** After the delivery is paid the parcel is ours to follow until it's delivered. */
 const FOLLOW_STATUSES: OrderStatus[] = [
   OrderStatus.DELIVERY_PAID,
@@ -104,7 +127,12 @@ export class RaketaTrackingService {
     });
     // A later milestone implies the earlier ones.
     const last = done.lastIndexOf(true);
-    const steps = MILESTONES.map((name, index) => ({ name, done: index <= last, current: index === last }));
+    const steps = MILESTONES.map((name, index) => ({
+      name,
+      done: index <= last,
+      current: index === last,
+      at: index <= last ? main?.events.find((e) => MILESTONE_EVENT[index](e.id))?.at ?? null : null,
+    }));
 
     return {
       // RAKETA numbers stay internal — the client only gets the CDEK track.
@@ -112,7 +140,10 @@ export class RaketaTrackingService {
       // Shown as soon as RAKETA assigns it (usually right after the delivery is paid).
       cdekTrack: order.trackCode ?? order.raketaTkTrack ?? null,
       steps,
-      events: [...(main?.events ?? [])].reverse().map((e) => ({ name: clientText(e.name), at: e.at })),
+      events: [...(main?.events ?? [])]
+        .filter((e) => !HIDDEN_EVENTS.has(e.id))
+        .reverse()
+        .map((e) => ({ name: clientText(e.name), at: e.at })),
       items,
     };
   }
