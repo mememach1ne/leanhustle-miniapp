@@ -107,7 +107,8 @@ export class RaketaTrackingService {
     return {
       kind: consolidated ? 'consolidation' : 'single',
       trackNumber: mainTrack ?? null,
-      cdekTrack: order.trackCode ?? order.raketaTkTrack ?? null,
+      // CDEK knows the parcel only once it's handed over in Russia.
+      cdekTrack: order.trackCode ?? (steps[RF_SENT].done ? order.raketaTkTrack : null) ?? null,
       steps,
       events: [...(main?.events ?? [])].reverse().map((e) => ({ name: e.name, at: e.at })),
       items,
