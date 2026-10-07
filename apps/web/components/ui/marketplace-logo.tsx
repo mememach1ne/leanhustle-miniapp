@@ -1,9 +1,9 @@
 /* eslint-disable @next/next/no-img-element -- tiny static icons, no optimisation needed */
-export type Marketplace = 'poizon' | 'taobao' | '1688' | '95' | 'goofish' | 'pinduoduo';
+export type Marketplace = 'poizon' | 'taobao' | '1688' | '95' | 'goofish' | 'pinduoduo' | 'cdek';
 
 /**
- * Official app icons of the Chinese marketplaces (128px, from the App Store
- * listings), stored in public/marketplaces and rounded like app icons.
+ * Official app icons of the Chinese marketplaces and CDEK (128px, from the
+ * App Store listings), stored in public/marketplaces and rounded like app icons.
  */
 export function MarketplaceLogo({
   marketplace,

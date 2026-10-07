@@ -4,6 +4,7 @@ import type { OrderTrackingDto } from '@lean-poizon/shared';
 import { useState } from 'react';
 
 import { hapticNotification } from '../../lib/telegram-web-app';
+import { MarketplaceLogo } from './marketplace-logo';
 import { SectionCard } from './section-card';
 
 const formatDate = (value: string) => {
@@ -15,7 +16,7 @@ const formatDate = (value: string) => {
 
 const EVENTS_PREVIEW = 4;
 
-/** Parcel tracking from RAKETA: milestones, CDEK track, event history (+ items of a consolidation). */
+/** Parcel tracking: milestones, CDEK track (RAKETA numbers are never shown to clients), event history. */
 export function OrderTrackingCard({ tracking }: { tracking: OrderTrackingDto }) {
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -40,27 +41,26 @@ export function OrderTrackingCard({ tracking }: { tracking: OrderTrackingDto }) 
     <SectionCard>
       <h3 className="text-lg font-semibold text-white">Отслеживание посылки</h3>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {tracking.trackNumber ? (
+      {tracking.cdekTrack ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => copy(tracking.trackNumber!)}
-            className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-200 transition active:scale-[0.98]"
+            onClick={() => copy(tracking.cdekTrack!)}
+            className="inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-400/10 py-1.5 pl-1.5 pr-3 text-xs font-semibold text-emerald-100 transition active:scale-[0.98]"
           >
-            {copied === tracking.trackNumber ? 'Скопировано!' : `RAKETA ${tracking.trackNumber}`}
+            <MarketplaceLogo marketplace="cdek" className="h-5 w-5" />
+            {copied === tracking.cdekTrack ? 'Скопировано!' : `СДЭК ${tracking.cdekTrack}`}
           </button>
-        ) : null}
-        {tracking.cdekTrack ? (
           <a
             href={`https://www.cdek.ru/ru/tracking?order_id=${encodeURIComponent(tracking.cdekTrack)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-semibold text-emerald-100"
+            className="text-xs text-[var(--accent)]"
           >
-            СДЭК {tracking.cdekTrack} ↗
+            Отследить на сайте СДЭК ↗
           </a>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <ol className="mt-5 space-y-0">
         {tracking.steps.map((step, index) => {
@@ -101,7 +101,7 @@ export function OrderTrackingCard({ tracking }: { tracking: OrderTrackingDto }) 
           </p>
           <ul className="mt-3 space-y-2">
             {tracking.items.map((item, index) => (
-              <li key={`${item.trackNumber ?? ''}-${index}`} className="flex items-start gap-2 text-xs">
+              <li key={`${item.title}-${index}`} className="flex items-start gap-2 text-xs">
                 <span className={item.arrived ? 'text-emerald-300' : 'text-amber-200'}>{item.arrived ? '●' : '○'}</span>
                 <span className="text-slate-200">
                   {item.title} · {item.size}

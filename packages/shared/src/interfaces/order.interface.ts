@@ -108,17 +108,17 @@ export interface OrderTrackingStepDto {
 export interface OrderTrackingItemDto {
   title: string;
   size: string;
-  trackNumber: string | null;
   arrived: boolean;
   lastEvent: string | null;
 }
 
-/** Parcel tracking for the client (from RAKETA's public tracker). */
+/**
+ * Parcel tracking for the client (from RAKETA's public tracker). RAKETA's own
+ * numbers are never exposed to clients — only the CDEK track.
+ */
 export interface OrderTrackingDto {
-  /** 'single' — one item tracked by its RA…; 'consolidation' — items packed into one RAC… parcel. */
+  /** 'single' — one item; 'consolidation' — several items packed into one parcel. */
   kind: 'single' | 'consolidation';
-  /** RAKETA number of the parcel (RA… / RAC…); null until the consolidation number is known. */
-  trackNumber: string | null;
   /** CDEK track of the RF leg, once RAKETA hands the parcel over. */
   cdekTrack: string | null;
   steps: OrderTrackingStepDto[];

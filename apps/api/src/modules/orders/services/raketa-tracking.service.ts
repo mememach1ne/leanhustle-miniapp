@@ -33,6 +33,9 @@ const FOLLOW_STATUSES: OrderStatus[] = [
   OrderStatus.TRACK_CODE_RECEIVED,
 ];
 
+/** The forwarder stays internal: «Поступил на склад RAKETA в Китае» → «Поступил на склад в Китае». */
+const clientText = (name: string) => name.replace(/\s*\bRAKETA\b/gi, '').replace(/\s{2,}/g, ' ').trim();
+
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 const reached = (tracking: RaketaTracking | null, index: number) =>
@@ -82,9 +85,8 @@ export class RaketaTrackingService {
           return {
             title: item.productTitle,
             size: item.sizeLabel,
-            trackNumber: item.raketaTrackNumber,
             arrived: events.some((e) => e.id === ARRIVED_EVENT) || reached(itemTracks[i], AT_CHINA_WAREHOUSE + 1),
-            lastEvent: events.at(-1)?.name ?? null,
+            lastEvent: events.length ? clientText(events[events.length - 1].name) : null,
           };
         })
       : [];
@@ -105,12 +107,12 @@ export class RaketaTrackingService {
     const steps = MILESTONES.map((name, index) => ({ name, done: index <= last, current: index === last }));
 
     return {
+      // RAKETA numbers stay internal — the client only gets the CDEK track.
       kind: consolidated ? 'consolidation' : 'single',
-      trackNumber: mainTrack ?? null,
       // CDEK knows the parcel only once it's handed over in Russia.
       cdekTrack: order.trackCode ?? (steps[RF_SENT].done ? order.raketaTkTrack : null) ?? null,
       steps,
-      events: [...(main?.events ?? [])].reverse().map((e) => ({ name: e.name, at: e.at })),
+      events: [...(main?.events ?? [])].reverse().map((e) => ({ name: clientText(e.name), at: e.at })),
       items,
     };
   }
