@@ -217,6 +217,53 @@ export class RaketaClientService {
     return value;
   }
 
+  /** Existing recipient with the same full name and phone, or a new one. */
+  async findOrCreateRecipient(input: {
+    lastName: string;
+    name: string;
+    middleName: string | null;
+    phone10: string;
+  }): Promise<string> {
+    const norm = (v?: string | null) => (v ?? '').trim().toLowerCase().replace(/ё/g, 'е');
+    for (let offset = 0; offset < 30; offset++) {
+      const body = await this.request<{
+        data?: Array<{ id: string; name: string; last_name: string; middle_name: string | null; phone: string }>;
+      }>('GET', `/customer_recipients?${new URLSearchParams({ offset: String(offset), text: input.lastName })}`);
+      const list = body.data ?? [];
+      const hit = list.find(
+        (r) =>
+          norm(r.last_name) === norm(input.lastName) &&
+          norm(r.name) === norm(input.name) &&
+          norm(r.middle_name) === norm(input.middleName) &&
+          (r.phone ?? '').replace(/\D/g, '').endsWith(input.phone10),
+      );
+      if (hit) return hit.id;
+      if (list.length < 10) break;
+    }
+    return this.createRecipient(input);
+  }
+
+  /** Existing (active) CDEK address for this pickup point, or a new one. */
+  async findOrCreateCdekAddress(input: Parameters<RaketaClientService['createCdekAddress']>[0]): Promise<string> {
+    const wanted = input.pvzCode.toUpperCase();
+    let firstId: string | undefined;
+    for (let offset = 0; offset < 30; offset++) {
+      const body = await this.request<{
+        data?: Array<{ id: string; tk: string; pvz_code: string | null; disabled?: boolean }>;
+      }>('GET', `/customer_addresses_full?offset=${offset}`);
+      const list = body.data ?? [];
+      // Stop if the endpoint ignores paging and keeps returning the same page.
+      if (offset > 0 && list[0]?.id === firstId) break;
+      firstId ??= list[0]?.id;
+      const hit = list.find(
+        (a) => a.tk === 'cdek' && !a.disabled && (a.pvz_code ?? '').toUpperCase() === wanted,
+      );
+      if (hit) return hit.id;
+      if (list.length < 10) break;
+    }
+    return this.createCdekAddress(input);
+  }
+
   /** Creates a recipient (Cyrillic names, phone as 10 digits). Returns its id. */
   async createRecipient(input: {
     lastName: string;

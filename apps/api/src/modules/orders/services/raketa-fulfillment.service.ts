@@ -217,14 +217,14 @@ export class RaketaFulfillmentService {
     try {
       const recipientId =
         order.raketaRecipientId ??
-        (await this.raketa.createRecipient({ ...name, phone10 }));
+        (await this.raketa.findOrCreateRecipient({ ...name, phone10 }));
       if (!order.raketaRecipientId) {
         await this.prisma.order.update({ where: { id: order.id }, data: { raketaRecipientId: recipientId } });
       }
 
       const addressId =
         order.raketaAddressId ??
-        (await this.raketa.createCdekAddress({
+        (await this.raketa.findOrCreateCdekAddress({
           title: `${order.deliveryFullName} — ${order.deliveryCity}`,
           cityId: order.deliveryCityId,
           city: order.deliveryCity,
@@ -380,8 +380,8 @@ export class RaketaFulfillmentService {
         const phone10 = input.delivery.phone.replace(/\D/g, '').replace(/^[78](\d{10})$/, '$1');
         if (!/^\d{10}$/.test(phone10)) throw new Error('Телефон должен быть в формате +7XXXXXXXXXX.');
         const point = input.delivery.pickupPoint;
-        const recipientId = await this.raketa.createRecipient({ ...name, phone10 });
-        const addressId = await this.raketa.createCdekAddress({
+        const recipientId = await this.raketa.findOrCreateRecipient({ ...name, phone10 });
+        const addressId = await this.raketa.findOrCreateCdekAddress({
           title: `${input.delivery.fullName} — ${point.city}`,
           cityId: point.cityId,
           city: point.city,
