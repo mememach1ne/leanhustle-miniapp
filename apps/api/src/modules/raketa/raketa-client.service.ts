@@ -105,13 +105,6 @@ export interface RaketaPrice {
   } | null;
 }
 
-export interface RaketaBillingRow {
-  id: string;
-  amount: number;
-  createdAt: string;
-  title: string;
-}
-
 /** RAKETA's stage of an order that has arrived at the China warehouse. */
 export const RAKETA_STAGE_AT_WAREHOUSE = 'На складе в Китае';
 
@@ -497,23 +490,18 @@ export class RaketaClientService {
     return url;
   }
 
-  /** Balance top-ups ("plus" transactions), newest first. */
-  async listTopUps(maxPages = 2): Promise<RaketaBillingRow[]> {
-    const rows: RaketaBillingRow[] = [];
-    for (let offset = 0; offset < maxPages; offset++) {
-      const body = await this.request<{ data?: Array<Record<string, unknown>> }>(
-        'GET',
-        `/billing_history?${new URLSearchParams({ offset: String(offset), transaction_filter: 'plus' })}`,
-      );
-      const list = body.data ?? [];
-      for (const row of list) {
-        const amount = parseMoney(row.summ);
-        if (row.id == null || amount === null || amount <= 0) continue;
-        rows.push({ id: String(row.id), amount, createdAt: String(row.created_at ?? ''), title: String(row.title ?? '') });
-      }
-      if (list.length < 10) break;
-    }
-    return rows;
+  /**
+   * Main (money) balance in rubles, without loyalty points. Client top-ups
+   * only show up here — RAKETA's billing history lists charges and points.
+   */
+  async getMainBalance(): Promise<number> {
+    const body = await this.request<{
+      message?: { balance_details?: { main?: number | string } };
+      data?: { balance_details?: { main?: number | string } };
+    }>('GET', '/auth/me/');
+    const main = parseMoney((body.message ?? body.data)?.balance_details?.main);
+    if (main === null) throw new RaketaApiError('RAKETA не вернула баланс.');
+    return main;
   }
 
   private async login(): Promise<string> {

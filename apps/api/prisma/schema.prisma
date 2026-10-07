@@ -511,3 +511,12 @@ model DeliveryCityRate {
 
   @@map("delivery_city_rates")
 }
+
+/// Key/value state of the RAKETA automation (last seen main balance, …).
+model RaketaState {
+  key       String   @id @db.VarChar(64)
+  value     Json
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("raketa_state")
+}

@@ -13,7 +13,6 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import {
   parseMoney,
   RAKETA_STAGE_AT_WAREHOUSE,
-  type RaketaBillingRow,
   RaketaClientService,
   type RaketaPrice,
 } from '../../raketa/raketa-client.service';
@@ -22,6 +21,8 @@ import { OrderNotificationsService } from './order-notifications.service';
 /** A ready-made top-up link is reused for this long, then a fresh one is made. */
 const TOPUP_LINK_TTL_MS = 6 * 60 * 60 * 1000;
 const RAKETA_DUTY_LINE_ID = 'customs_duty';
+/** `raketa_state` key: main balance seen at the end of the last cycle. */
+const BALANCE_STATE_KEY = 'balance_main';
 /** Sanity cap: a delivery bill above this is surely a parsing error — never sent to a client. */
 const MAX_CLIENT_AMOUNT_RUB = 50_000;
 
@@ -58,8 +59,9 @@ type CycleOrder = Prisma.OrderGetPayload<{
  *   2. RAKETA packs and weighs it (usually 4–6 h) and shows the price;
  *   3. the client gets a RAKETA balance top-up link for exactly that price
  *      (international + RF delivery + duty + insurance);
- *   4. the top-up shows up in RAKETA's billing history → the server pays the
- *      consolidation / order from the balance and the parcel leaves China.
+ *   4. the top-up raises RAKETA's main balance (it never shows in billing
+ *      history) → the server pays the consolidation / order from the balance
+ *      and the parcel leaves China.
  * Runs every 10 minutes; consolidations not tied to our orders get steps 1–2
  * plus a price notice to the managers.
  */
@@ -213,6 +215,9 @@ export class RaketaDeliveryPaymentService {
   // ------------------------------------------------------------------
 
   private async processOrders(): Promise<void> {
+    // Every cycle, so the baseline stays current even with nothing pending.
+    await this.detectTopUps();
+
     const orders = await this.prisma.order.findMany({
       where: {
         raketaDeliveryAssignedAt: { not: null },
@@ -222,21 +227,16 @@ export class RaketaDeliveryPaymentService {
       },
       include: { items: { select: { raketaOrderId: true } }, user: { select: { telegramId: true } } },
     });
-    if (orders.length === 0) return;
-
-    let topUps: RaketaBillingRow[] | null = null;
-    const loadTopUps = async () => (topUps ??= await this.raketa.listTopUps());
-
     for (const order of orders) {
       try {
-        await this.processOrder(order, loadTopUps);
+        await this.processOrder(order);
       } catch (error) {
         this.logger.warn(`RAKETA delivery step for ${order.orderNumber}: ${errorText(error)}`);
       }
     }
   }
 
-  private async processOrder(order: CycleOrder, loadTopUps: () => Promise<RaketaBillingRow[]>): Promise<void> {
+  private async processOrder(order: CycleOrder): Promise<void> {
     const target = this.paymentTarget(order);
     if (!target) return;
 
@@ -246,10 +246,8 @@ export class RaketaDeliveryPaymentService {
       return;
     }
 
-    if (order.status === OrderStatus.DELIVERY_PAYMENT_PENDING && order.raketaTopupAmount) {
-      await this.checkTopUp(order, target, await loadTopUps());
-      return;
-    }
+    // Link sent — waiting for the top-up (see detectTopUps).
+    if (order.status === OrderStatus.DELIVERY_PAYMENT_PENDING && order.raketaTopupAmount) return;
 
     const price = await this.raketa.getPrice(target.kind, target.id);
     if (price.controls?.paid_button) {
@@ -333,7 +331,6 @@ export class RaketaDeliveryPaymentService {
       amount += 1;
     }
 
-    const seenIds = (await this.raketa.listTopUps()).map((row) => row.id);
     const url = await this.raketa.createTopUp(amount);
     const now = new Date();
 
@@ -349,7 +346,6 @@ export class RaketaDeliveryPaymentService {
           raketaTopupAmount: new Prisma.Decimal(amount),
           raketaTopupUrl: url,
           raketaTopupCreatedAt: now,
-          raketaTopupSeenIds: seenIds,
           raketaLastError: null,
         },
       });
@@ -378,57 +374,80 @@ export class RaketaDeliveryPaymentService {
     );
   }
 
-  private async checkTopUp(
-    order: CycleOrder,
-    target: { kind: 'consolidation' | 'order'; id: string },
-    rows: RaketaBillingRow[],
-  ): Promise<void> {
-    const expected = Number(order.raketaTopupAmount);
-    const seen = new Set(Array.isArray(order.raketaTopupSeenIds) ? (order.raketaTopupSeenIds as string[]) : []);
-    // Billing history may report kopecks like /price does — accept both.
-    const candidates = rows.filter(
-      (row) =>
-        !seen.has(row.id) &&
-        (Math.abs(row.amount - expected) < 1 || Math.abs(row.amount - expected * 100) < 100),
-    );
-    if (candidates.length === 0) return;
+  /**
+   * Client top-ups don't appear in RAKETA's billing history — only in the main
+   * balance. So: compare the balance with the last cycle; a rise equal to an
+   * open link's amount (or to a sum of up to three of them) = those clients
+   * paid. Our own payments are taken out of the baseline in payRaketa().
+   */
+  private async detectTopUps(): Promise<void> {
+    const current = await this.raketa.getMainBalance();
+    const state = await this.prisma.raketaState.findUnique({ where: { key: BALANCE_STATE_KEY } });
+    const last = state ? parseMoney(state.value) : null;
+    await this.saveBaseline(current);
+    if (last === null) return;
 
-    const used = await this.prisma.order.findMany({
-      where: { raketaTopupBillingId: { in: candidates.map((row) => row.id) } },
-      select: { raketaTopupBillingId: true },
+    const inflow = Math.round((current - last) * 100) / 100;
+    if (inflow < 1) return;
+
+    const pending = await this.prisma.order.findMany({
+      where: {
+        status: OrderStatus.DELIVERY_PAYMENT_PENDING,
+        raketaTopupAmount: { not: null },
+        raketaTopupBillingId: null,
+        fulfillmentManual: false,
+      },
+      include: { items: { select: { raketaOrderId: true } }, user: { select: { telegramId: true } } },
+      orderBy: { raketaTopupCreatedAt: 'asc' },
     });
-    const usedIds = new Set(used.map((u) => u.raketaTopupBillingId));
-    // Oldest unused matching top-up first (the list comes newest first).
-    const row = [...candidates].reverse().find((r) => !usedIds.has(r.id));
-    if (!row) return;
+    const paid = matchInflow(inflow, pending, (o) => Number(o.raketaTopupAmount));
+    if (!paid) {
+      this.logger.warn(`RAKETA balance +${inflow} ₽ matches no open delivery link`);
+      await this.notifications.notifyManagers(
+        `RAKETA: на баланс поступило ${rub(inflow)}, но открытой ссылки на такую сумму нет. Проверьте, чья это оплата, и отметьте доставку оплаченной вручную.`,
+      );
+      return;
+    }
+    for (const order of paid) {
+      try {
+        await this.markClientPaid(order, Number(order.raketaTopupAmount));
+      } catch (error) {
+        this.logger.warn(`RAKETA top-up for ${order.orderNumber}: ${errorText(error)}`);
+      }
+    }
+  }
 
+  private async saveBaseline(balance: number): Promise<void> {
+    await this.prisma.raketaState.upsert({
+      where: { key: BALANCE_STATE_KEY },
+      create: { key: BALANCE_STATE_KEY, value: balance },
+      update: { value: balance },
+    });
+  }
+
+  private async markClientPaid(order: CycleOrder, amount: number): Promise<void> {
+    const target = this.paymentTarget(order);
     const now = new Date();
     const hasDuty = order.actualDutyRub !== null && Number(order.actualDutyRub) > 0;
-    try {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.order.update({
-          where: { id: order.id },
-          data: {
-            raketaTopupBillingId: row.id,
-            status: OrderStatus.DELIVERY_PAID,
-            deliveryPaidAt: now,
-            ...(hasDuty ? { dutyPaidAt: now } : {}),
-          },
-        });
-        await tx.orderStatusHistory.create({
-          data: {
-            orderId: order.id,
-            fromStatus: order.status,
-            toStatus: OrderStatus.DELIVERY_PAID,
-            comment: `Клиент оплатил доставку${hasDuty ? ' и пошлину' : ''}: пополнение RAKETA ${rub(row.amount)}.`,
-          },
-        });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          raketaTopupBillingId: `balance:${now.getTime()}:${order.id.slice(0, 8)}`,
+          status: OrderStatus.DELIVERY_PAID,
+          deliveryPaidAt: now,
+          ...(hasDuty ? { dutyPaidAt: now } : {}),
+        },
       });
-    } catch (error) {
-      // Unique billing id: another order took this top-up in a parallel run.
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return;
-      throw error;
-    }
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          fromStatus: order.status,
+          toStatus: OrderStatus.DELIVERY_PAID,
+          comment: `Клиент оплатил доставку${hasDuty ? ' и пошлину' : ''}: баланс RAKETA пополнен на ${rub(amount)}.`,
+        },
+      });
+    });
 
     if (order.user?.telegramId) {
       await this.notifications.notifyUserAboutStatusChange(
@@ -439,7 +458,7 @@ export class RaketaDeliveryPaymentService {
         { orderId: order.id, allPaid: true },
       );
     }
-    await this.payRaketa({ ...order, deliveryPaidAt: now }, target, row.amount);
+    if (target) await this.payRaketa({ ...order, deliveryPaidAt: now }, target, amount);
   }
 
   private async payRaketa(
@@ -447,6 +466,7 @@ export class RaketaDeliveryPaymentService {
     target: { kind: 'consolidation' | 'order'; id: string },
     paidByClient?: number,
   ): Promise<void> {
+    const before = await this.raketa.getMainBalance().catch(() => null);
     try {
       await this.raketa.pay(target.kind, target.id);
     } catch (error) {
@@ -459,6 +479,18 @@ export class RaketaDeliveryPaymentService {
         );
       }
       return;
+    }
+
+    // Keep our own spending out of the top-up detection baseline.
+    try {
+      const after = await this.raketa.getMainBalance();
+      const state = await this.prisma.raketaState.findUnique({ where: { key: BALANCE_STATE_KEY } });
+      const baseline = state ? parseMoney(state.value) : null;
+      if (before !== null && baseline !== null) {
+        await this.saveBaseline(Math.round((baseline - (before - after)) * 100) / 100);
+      }
+    } catch (error) {
+      this.logger.warn(`RAKETA baseline after payment: ${errorText(error)}`);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -483,4 +515,24 @@ export class RaketaDeliveryPaymentService {
       order.id,
     );
   }
+}
+
+/**
+ * Orders whose link amounts add up to the inflow (±1 ₽ each): one order, or
+ * the oldest combination of up to three. Null when nothing fits.
+ */
+function matchInflow<T>(inflow: number, pending: T[], amountOf: (o: T) => number): T[] | null {
+  const fits = (sum: number, n: number) => Math.abs(sum - inflow) < n;
+  for (const a of pending) if (fits(amountOf(a), 1)) return [a];
+  for (let i = 0; i < pending.length; i++) {
+    for (let j = i + 1; j < pending.length; j++) {
+      if (fits(amountOf(pending[i]) + amountOf(pending[j]), 2)) return [pending[i], pending[j]];
+      for (let k = j + 1; k < pending.length; k++) {
+        if (fits(amountOf(pending[i]) + amountOf(pending[j]) + amountOf(pending[k]), 3)) {
+          return [pending[i], pending[j], pending[k]];
+        }
+      }
+    }
+  }
+  return null;
 }
