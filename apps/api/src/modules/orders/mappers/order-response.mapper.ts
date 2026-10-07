@@ -44,6 +44,12 @@ type OrderWithItems = {
   insuranceRub?: Prisma.Decimal;
   deliveryPvzCode?: string | null;
   deliveryCity?: string | null;
+  raketaAssembledAt?: Date | null;
+  raketaPriceTotal?: Prisma.Decimal | null;
+  raketaPriceLines?: Prisma.JsonValue | null;
+  raketaTopupAmount?: Prisma.Decimal | null;
+  raketaTopupBillingId?: string | null;
+  raketaPaidAt?: Date | null;
   user?: {
     id: string;
     telegramId: string;
@@ -161,6 +167,18 @@ export const mapOrderToDetailsDto = (order: OrderWithItems): OrderDetailsDto => 
       : null,
     summary: mapOrderSummaryToDto(order),
     items: order.items.map(mapOrderItemToDto),
+    deliveryPayment:
+      order.status === 'DELIVERY_PAYMENT_PENDING' && order.raketaTopupAmount
+        ? {
+            amountRub: roundRub(order.raketaTopupAmount),
+            lines: Array.isArray(order.raketaPriceLines)
+              ? (order.raketaPriceLines as Array<{ name?: unknown; amountRub?: unknown }>).map((line) => ({
+                  name: String(line.name ?? ''),
+                  amountRub: Number(line.amountRub ?? 0),
+                }))
+              : [],
+          }
+        : null,
     statusHistory:
       order.statusHistory?.map<OrderStatusHistoryItemDto>((item) => ({
         toStatus: item.toStatus as OrderStatusHistoryItemDto['toStatus'],
@@ -250,6 +268,11 @@ export const mapOrderToStaffDetailsDto = (
         raketaOrderId: item.raketaOrderId ?? null,
         raketaTrackNumber: item.raketaTrackNumber ?? null,
       })),
+      assembled: Boolean(order.raketaAssembledAt),
+      priceRub: order.raketaPriceTotal ? Number(order.raketaPriceTotal) : null,
+      topupRub: order.raketaTopupAmount ? roundRub(order.raketaTopupAmount) : null,
+      clientPaid: Boolean(order.raketaTopupBillingId),
+      raketaPaid: Boolean(order.raketaPaidAt),
     },
   };
 };

@@ -13,6 +13,7 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { OrderNotificationsService } from './services/order-notifications.service';
 import { OrderNumberService } from './services/order-number.service';
+import { RaketaDeliveryPaymentService } from './services/raketa-delivery-payment.service';
 import { RaketaFulfillmentService } from './services/raketa-fulfillment.service';
 import { StaffOrdersController } from './staff-orders.controller';
 
@@ -33,7 +34,13 @@ import { StaffOrdersController } from './staff-orders.controller';
     OrderNumberService,
     OrderNotificationsService,
     RaketaFulfillmentService,
+    RaketaDeliveryPaymentService,
   ],
-  exports: [OrdersService, OrderNotificationsService, RaketaFulfillmentService],
+  exports: [
+    OrdersService,
+    OrderNotificationsService,
+    RaketaFulfillmentService,
+    RaketaDeliveryPaymentService,
+  ],
 })
 export class OrdersModule {}

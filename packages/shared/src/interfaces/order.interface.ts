@@ -89,6 +89,18 @@ export interface OrderDeliveryDto {
 /** How the goods payment was registered. */
 export type PaymentSource = 'MANUAL' | 'CRYPTO_AUTO';
 
+/** Delivery priced by RAKETA, payable by the client via a top-up link. */
+export interface OrderDeliveryPaymentDto {
+  amountRub: number;
+  /** «Международная доставка», «Доставка по РФ», пошлина, страховка… */
+  lines: Array<{ name: string; amountRub: number }>;
+}
+
+export interface DeliveryPaymentLinkResponse {
+  url: string;
+  amountRub: number;
+}
+
 export interface OrderDetailsDto {
   id: string;
   orderNumber: string;
@@ -104,6 +116,8 @@ export interface OrderDetailsDto {
   summary: OrderSummaryDto;
   items: OrderItemDto[];
   statusHistory?: OrderStatusHistoryItemDto[];
+  /** Set while the order waits for the client to pay the RAKETA delivery. */
+  deliveryPayment?: OrderDeliveryPaymentDto | null;
 }
 
 export interface CheckoutOrderRequest {
@@ -223,6 +237,16 @@ export interface StaffOrderFulfillmentDto {
   /** CDEK pickup point picked from the directory, e.g. "MSK1005, Москва"; null for hand-typed addresses. */
   pickupPoint: string | null;
   items: StaffOrderFulfillmentItemDto[];
+  /** «Собрать» was pressed (by the server). */
+  assembled: boolean;
+  /** What RAKETA charges for delivery (null until it is weighed). */
+  priceRub: number | null;
+  /** Amount of the top-up link sent to the client. */
+  topupRub: number | null;
+  /** The client's top-up arrived. */
+  clientPaid: boolean;
+  /** The consolidation / order is paid at RAKETA. */
+  raketaPaid: boolean;
 }
 
 export interface StaffOrderDetailsDto extends OrderDetailsDto {

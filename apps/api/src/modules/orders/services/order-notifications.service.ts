@@ -132,7 +132,16 @@ export class OrderNotificationsService {
     orderNumber: string,
     newStatus: OrderStatus,
     trackCode?: string | null,
-    details: { amountRub?: number; orderId?: string } = {},
+    details: {
+      amountRub?: number;
+      orderId?: string;
+      /** RAKETA top-up link: the client pays delivery by card right away. */
+      payUrl?: string;
+      /** Breakdown shown under the amount, e.g. «Международная доставка — 1 200 ₽». */
+      lines?: Array<{ name: string; amountRub: number }>;
+      /** Delivery (and duty) were paid through RAKETA in one go. */
+      allPaid?: boolean;
+    } = {},
   ): Promise<void> {
     const botToken = this.configService.get<string>('telegram.botToken');
 
@@ -140,7 +149,7 @@ export class OrderNotificationsService {
       return;
     }
 
-    const text = this.buildClientStatusText(orderNumber, newStatus, trackCode, details.amountRub);
+    const text = this.buildClientStatusText(orderNumber, newStatus, trackCode, details.amountRub, details);
 
     try {
       const response = await fetch(
@@ -157,7 +166,7 @@ export class OrderNotificationsService {
             text,
             parse_mode: 'HTML',
             link_preview_options: { is_disabled: true },
-            reply_markup: this.buildClientKeyboard(newStatus, trackCode, details.orderId),
+            reply_markup: this.buildClientKeyboard(newStatus, trackCode, details.orderId, details.payUrl),
           }),
         },
       );
@@ -185,6 +194,7 @@ export class OrderNotificationsService {
     status: OrderStatus,
     trackCode?: string | null,
     amountRub?: number,
+    extra: { payUrl?: string; lines?: Array<{ name: string; amountRub: number }>; allPaid?: boolean } = {},
   ): string {
     const order = `<b>${escapeHtml(orderNumber)}</b>`;
     const amount = typeof amountRub === 'number' ? formatRub(amountRub) : null;
@@ -217,17 +227,34 @@ export class OrderNotificationsService {
           'Товар пройдёт проверку подлинности и отправится к нам. Когда посылку взвесят, пришлём стоимость доставки.',
         );
       case OrderStatus.DELIVERY_PAYMENT_PENDING:
+        if (extra.payUrl) {
+          return lines(
+            amount ? `К оплате за доставку: ${amount}` : 'Рассчитана стоимость доставки',
+            `Посылка по заказу ${order} собрана и взвешена на складе в Китае.`,
+            ...(extra.lines?.length
+              ? ['', ...extra.lines.map((line) => `${escapeHtml(line.name)}: ${formatRub(line.amountRub)}`)]
+              : []),
+            '',
+            'Оплатите по кнопке «Оплатить доставку» — после оплаты посылка сразу отправится в Россию. Платёж подтвердится автоматически.',
+          );
+        }
         return lines(
           amount ? `Стоимость доставки: ${amount}` : 'Рассчитана стоимость доставки',
           `Доставка из Китая по заказу ${order} рассчитана по фактическому весу.`,
           'Менеджер свяжется с вами для оплаты.',
         );
       case OrderStatus.DELIVERY_PAID:
-        return lines(
-          'Доставка оплачена',
-          `Спасибо! Заказ ${order} отправляется в Россию.`,
-          'Если потребуется таможенная пошлина, мы сообщим отдельно.',
-        );
+        return extra.allPaid
+          ? lines(
+              'Доставка оплачена',
+              `Спасибо! Оплата получена, заказ ${order} отправляется в Россию.`,
+              'Трек-код СДЭК пришлём, как только посылка будет передана в доставку.',
+            )
+          : lines(
+              'Доставка оплачена',
+              `Спасибо! Заказ ${order} отправляется в Россию.`,
+              'Если потребуется таможенная пошлина, мы сообщим отдельно.',
+            );
       case OrderStatus.DUTY_PAYMENT_PENDING:
         return amountRub === 0
           ? lines(
@@ -275,10 +302,19 @@ export class OrderNotificationsService {
     }
   }
 
-  private buildClientKeyboard(status: OrderStatus, trackCode?: string | null, orderId?: string) {
+  private buildClientKeyboard(
+    status: OrderStatus,
+    trackCode?: string | null,
+    orderId?: string,
+    payUrl?: string,
+  ) {
     const miniAppUrl =
       this.configService.get<string>('telegram.miniAppUrl') || 'https://leanhustle.ru';
     const rows: Array<Array<Record<string, unknown>>> = [];
+
+    if (status === OrderStatus.DELIVERY_PAYMENT_PENDING && payUrl) {
+      rows.push([{ text: 'Оплатить доставку', url: payUrl, style: 'success' }]);
+    }
 
     if (status === OrderStatus.TRACK_CODE_RECEIVED && trackCode) {
       rows.push([
@@ -418,6 +454,49 @@ export class OrderNotificationsService {
         }
       }),
     );
+  }
+
+  /** Plain message to every manager (RAKETA automation events). */
+  async notifyManagers(text: string, orderId?: string): Promise<void> {
+    const botToken = this.configService.get<string>('telegram.botToken');
+    const managerTelegramIds =
+      this.configService.get<string[]>('notifications.managerTelegramIds') ?? [];
+    if (!botToken || managerTelegramIds.length === 0) return;
+    const miniAppUrl = this.configService.get<string>('telegram.miniAppUrl');
+
+    await Promise.allSettled(
+      managerTelegramIds.map(async (chatId) => {
+        const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          signal: AbortSignal.timeout(10_000),
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text,
+            disable_web_page_preview: true,
+            ...(orderId && miniAppUrl
+              ? {
+                  reply_markup: {
+                    inline_keyboard: [
+                      [{ text: 'Открыть в панели', url: `${miniAppUrl}/admin/orders/${orderId}` }],
+                    ],
+                  },
+                }
+              : {}),
+          }),
+        });
+        const payload = (await response.json()) as { ok?: boolean; description?: string };
+        if (!response.ok || !payload.ok) {
+          throw new Error(payload.description ?? 'Telegram sendMessage failed');
+        }
+      }),
+    ).then((results) => {
+      results.forEach((result) => {
+        if (result.status === 'rejected') {
+          this.logger.warn(`Failed to notify managers: ${String(result.reason)}`);
+        }
+      });
+    });
   }
 
   async notifyManagersAboutCancellation(

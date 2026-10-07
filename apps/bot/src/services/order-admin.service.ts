@@ -1977,6 +1977,23 @@ export class OrderAdminService {
               item.raketaTrackNumber ? `${item.raketaTrackNumber} (Китай ${item.chinaTrackNumber})` : `Китай ${item.chinaTrackNumber}${item.raketaOrderId ? ' → создан' : ''}`
             }`,
         ),
+      ...(fulfillment.deliveryAssigned
+        ? [
+            `Оплата доставки: ${
+              fulfillment.raketaPaid
+                ? 'оплачено в RAKETA'
+                : fulfillment.clientPaid
+                  ? 'клиент оплатил, списываем с баланса RAKETA'
+                  : fulfillment.topupRub
+                    ? `ссылка на ${fulfillment.topupRub} ₽ отправлена клиенту`
+                    : fulfillment.priceRub
+                      ? `цена RAKETA ${fulfillment.priceRub} ₽`
+                      : fulfillment.assembled
+                        ? 'объединение собирается, ждём цену'
+                        : 'ждём вещи на складе'
+            }`,
+          ]
+        : []),
       ...(fulfillment.lastError ? [`Ошибка RAKETA: ${fulfillment.lastError.slice(0, 300)}`] : []),
     ];
   }

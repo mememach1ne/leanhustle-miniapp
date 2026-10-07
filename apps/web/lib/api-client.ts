@@ -17,6 +17,7 @@ import type {
   CryptoPaymentIntentDto,
   DeliveryAddressDto,
   DeliveryCityDto,
+  DeliveryPaymentLinkResponse,
   DeliveryPickupPoint,
   DeliveryPointDto,
   DewuResolvedProduct,
@@ -235,6 +236,10 @@ export const ordersApi = {
   },
   async cancelOrder(id: string, reason?: string): Promise<OrderDetailsDto> {
     const response = await apiClient.post<OrderDetailsDto>(`/orders/${id}/cancel`, { reason });
+    return response.data;
+  },
+  async getDeliveryPaymentLink(id: string): Promise<DeliveryPaymentLinkResponse> {
+    const response = await apiClient.post<DeliveryPaymentLinkResponse>(`/orders/${id}/delivery-payment-link`, {});
     return response.data;
   },
 };

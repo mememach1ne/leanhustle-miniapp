@@ -43,6 +43,26 @@ export default function OrderDetailsPage() {
   const [trackCopied, setTrackCopied] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [isOpeningPayment, setIsOpeningPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  const handlePayDelivery = async () => {
+    if (!order) return;
+    setIsOpeningPayment(true);
+    setPaymentError(null);
+    try {
+      const { url } = await ordersApi.getDeliveryPaymentLink(order.id);
+      hapticImpact('medium');
+      const webApp = getTelegramWebApp();
+      if (webApp?.openLink) webApp.openLink(url);
+      else window.location.href = url;
+    } catch (err) {
+      setPaymentError(extractAxiosMessage(err) ?? 'Не удалось открыть оплату. Попробуйте ещё раз.');
+      hapticNotification('error');
+    } finally {
+      setIsOpeningPayment(false);
+    }
+  };
 
   const canCancel =
     order?.status === OrderStatus.CREATED ||
@@ -274,6 +294,35 @@ export default function OrderDetailsPage() {
       {order.status === OrderStatus.CREATED ||
       order.status === OrderStatus.PAYMENT_PENDING ? (
         <CryptoPaymentPanel orderId={order.id} onMatched={handleLoadOrder} />
+      ) : null}
+
+      {order.deliveryPayment ? (
+        <SectionCard>
+          <h3 className="text-lg font-semibold text-white">Оплата доставки</h3>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Посылка собрана и взвешена на складе в Китае. После оплаты она сразу отправится в Россию —
+            платёж подтвердится автоматически.
+          </p>
+          <div className="mt-4 space-y-2">
+            {order.deliveryPayment.lines.map((line) => (
+              <InfoRow key={line.name} label={line.name} value={`${line.amountRub} ₽`} />
+            ))}
+            <InfoRow label="К оплате" value={`${order.deliveryPayment.amountRub} ₽`} accent />
+          </div>
+          {paymentError ? (
+            <div className="mt-3">
+              <FeedbackMessage tone="error">{paymentError}</FeedbackMessage>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={handlePayDelivery}
+            disabled={isOpeningPayment}
+            className="mt-4 w-full rounded-[20px] bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isOpeningPayment ? 'Открываем оплату...' : `Оплатить доставку ${order.deliveryPayment.amountRub} ₽`}
+          </button>
+        </SectionCard>
       ) : null}
 
       {order.delivery ? (

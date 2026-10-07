@@ -173,6 +173,18 @@ model Order {
   raketaDeliveryAssignedAt      DateTime?      @map("raketa_delivery_assigned_at") @db.Timestamptz(6)
   raketaConsolidationId         String?        @map("raketa_consolidation_id") @db.VarChar(64)
   raketaLastError               String?        @map("raketa_last_error") @db.Text
+  raketaAssembledAt             DateTime?      @map("raketa_assembled_at") @db.Timestamptz(6)
+  // RAKETA price for this order/consolidation: total it charges + its lines.
+  raketaPriceTotal              Decimal?       @map("raketa_price_total") @db.Decimal(12, 2)
+  raketaPriceLines              Json?          @map("raketa_price_lines")
+  raketaPriceAt                 DateTime?      @map("raketa_price_at") @db.Timestamptz(6)
+  // Client pays delivery by topping up our RAKETA balance; matched in billing history.
+  raketaTopupAmount             Decimal?       @map("raketa_topup_amount") @db.Decimal(12, 0)
+  raketaTopupUrl                String?        @map("raketa_topup_url") @db.Text
+  raketaTopupCreatedAt          DateTime?      @map("raketa_topup_created_at") @db.Timestamptz(6)
+  raketaTopupSeenIds            Json?          @map("raketa_topup_seen_ids")
+  raketaTopupBillingId          String?        @unique @map("raketa_topup_billing_id") @db.VarChar(64)
+  raketaPaidAt                  DateTime?      @map("raketa_paid_at") @db.Timestamptz(6)
   // Manager-entered actual amounts. NULL means "not yet known" — show
   // estimated value (deliveryRub / dutyRub) to the customer.
   actualDeliveryRub             Decimal?       @map("actual_delivery_rub") @db.Decimal(12, 0)
@@ -474,4 +486,17 @@ model CatalogProduct {
   @@index([isActive, popularityOrder], map: "catalog_products_active_order_idx")
   @@index([soldRank], map: "catalog_products_sold_rank_idx")
   @@map("catalog_products")
+}
+
+/// RAKETA consolidations the server has handled (auto "Собрать", price
+/// notice), including ones not linked to our orders.
+model RaketaConsolidation {
+  id              String    @id @db.VarChar(64)
+  title           String?   @db.VarChar(255)
+  assembledAt     DateTime? @map("assembled_at") @db.Timestamptz(6)
+  priceNotifiedAt DateTime? @map("price_notified_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("raketa_consolidations")
 }

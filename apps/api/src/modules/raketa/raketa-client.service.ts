@@ -75,6 +75,56 @@ interface RaketaOrderDetails extends RaketaOrder {
   }>;
 }
 
+export interface RaketaConsolidation {
+  id: string;
+  title?: string | null;
+  stage_name?: string | null;
+  pay_date?: string | null;
+  orders?: Array<{ id: string; stage_name?: string | null }>;
+  controls?: { consolidation_close?: boolean } | null;
+}
+
+/** One line of RAKETA's price ("Международная доставка", "Доставка по РФ", пошлина, услуги). */
+export interface RaketaPriceLine {
+  id?: string | null;
+  name: string;
+  sum: number | string | null;
+  count?: number | null;
+}
+
+export interface RaketaPrice {
+  price?: RaketaPriceLine[];
+  services?: RaketaPriceLine[];
+  discounts?: RaketaPriceLine[];
+  total?: number | string | null;
+  controls?: {
+    pay_button?: boolean;
+    await_price?: boolean;
+    paid_button?: boolean;
+    select_tk?: boolean;
+  } | null;
+}
+
+export interface RaketaBillingRow {
+  id: string;
+  amount: number;
+  createdAt: string;
+  title: string;
+}
+
+/** RAKETA's stage of an order that has arrived at the China warehouse. */
+export const RAKETA_STAGE_AT_WAREHOUSE = 'На складе в Китае';
+
+/** "1 234,50 ₽" / "+1234.5" / 1234.5 → 1234.5 */
+export function parseMoney(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'string') return null;
+  const cleaned = value.replace(/\s| /g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+  if (!cleaned) return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
 interface RaketaDeclarant {
   id: string;
   display_name: string;
@@ -382,6 +432,74 @@ export class RaketaClientService {
   async getOrder(id: string): Promise<RaketaOrder> {
     const body = await this.request<{ data: RaketaOrder }>('GET', `/customer_order/${encodeURIComponent(id)}`);
     return body.data;
+  }
+
+  /** Not-yet-paid consolidations (all of them, ours or created by hand). */
+  async listUnpaidConsolidations(maxPages = 3): Promise<Array<{ id: string; title?: string | null }>> {
+    const result: Array<{ id: string; title?: string | null }> = [];
+    for (let offset = 0; offset < maxPages; offset++) {
+      const body = await this.request<{ data?: Array<{ id: string; title?: string | null }> }>(
+        'GET',
+        `/consolidations?${new URLSearchParams({ offset: String(offset), not_paid: 'true' })}`,
+      );
+      const list = body.data ?? [];
+      result.push(...list.filter((c) => !result.some((r) => r.id === c.id)));
+      if (list.length < 10) break;
+    }
+    return result;
+  }
+
+  async getConsolidation(id: string): Promise<RaketaConsolidation> {
+    const body = await this.request<{ data: { consolidation: RaketaConsolidation } }>(
+      'GET',
+      `/consolidation/${encodeURIComponent(id)}`,
+    );
+    return body.data.consolidation;
+  }
+
+  /** The cabinet's «Собрать»: the warehouse packs the orders into one parcel. */
+  async closeConsolidation(id: string): Promise<void> {
+    await this.request('POST', `/close_consolidation/${encodeURIComponent(id)}`, {});
+  }
+
+  /** Price lines + total + pay controls of a consolidation or a single order. */
+  async getPrice(kind: 'consolidation' | 'order', id: string): Promise<RaketaPrice> {
+    const body = await this.request<{ data: RaketaPrice }>('GET', `/price/${kind}/${encodeURIComponent(id)}`);
+    return body.data;
+  }
+
+  /** Pays a consolidation / single order from the RAKETA balance. */
+  async pay(kind: 'consolidation' | 'order', id: string): Promise<void> {
+    await this.request('POST', `/pay/${encodeURIComponent(id)}/${kind}`, {});
+  }
+
+  /** Balance top-up: returns the payment page URL (anyone can pay it). */
+  async createTopUp(amountRub: number): Promise<string> {
+    const body = await this.request<{ returnUrl?: string; data?: { returnUrl?: string } }>('POST', '/billing', {
+      amount: { value: String(amountRub) },
+    });
+    const url = body.returnUrl ?? body.data?.returnUrl;
+    if (!url || !/^https:\/\//.test(url)) throw new RaketaApiError('RAKETA не вернула ссылку на оплату.');
+    return url;
+  }
+
+  /** Balance top-ups ("plus" transactions), newest first. */
+  async listTopUps(maxPages = 2): Promise<RaketaBillingRow[]> {
+    const rows: RaketaBillingRow[] = [];
+    for (let offset = 0; offset < maxPages; offset++) {
+      const body = await this.request<{ data?: Array<Record<string, unknown>> }>(
+        'GET',
+        `/billing_history?${new URLSearchParams({ offset: String(offset), transaction_filter: 'plus' })}`,
+      );
+      const list = body.data ?? [];
+      for (const row of list) {
+        const amount = parseMoney(row.summ);
+        if (row.id == null || amount === null || amount <= 0) continue;
+        rows.push({ id: String(row.id), amount, createdAt: String(row.created_at ?? ''), title: String(row.title ?? '') });
+      }
+      if (list.length < 10) break;
+    }
+    return rows;
   }
 
   private async login(): Promise<string> {

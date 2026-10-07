@@ -134,6 +134,25 @@ export function RaketaOrderPanel({
             </button>
           ) : null}
 
+          {fulfillment.deliveryAssigned ? (
+            <p className="text-[var(--muted)]">
+              Оплата доставки:{' '}
+              <span className="text-white">
+                {fulfillment.raketaPaid
+                  ? 'оплачено в RAKETA'
+                  : fulfillment.clientPaid
+                    ? 'клиент оплатил, списываем с баланса RAKETA'
+                    : fulfillment.topupRub
+                      ? `ссылка на ${fulfillment.topupRub} ₽ отправлена клиенту`
+                      : fulfillment.priceRub
+                        ? `цена RAKETA ${fulfillment.priceRub} ₽`
+                        : fulfillment.assembled
+                          ? 'объединение собирается, ждём цену'
+                          : 'ждём вещи на складе'}
+              </span>
+            </p>
+          ) : null}
+
           {fulfillment.lastError ? (
             <p className="rounded-xl border border-rose-400/30 bg-rose-400/10 p-2 text-rose-200">
               Ошибка RAKETA: {fulfillment.lastError}
