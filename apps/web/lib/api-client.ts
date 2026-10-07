@@ -29,6 +29,7 @@ import type {
   ManualPricingResult,
   OrderDetailsDto,
   OrderListItemDto,
+  OrderTrackingDto,
   PaymentNetwork,
   PricingCalculationRequest,
   PricingCalculationResult,
@@ -244,6 +245,10 @@ export const ordersApi = {
   async cancelOrder(id: string, reason?: string): Promise<OrderDetailsDto> {
     const response = await apiClient.post<OrderDetailsDto>(`/orders/${id}/cancel`, { reason });
     return response.data;
+  },
+  async getTracking(id: string): Promise<OrderTrackingDto | null> {
+    const response = await apiClient.get<OrderTrackingDto | ''>(`/orders/${id}/tracking`);
+    return response.data || null;
   },
   async getDeliveryPaymentLink(id: string): Promise<DeliveryPaymentLinkResponse> {
     const response = await apiClient.post<DeliveryPaymentLinkResponse>(`/orders/${id}/delivery-payment-link`, {});

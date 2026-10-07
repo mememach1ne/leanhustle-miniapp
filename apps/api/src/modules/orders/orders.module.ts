@@ -15,6 +15,7 @@ import { OrderNotificationsService } from './services/order-notifications.servic
 import { OrderNumberService } from './services/order-number.service';
 import { RaketaDeliveryPaymentService } from './services/raketa-delivery-payment.service';
 import { RaketaFulfillmentService } from './services/raketa-fulfillment.service';
+import { RaketaTrackingService } from './services/raketa-tracking.service';
 import { StaffOrdersController } from './staff-orders.controller';
 
 @Module({
@@ -35,6 +36,7 @@ import { StaffOrdersController } from './staff-orders.controller';
     OrderNotificationsService,
     RaketaFulfillmentService,
     RaketaDeliveryPaymentService,
+    RaketaTrackingService,
   ],
   exports: [
     OrdersService,

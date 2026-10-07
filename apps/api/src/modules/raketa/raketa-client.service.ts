@@ -38,7 +38,17 @@ export interface RaketaOrder {
   title: string;
   raketa_track_number?: string | null;
   china_track_number?: string | null;
+  /** CDEK track for the RF leg (appears once paid). */
+  tk_track_number?: string | null;
   stage_name?: string | null;
+}
+
+/** Public tracking of a RAKETA number (RA… item / RAC… consolidation). */
+export interface RaketaTracking {
+  /** Events, oldest first: { id: 'china_arrived_at_RAKETA_warehouse_in_China', name, created_at }. */
+  events: Array<{ id: string; name: string; at: string }>;
+  /** RAKETA's 7 milestones (Создан … Доставлен) with their state. */
+  line: Array<{ name: string; active: boolean }>;
 }
 
 /** RAKETA's carrier id for CDEK and its standard tariff. */
@@ -78,6 +88,10 @@ interface RaketaOrderDetails extends RaketaOrder {
 export interface RaketaConsolidation {
   id: string;
   title?: string | null;
+  /** RAC… — the consolidation's own tracking number. */
+  raketa_track_number?: string | null;
+  /** CDEK track for the RF leg (appears once paid). */
+  tk_track_number?: string | null;
   stage_name?: string | null;
   pay_date?: string | null;
   orders?: Array<{ id: string; stage_name?: string | null }>;
@@ -150,6 +164,7 @@ export class RaketaClientService {
   private declarantId: string | null = null;
   private readonly cityCache = new Map<string, { value: RaketaCity[]; expiresAt: number }>();
   private readonly pvzCache = new Map<string, { value: RaketaPickupPoint[]; expiresAt: number }>();
+  private readonly trackingCache = new Map<string, { value: RaketaTracking; expiresAt: number }>();
 
   constructor(@Inject(ConfigService) configService: ConfigService) {
     this.baseUrl = (configService.get<string>('raketa.apiUrl') || 'https://my.raketacn.ru/api').replace(
@@ -425,6 +440,35 @@ export class RaketaClientService {
   async getOrder(id: string): Promise<RaketaOrder> {
     const body = await this.request<{ data: RaketaOrder }>('GET', `/customer_order/${encodeURIComponent(id)}`);
     return body.data;
+  }
+
+  /**
+   * Public tracking (the cabinet's «Отследить заказ» widget, no login).
+   * Cached for 10 minutes per number.
+   */
+  async getTracking(trackNumber: string): Promise<RaketaTracking> {
+    const key = trackNumber.trim().toUpperCase();
+    const cached = this.trackingCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const origin = this.baseUrl.replace(/\/api$/, '');
+    const res = await fetch(`${origin}/api/get_statuses?${new URLSearchParams({ track_number: key })}`, {
+      signal: AbortSignal.timeout(15_000),
+      headers: { Accept: 'application/json' },
+    });
+    const body = (await res.json().catch(() => null)) as {
+      data?: Array<{ id?: string; name?: string; created_at?: string }>;
+      line?: Array<{ name?: string; active?: boolean }>;
+    } | null;
+    if (!res.ok || !body) throw new RaketaApiError(`RAKETA tracking ${key}: HTTP ${res.status}`, res.status);
+    const value: RaketaTracking = {
+      events: (body.data ?? [])
+        .filter((e) => e.id && e.name)
+        .map((e) => ({ id: String(e.id), name: String(e.name), at: String(e.created_at ?? '') })),
+      line: (body.line ?? []).map((l) => ({ name: String(l.name ?? ''), active: Boolean(l.active) })),
+    };
+    if (this.trackingCache.size > 2000) this.trackingCache.clear();
+    this.trackingCache.set(key, { value, expiresAt: Date.now() + 10 * 60 * 1000 });
+    return value;
   }
 
   /** Not-yet-paid consolidations (all of them, ours or created by hand). */

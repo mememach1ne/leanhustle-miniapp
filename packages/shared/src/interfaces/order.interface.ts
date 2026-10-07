@@ -96,6 +96,38 @@ export interface OrderDeliveryPaymentDto {
   lines: Array<{ name: string; amountRub: number }>;
 }
 
+/** One RAKETA milestone: Создан → На складе в Китае → … → Доставлен. */
+export interface OrderTrackingStepDto {
+  name: string;
+  done: boolean;
+  /** The latest reached milestone. */
+  current: boolean;
+}
+
+/** Item of a consolidated order while the items travel to the China warehouse separately. */
+export interface OrderTrackingItemDto {
+  title: string;
+  size: string;
+  trackNumber: string | null;
+  arrived: boolean;
+  lastEvent: string | null;
+}
+
+/** Parcel tracking for the client (from RAKETA's public tracker). */
+export interface OrderTrackingDto {
+  /** 'single' — one item tracked by its RA…; 'consolidation' — items packed into one RAC… parcel. */
+  kind: 'single' | 'consolidation';
+  /** RAKETA number of the parcel (RA… / RAC…); null until the consolidation number is known. */
+  trackNumber: string | null;
+  /** CDEK track of the RF leg, once RAKETA hands the parcel over. */
+  cdekTrack: string | null;
+  steps: OrderTrackingStepDto[];
+  /** Newest first. */
+  events: Array<{ name: string; at: string }>;
+  /** Consolidation only: each item's way to the China warehouse. */
+  items: OrderTrackingItemDto[];
+}
+
 export interface DeliveryPaymentLinkResponse {
   url: string;
   amountRub: number;

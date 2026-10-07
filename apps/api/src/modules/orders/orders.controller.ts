@@ -1,6 +1,7 @@
 import type {
   CheckoutOrderResponse,
   DeliveryPaymentLinkResponse,
+  OrderTrackingDto,
   OrderDetailsDto,
   OrderListItemDto,
 } from '@lean-poizon/shared';
@@ -13,19 +14,32 @@ import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CheckoutDto } from './dto/checkout.dto';
 import { OrdersService } from './orders.service';
 import { RaketaDeliveryPaymentService } from './services/raketa-delivery-payment.service';
+import { RaketaTrackingService } from './services/raketa-tracking.service';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
 export class OrdersController {
   private readonly ordersService: OrdersService;
   private readonly deliveryPayment: RaketaDeliveryPaymentService;
+  private readonly tracking: RaketaTrackingService;
 
   constructor(
     @Inject(OrdersService) ordersService: OrdersService,
     @Inject(RaketaDeliveryPaymentService) deliveryPayment: RaketaDeliveryPaymentService,
+    @Inject(RaketaTrackingService) tracking: RaketaTrackingService,
   ) {
     this.ordersService = ordersService;
     this.deliveryPayment = deliveryPayment;
+    this.tracking = tracking;
+  }
+
+  /** Parcel tracking from RAKETA; null when the order isn't shipped through it. */
+  @Get(':id/tracking')
+  async getTracking(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<OrderTrackingDto | null> {
+    return this.tracking.getForUser(user.id, id);
   }
 
   @Post('checkout')

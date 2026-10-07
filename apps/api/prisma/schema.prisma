@@ -185,6 +185,9 @@ model Order {
   raketaTopupSeenIds            Json?          @map("raketa_topup_seen_ids")
   raketaTopupBillingId          String?        @unique @map("raketa_topup_billing_id") @db.VarChar(64)
   raketaPaidAt                  DateTime?      @map("raketa_paid_at") @db.Timestamptz(6)
+  // Tracking: RAKETA number of the whole parcel (RAC… / single item RA…) + CDEK track.
+  raketaParcelTrack             String?        @map("raketa_parcel_track") @db.VarChar(64)
+  raketaTkTrack                 String?        @map("raketa_tk_track") @db.VarChar(64)
   // Manager-entered actual amounts. NULL means "not yet known" — show
   // estimated value (deliveryRub / dutyRub) to the customer.
   actualDeliveryRub             Decimal?       @map("actual_delivery_rub") @db.Decimal(12, 0)

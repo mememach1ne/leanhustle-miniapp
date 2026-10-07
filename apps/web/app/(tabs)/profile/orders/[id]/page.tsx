@@ -1,5 +1,6 @@
 'use client';
 
+import type { OrderTrackingDto } from '@lean-poizon/shared';
 import { OrderStatus } from '@lean-poizon/shared';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -10,6 +11,7 @@ import { FeedbackMessage } from '../../../../../components/ui/feedback-message';
 import { LockIcon } from '../../../../../components/ui/icons';
 import { InfoRow } from '../../../../../components/ui/info-row';
 import { OrderTimeline } from '../../../../../components/ui/order-timeline';
+import { OrderTrackingCard } from '../../../../../components/ui/order-tracking-card';
 import { PageSection } from '../../../../../components/ui/page-section';
 import { ProductMiniCard } from '../../../../../components/ui/product-mini-card';
 import { SectionCard } from '../../../../../components/ui/section-card';
@@ -69,6 +71,23 @@ export default function OrderDetailsPage() {
   const [isOpeningPayment, setIsOpeningPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [awaitingPayment, setAwaitingPayment] = useState(false);
+  const [tracking, setTracking] = useState<OrderTrackingDto | null>(null);
+  const orderStatus = order?.id === orderId ? order.status : null;
+
+  // Parcel tracking (RAKETA) — refreshed when the order status changes.
+  useEffect(() => {
+    if (!orderId || !orderStatus) return;
+    let cancelled = false;
+    ordersApi
+      .getTracking(orderId)
+      .then((data) => {
+        if (!cancelled) setTracking(data);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId, orderStatus]);
   const orderLoaded = order?.id === orderId;
   const deliveryPaymentOpen = Boolean(order?.deliveryPayment);
 
@@ -410,6 +429,8 @@ export default function OrderDetailsPage() {
           </div>
         </SectionCard>
       ) : null}
+
+      {tracking ? <OrderTrackingCard tracking={tracking} /> : null}
 
       <SectionCard>
         <h3 className="mb-4 text-lg font-semibold text-white">Прогресс заявки</h3>
