@@ -322,6 +322,8 @@ export const adminApi = {
   /** Admin-only: create an order straight in the RAKETA cabinet. */
   async createRaketaQuickOrder(payload: {
     label?: string;
+    title?: string;
+    insurance?: boolean;
     items: Array<{
       link: string;
       dwSpuId: string;

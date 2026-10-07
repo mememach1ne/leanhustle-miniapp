@@ -4,6 +4,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNumber,
@@ -15,6 +16,8 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+
+import { PickupPointDto } from '../../delivery-addresses/dto/pickup-point.dto';
 
 export class CreateManualOrderItemDto {
   @IsOptional()
@@ -31,8 +34,9 @@ export class CreateManualOrderItemDto {
   @Min(1)
   priceYuan!: number;
 
+  @IsOptional()
   @IsEnum(DeliveryCategory)
-  deliveryCategory!: DeliveryCategory;
+  deliveryCategory?: DeliveryCategory;
 
   @IsOptional()
   @IsString()
@@ -48,6 +52,41 @@ export class CreateManualOrderItemDto {
   @Min(1)
   @Max(50)
   quantity!: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  dwSpuId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  productImage?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  titleCn?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  categoryL1?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  categoryL2?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  categoryL3?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  chinaTrackNumber?: string;
 }
 
 export class CreateManualOrderDeliveryDto {
@@ -70,6 +109,11 @@ export class CreateManualOrderDeliveryDto {
   @IsString()
   @MaxLength(1024)
   comment?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PickupPointDto)
+  pickupPoint?: PickupPointDto;
 }
 
 export class CreateManualOrderDto {
@@ -88,4 +132,23 @@ export class CreateManualOrderDto {
   @ValidateNested()
   @Type(() => CreateManualOrderDeliveryDto)
   delivery!: CreateManualOrderDeliveryDto;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  commissionPercent?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  insurance?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  alreadyPaid?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  raketaTitle?: string;
 }

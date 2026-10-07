@@ -2108,6 +2108,7 @@ export class OrderAdminService {
 
     // RAKETA forwarder automation: China track entry + manual mode toggle.
     const raketaStatuses: OrderStatus[] = [
+      OrderStatus.PAYMENT_PENDING,
       OrderStatus.PAID_AWAITING_PURCHASE,
       OrderStatus.PURCHASED,
       OrderStatus.DELIVERY_PAYMENT_PENDING,

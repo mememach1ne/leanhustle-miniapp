@@ -134,16 +134,38 @@ export class PricingService {
     return discounted.greaterThan(0) ? discounted : new Prisma.Decimal(0);
   }
 
+  /** Delivery category from the product title / Poizon category chain. */
+  classifyDeliveryCategory(input: {
+    title: string;
+    categoryL1?: string | null;
+    categoryL2?: string | null;
+    categoryL3?: string | null;
+  }): DeliveryCategory {
+    return this.productCategoryClassifierService.classify({
+      title: input.title,
+      categoryL1: input.categoryL1 ?? undefined,
+      categoryL2: input.categoryL2 ?? undefined,
+      categoryL3: input.categoryL3 ?? undefined,
+    }).deliveryCategory;
+  }
+
   async calculateManual(
-    dto: ManualPricingDto,
+    dto: ManualPricingDto & {
+      title?: string | null;
+      categoryL1?: string | null;
+      categoryL2?: string | null;
+      categoryL3?: string | null;
+    },
     discountPercentPoints = 0,
+    /** Admin-set commission % — replaces the default (and the loyalty discount). */
+    commissionOverride?: number | null,
   ): Promise<ManualPricingResult> {
     const settings = await this.settingsService.getCurrentSettings();
     const priceYuan = new Prisma.Decimal(dto.priceYuan);
-    const commissionPercent = this.effectiveCommissionPercent(
-      settings.commissionPercent,
-      discountPercentPoints,
-    );
+    const commissionPercent =
+      commissionOverride !== undefined && commissionOverride !== null
+        ? new Prisma.Decimal(commissionOverride)
+        : this.effectiveCommissionPercent(settings.commissionPercent, discountPercentPoints);
 
     const subtotalUsd = priceYuan.mul(settings.cnyToUsd);
     const totalUsd = subtotalUsd
@@ -153,6 +175,10 @@ export class PricingService {
     const categoryGroup = getCategoryGroupFromDeliveryCategory(dto.deliveryCategory);
 
     const fromTable = estimateDeliveryFromTable({
+      title: dto.title,
+      categoryL1: dto.categoryL1,
+      categoryL2: dto.categoryL2,
+      categoryL3: dto.categoryL3,
       deliveryCategory: dto.deliveryCategory,
       size: dto.size,
     });

@@ -132,7 +132,7 @@ export class OrderNotificationsService {
     orderNumber: string,
     newStatus: OrderStatus,
     trackCode?: string | null,
-    details: { amountRub?: number } = {},
+    details: { amountRub?: number; orderId?: string } = {},
   ): Promise<void> {
     const botToken = this.configService.get<string>('telegram.botToken');
 
@@ -157,7 +157,7 @@ export class OrderNotificationsService {
             text,
             parse_mode: 'HTML',
             link_preview_options: { is_disabled: true },
-            reply_markup: this.buildClientKeyboard(newStatus, trackCode),
+            reply_markup: this.buildClientKeyboard(newStatus, trackCode, details.orderId),
           }),
         },
       );
@@ -275,7 +275,7 @@ export class OrderNotificationsService {
     }
   }
 
-  private buildClientKeyboard(status: OrderStatus, trackCode?: string | null) {
+  private buildClientKeyboard(status: OrderStatus, trackCode?: string | null, orderId?: string) {
     const miniAppUrl =
       this.configService.get<string>('telegram.miniAppUrl') || 'https://leanhustle.ru';
     const rows: Array<Array<Record<string, unknown>>> = [];
@@ -291,8 +291,10 @@ export class OrderNotificationsService {
     }
     rows.push([
       {
-        text: 'Открыть заказ',
-        web_app: { url: `${miniAppUrl.replace(/\/$/, '')}/profile/orders` },
+        text: status === OrderStatus.PAYMENT_PENDING ? 'Оплатить' : 'Открыть заказ',
+        web_app: {
+          url: `${miniAppUrl.replace(/\/$/, '')}/profile/orders${orderId ? `/${orderId}` : ''}`,
+        },
         ...(status === OrderStatus.TRACK_CODE_RECEIVED ? {} : { style: 'primary' }),
       },
       { text: 'Менеджер', url: MANAGER_TELEGRAM_URL },

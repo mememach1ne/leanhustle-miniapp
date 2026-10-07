@@ -395,24 +395,53 @@ export class OrdersService {
       client,
       settings,
     );
-    const effectiveCommissionPercent = this.pricingService.effectiveCommissionPercent(
-      settings.commissionPercent,
-      loyaltyDiscount,
-    );
+    // Admin-set commission % replaces the default and the loyalty discount.
+    const commissionOverride =
+      dto.commissionPercent !== undefined && dto.commissionPercent !== null
+        ? Number(dto.commissionPercent)
+        : null;
+    const effectiveCommissionPercent =
+      commissionOverride !== null
+        ? new Prisma.Decimal(commissionOverride)
+        : this.pricingService.effectiveCommissionPercent(settings.commissionPercent, loyaltyDiscount);
 
     // Compute pricing for each item using the existing manual-pricing logic.
     const pricedItems = await Promise.all(
       dto.items.map(async (item) => {
+        const deliveryCategory =
+          item.deliveryCategory ??
+          this.pricingService.classifyDeliveryCategory({
+            title: item.productTitle,
+            categoryL1: item.categoryL1,
+            categoryL2: item.categoryL2,
+            categoryL3: item.categoryL3,
+          });
         const pricing = await this.pricingService.calculateManual(
           {
             priceYuan: item.priceYuan,
-            deliveryCategory: item.deliveryCategory,
+            deliveryCategory,
+            size: item.sizeLabel ?? undefined,
+            title: item.productTitle,
+            categoryL1: item.categoryL1,
+            categoryL2: item.categoryL2,
+            categoryL3: item.categoryL3,
           },
           loyaltyDiscount,
+          commissionOverride,
         );
         return { input: item, pricing };
       }),
     );
+
+    // RAKETA "Защита от рисков": 1% of the goods value in rubles.
+    const goodsYuan = dto.items.reduce(
+      (sum, item) => sum.add(new Prisma.Decimal(item.priceYuan).mul(item.quantity)),
+      new Prisma.Decimal(0),
+    );
+    const insuranceRub = dto.insurance
+      ? goodsYuan.mul(settings.cnyToRub).mul(0.01).toDecimalPlaces(0, Prisma.Decimal.ROUND_UP)
+      : new Prisma.Decimal(0);
+    const initialStatus = dto.alreadyPaid ? OrderStatus.PAID_AWAITING_PURCHASE : OrderStatus.PAYMENT_PENDING;
 
     const itemsCount = dto.items.reduce((sum, item) => sum + item.quantity, 0);
     const totalUsd = pricedItems.reduce(
@@ -446,12 +475,13 @@ export class OrdersService {
         const deliveryCdekAddress = dto.delivery.cdekAddress.trim();
         const deliveryPhone = dto.delivery.phone.trim();
 
+        const pickedPoint = dto.delivery.pickupPoint ?? null;
         const existingAddress = await tx.deliveryAddress.findFirst({
           where: {
             userId: client.id,
             fullName: deliveryFullName,
-            cdekAddress: deliveryCdekAddress,
             phone: deliveryPhone,
+            ...(pickedPoint ? { pvzCode: pickedPoint.pvzCode } : { cdekAddress: deliveryCdekAddress }),
           },
         });
 
@@ -467,6 +497,11 @@ export class OrdersService {
               cdekAddress: deliveryCdekAddress,
               phone: deliveryPhone,
               isDefault: addressCount === 0,
+              cityId: pickedPoint?.cityId ?? null,
+              city: pickedPoint?.city ?? null,
+              region: pickedPoint?.region ?? null,
+              pvzCode: pickedPoint?.pvzCode ?? null,
+              pvzIndex: pickedPoint?.pvzIndex ?? null,
             },
           });
           deliveryAddressId = createdAddress.id;
@@ -476,7 +511,11 @@ export class OrdersService {
           data: {
             orderNumber,
             userId: client.id,
-            status: OrderStatus.CREATED,
+            status: initialStatus,
+            ...(dto.alreadyPaid ? { paidVia: PaymentSource.MANUAL, paidAt: new Date() } : {}),
+            insurance: Boolean(dto.insurance),
+            insuranceRub,
+            raketaTitle: dto.raketaTitle?.trim() || null,
             itemsCount,
             originalTotalUsd: totalUsd,
             benefitDiscountUsd: new Prisma.Decimal(0),
@@ -490,12 +529,12 @@ export class OrdersService {
             deliveryFullName,
             deliveryCdekAddress,
             deliveryPhone,
-            // Reuse the pickup point if this is one of the client's saved addresses.
-            deliveryCityId: existingAddress?.cityId ?? null,
-            deliveryCity: existingAddress?.city ?? null,
-            deliveryRegion: existingAddress?.region ?? null,
-            deliveryPvzCode: existingAddress?.pvzCode ?? null,
-            deliveryPvzIndex: existingAddress?.pvzIndex ?? null,
+            // Picked point, or the one saved on the client's matching address.
+            deliveryCityId: pickedPoint?.cityId ?? existingAddress?.cityId ?? null,
+            deliveryCity: pickedPoint?.city ?? existingAddress?.city ?? null,
+            deliveryRegion: pickedPoint?.region ?? existingAddress?.region ?? null,
+            deliveryPvzCode: pickedPoint?.pvzCode ?? existingAddress?.pvzCode ?? null,
+            deliveryPvzIndex: pickedPoint?.pvzIndex ?? existingAddress?.pvzIndex ?? null,
             customerComment: dto.delivery.comment ?? null,
           },
         });
@@ -504,13 +543,13 @@ export class OrdersService {
           data: pricedItems.map(({ input, pricing }) => ({
             orderId: order.id,
             dewuLink: input.dewuLink?.trim() || '',
-            dwSpuId: 'manual',
+            dwSpuId: input.dwSpuId?.trim() || 'manual',
             dwSkuId: 'manual',
             productTitle: input.productTitle.trim(),
-            productImage: null,
-            categoryL1: null,
-            categoryL2: null,
-            categoryL3: null,
+            productImage: input.productImage?.trim() || null,
+            categoryL1: input.categoryL1?.trim() || null,
+            categoryL2: input.categoryL2?.trim() || null,
+            categoryL3: input.categoryL3?.trim() || null,
             sizeLabel: input.sizeLabel?.trim() || '—',
             versionLabel: input.versionLabel?.trim() || null,
             quantity: input.quantity,
@@ -529,9 +568,11 @@ export class OrdersService {
           data: {
             orderId: order.id,
             fromStatus: null,
-            toStatus: OrderStatus.CREATED,
+            toStatus: initialStatus,
             changedByStaffId: staff.id,
-            comment: `Заказ создан вручную ${staffLabel} через админ-панель.`,
+            comment: `Заказ создан вручную ${staffLabel} через админ-панель${
+              dto.alreadyPaid ? ' (товар уже оплачен)' : ''
+            }${commissionOverride !== null ? `, комиссия ${commissionOverride}%` : ''}.`,
           },
         });
 
@@ -564,7 +605,9 @@ export class OrdersService {
       await this.orderNotificationsService.notifyUserAboutStatusChange(
         client.telegramId,
         staffDto.orderNumber,
-        SharedOrderStatus.CREATED,
+        initialStatus as unknown as SharedOrderStatus,
+        null,
+        { orderId: staffDto.id },
       );
     } catch (error) {
       this.logger.warn(

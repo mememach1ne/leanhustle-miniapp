@@ -20,6 +20,8 @@ const RAKETA_POIZON_SELLER_ID = 5;
 
 /** Statuses in which the item has been (or is being) bought on Poizon. */
 const REGISTRABLE_STATUSES: OrderStatus[] = [
+  // Items are often bought in advance, before the client pays.
+  OrderStatus.PAYMENT_PENDING,
   OrderStatus.PAID_AWAITING_PURCHASE,
   OrderStatus.PURCHASED,
   OrderStatus.DELIVERY_PAYMENT_PENDING,
@@ -104,7 +106,7 @@ export class RaketaFulfillmentService {
       throw new BadRequestException('Заказ ведётся вручную — автоматика RAKETA для него выключена.');
     }
     if (!REGISTRABLE_STATUSES.includes(order.status)) {
-      throw new BadRequestException('Китайский трек можно ввести только после оплаты товара клиентом.');
+      throw new BadRequestException('Для этого статуса заказа китайский трек ввести нельзя.');
     }
 
     const index = order.items.findIndex((item) => item.id === itemId);
@@ -134,7 +136,8 @@ export class RaketaFulfillmentService {
         categoryL2: item.categoryL2,
         categoryL3: item.categoryL3,
       });
-      const label = order.items.length > 1 ? `${order.orderNumber}-${index + 1}` : order.orderNumber;
+      const base = order.raketaTitle?.trim() || order.orderNumber;
+      const label = order.items.length > 1 ? `${base}-${index + 1}` : base;
 
       const { order: created, existed } = await this.findOrCreate({
         title: `${label}) ${ruTitle}`,
@@ -146,6 +149,7 @@ export class RaketaFulfillmentService {
         size: item.sizeLabel,
         quantity: item.quantity,
         priceYuan: Number(item.priceYuan),
+        insurance: order.insurance,
       });
       if (existed) {
         await this.linkItem(order, item.id, created, staff, 'привязан');
@@ -242,10 +246,11 @@ export class RaketaFulfillmentService {
         const consolidationId =
           order.raketaConsolidationId ??
           (await this.raketa.createConsolidation({
-            title: `${order.orderNumber} ${name.lastName} ${order.items.length} шт`,
+            title: order.raketaTitle?.trim() || `${order.orderNumber} ${name.lastName} ${order.items.length} шт`,
             orderIds: order.items.map((item) => item.raketaOrderId as string),
             recipientId,
             addressId,
+            insurance: order.insurance,
           }));
         await this.prisma.order.update({ where: { id: order.id }, data: { raketaConsolidationId: consolidationId } });
         summary = `создано объединение из ${order.items.length} заказов`;
@@ -255,6 +260,7 @@ export class RaketaFulfillmentService {
           declarantId: await this.raketa.getOwnDeclarantId(),
           recipientId,
           addressId,
+          insurance: order.insurance,
         });
         summary = 'получатель и адрес указаны в заказе';
       }
@@ -291,6 +297,9 @@ export class RaketaFulfillmentService {
    */
   async createQuickOrders(input: {
     label?: string | null;
+    /** Consolidation title; defaults to "<label> N шт". */
+    title?: string | null;
+    insurance?: boolean;
     items: Array<{
       link: string;
       productTitle: string;
@@ -358,6 +367,7 @@ export class RaketaFulfillmentService {
           quantity: item.quantity,
           priceYuan: item.priceYuan,
           titleCn: item.titleCn,
+          insurance: input.insurance,
         });
         orders.push({ id: order.id, raketaTrackNumber: order.raketa_track_number ?? null, title: order.title || title, existed });
         this.logger.log(`RAKETA quick order ${order.id} ${existed ? 'found' : 'created'} (${tracks[i]})`);
@@ -392,10 +402,11 @@ export class RaketaFulfillmentService {
         });
         if (many) {
           consolidationId = await this.raketa.createConsolidation({
-            title: `${label} ${orders.length} шт`,
+            title: input.title?.trim() || `${label} ${orders.length} шт`,
             orderIds: orders.map((o) => o.id),
             recipientId,
             addressId,
+            insurance: input.insurance,
           });
         } else {
           await this.raketa.assignOrderDelivery({
@@ -403,6 +414,7 @@ export class RaketaFulfillmentService {
             declarantId: await this.raketa.getOwnDeclarantId(),
             recipientId,
             addressId,
+            insurance: input.insurance,
           });
         }
         deliveryAssigned = true;
@@ -427,6 +439,7 @@ export class RaketaFulfillmentService {
     quantity: number;
     priceYuan: number;
     titleCn?: string | null;
+    insurance?: boolean;
   }): Promise<{ order: RaketaOrder; existed: boolean }> {
     // Retry-safe: a previous attempt may have created the order already.
     const existing = await this.raketa.findOrderByTrack(input.track);
@@ -458,6 +471,7 @@ export class RaketaFulfillmentService {
         tc_tariff_token: null,
         consolidation_id: null,
         draft: false,
+        insurance: Boolean(input.insurance),
       });
       return { order, existed: false };
     } catch (error) {

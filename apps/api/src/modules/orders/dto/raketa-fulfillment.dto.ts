@@ -127,6 +127,16 @@ export class RaketaQuickOrderDto {
   @MaxLength(40)
   label?: string;
 
+  /** Consolidation title (auto when empty). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  title?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  insurance?: boolean;
+
   @IsOptional()
   @ValidateNested()
   @Type(() => RaketaQuickDeliveryDto)

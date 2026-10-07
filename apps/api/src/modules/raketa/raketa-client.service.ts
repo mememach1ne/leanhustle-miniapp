@@ -29,6 +29,8 @@ export interface RaketaCreateOrderPayload {
   tc_tariff_token: string | null;
   consolidation_id: string | null;
   draft: boolean;
+  /** "Защита от рисков" (1% of the goods value). */
+  insurance?: boolean;
 }
 
 export interface RaketaOrder {
@@ -322,9 +324,10 @@ export class RaketaClientService {
     orderIds: string[];
     recipientId: string;
     addressId: string;
+    insurance?: boolean;
   }): Promise<string> {
     const body = await this.request<{ consolidation_id?: string }>('POST', '/consolidation', {
-      insurance: false,
+      insurance: Boolean(input.insurance),
       orders: input.orderIds.map((id) => ({ id })),
       customer_address_id: input.addressId,
       customer_recipient_id: input.recipientId,
@@ -343,6 +346,7 @@ export class RaketaClientService {
     declarantId: string;
     recipientId: string;
     addressId: string;
+    insurance?: boolean;
   }): Promise<void> {
     const res = await this.request<{ data: RaketaOrderDetails }>(
       'GET',
@@ -371,6 +375,7 @@ export class RaketaClientService {
       tc_tariff_token: null,
       consolidation_id: null,
       draft: false,
+      insurance: Boolean(input.insurance),
     });
   }
 

@@ -262,6 +262,12 @@ export default function OrderDetailsPage() {
               value={`${order.summary.dutyRub} ₽`}
             />
           ) : null}
+          {order.summary.insuranceRub ? (
+            <InfoRow
+              label="Защита от рисков (1%, с доставкой)"
+              value={`${order.summary.insuranceRub} ₽`}
+            />
+          ) : null}
         </div>
       </SectionCard>
 

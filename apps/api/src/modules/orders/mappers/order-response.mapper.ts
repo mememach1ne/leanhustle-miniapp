@@ -40,6 +40,7 @@ type OrderWithItems = {
   raketaConsolidationId?: string | null;
   raketaLastError?: string | null;
   raketaDeliveryAssignedAt?: Date | null;
+  insuranceRub?: Prisma.Decimal;
   deliveryPvzCode?: string | null;
   deliveryCity?: string | null;
   user?: {
@@ -135,6 +136,7 @@ export const mapOrderSummaryToDto = (order: OrderWithItems): OrderSummaryDto => 
     dutyRub: roundRub(order.dutyRub),
     actualDeliveryRub: order.actualDeliveryRub === null ? null : roundRub(order.actualDeliveryRub),
     actualDutyRub: order.actualDutyRub === null ? null : roundRub(order.actualDutyRub),
+    insuranceRub: order.insuranceRub ? roundRub(order.insuranceRub) : 0,
   };
 };
 

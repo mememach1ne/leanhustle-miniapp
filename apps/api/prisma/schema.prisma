@@ -160,6 +160,11 @@ model Order {
   deliveryRegion                String?        @map("delivery_region") @db.VarChar(128)
   deliveryPvzCode               String?        @map("delivery_pvz_code") @db.VarChar(32)
   deliveryPvzIndex              String?        @map("delivery_pvz_index") @db.VarChar(16)
+  // RAKETA "Защита от рисков": 1% of the goods value, paid with delivery.
+  insurance                     Boolean        @default(false)
+  insuranceRub                  Decimal        @default(0) @map("insurance_rub") @db.Decimal(12, 0)
+  // Custom title for the RAKETA consolidation / orders (auto when null).
+  raketaTitle                   String?        @map("raketa_title") @db.VarChar(120)
   fulfillmentManual             Boolean        @default(false) @map("fulfillment_manual")
   raketaRecipientId             String?        @map("raketa_recipient_id") @db.VarChar(64)
   raketaAddressId               String?        @map("raketa_address_id") @db.VarChar(64)

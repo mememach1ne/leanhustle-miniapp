@@ -10,6 +10,7 @@ const inputClass =
   'min-w-0 w-full rounded-xl bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:ring-1 focus:ring-[var(--accent)]';
 
 const RAKETA_STATUSES: OrderStatus[] = [
+  OrderStatus.PAYMENT_PENDING,
   OrderStatus.PAID_AWAITING_PURCHASE,
   OrderStatus.PURCHASED,
   OrderStatus.DELIVERY_PAYMENT_PENDING,
@@ -108,7 +109,7 @@ export function RaketaOrderPanel({
                     </button>
                   </div>
                 ) : (
-                  <p className="mt-1 text-white/40">Трек можно ввести после оплаты товара клиентом.</p>
+                  <p className="mt-1 text-white/40">Для этого статуса заказа трек ввести нельзя.</p>
                 )}
               </div>
             ))}

@@ -18,10 +18,8 @@ import { AnalyticsPanel } from '../../../components/ui/analytics-panel';
 import { EmptyState } from '../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../components/ui/feedback-message';
 import { LoadingBlock } from '../../../components/ui/loading-block';
-import { ManualOrderForm } from '../../../components/ui/manual-order-form';
 import { PageSection } from '../../../components/ui/page-section';
 import { ProfitReportPanel } from '../../../components/ui/profit-report-panel';
-import { RaketaQuickOrderForm } from '../../../components/ui/raketa-quick-order-form';
 import { SectionCard } from '../../../components/ui/section-card';
 import { adminApi } from '../../../lib/api-client';
 import { extractAxiosMessage } from '../../../lib/error-utils';
@@ -118,8 +116,6 @@ function OrdersPanel() {
   const [searchResults, setSearchResults] = useState<StaffOrderListItemDto[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showManualForm, setShowManualForm] = useState(false);
-  const [showRaketaForm, setShowRaketaForm] = useState(false);
 
   const loadOrders = useCallback(async (status: 'active' | 'completed' | 'cancelled', page = 1) => {
     setLoading(true);
@@ -163,34 +159,14 @@ function OrdersPanel() {
 
   return (
     <>
-      {/* Manual order creation (admin & manager) */}
+      {/* Order creation — one page for client orders and own RAKETA purchases */}
       {staffRole === 'ADMIN' || staffRole === 'MANAGER' ? (
-        showManualForm ? (
-          <ManualOrderForm onClose={() => setShowManualForm(false)} />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowManualForm(true)}
-            className="w-full rounded-[18px] bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-slate-950 transition"
-          >
-            ➕ Создать заказ вручную
-          </button>
-        )
-      ) : null}
-
-      {/* Direct RAKETA order — own purchases / no commission (admin only) */}
-      {staffRole === 'ADMIN' ? (
-        showRaketaForm ? (
-          <RaketaQuickOrderForm onClose={() => setShowRaketaForm(false)} />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowRaketaForm(true)}
-            className="w-full rounded-[18px] border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
-          >
-            Заказ в RAKETA (себе / без комиссии)
-          </button>
-        )
+        <Link
+          href="/admin/orders/new"
+          className="block w-full rounded-[18px] bg-[var(--accent)] px-4 py-3 text-center text-sm font-semibold text-slate-950 transition"
+        >
+          Создать заказ
+        </Link>
       ) : null}
 
       {/* Search */}

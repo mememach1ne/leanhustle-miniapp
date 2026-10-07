@@ -1,6 +1,7 @@
 import { OrderStatus } from '../enums/order-status.enum';
 import type { DeliveryCategory } from '../enums/delivery-category.enum';
 import type { ProductCategoryGroup } from '../enums/product-category-group.enum';
+import type { DeliveryPickupPoint } from './delivery-address.interface';
 
 export interface OrderSummaryDto {
   itemsCount: number;
@@ -15,6 +16,8 @@ export interface OrderSummaryDto {
   actualDeliveryRub?: number | null;
   /** Manager-entered actual duty. NULL until manager sets it. */
   actualDutyRub?: number | null;
+  /** "Защита от рисков" (1% of the goods value), paid with delivery; 0 when off. */
+  insuranceRub?: number;
 }
 
 export interface StaffOrderUserDto {
@@ -137,11 +140,21 @@ export interface CreateManualOrderItem {
   dewuLink?: string | null;
   productTitle: string;
   priceYuan: number;
-  deliveryCategory: DeliveryCategory;
+  /** Optional — classified from the title/categories when omitted. */
+  deliveryCategory?: DeliveryCategory;
   /** Size / variant label, optional for accessories without sizes. */
   sizeLabel?: string | null;
   versionLabel?: string | null;
   quantity: number;
+  /** From the resolved Poizon product (improves delivery price + RAKETA data). */
+  dwSpuId?: string | null;
+  productImage?: string | null;
+  titleCn?: string | null;
+  categoryL1?: string | null;
+  categoryL2?: string | null;
+  categoryL3?: string | null;
+  /** China-side track — registers the item in RAKETA right away. */
+  chinaTrackNumber?: string | null;
 }
 
 /** Payload for staff/admin manual order creation (bot + mini-app). */
@@ -154,7 +167,16 @@ export interface CreateManualOrderRequest {
     cdekAddress: string;
     phone: string;
     comment?: string | null;
+    pickupPoint?: DeliveryPickupPoint | null;
   };
+  /** Commission % for this order (overrides the default and loyalty). */
+  commissionPercent?: number | null;
+  /** RAKETA "Защита от рисков" (1% of the goods value, paid with delivery). */
+  insurance?: boolean;
+  /** Goods already paid — the client doesn't need to pay. */
+  alreadyPaid?: boolean;
+  /** Title for the RAKETA consolidation / orders; auto when empty. */
+  raketaTitle?: string | null;
 }
 
 /** Lightweight client snapshot returned by the manual-order lookup endpoint. */
