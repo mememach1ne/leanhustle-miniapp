@@ -46,7 +46,8 @@ Git: `github.com/mememach1ne/leanhustle-miniapp`, ветка `master`. Комм�
   4. **Оплата доставки** — `orders/services/raketa-delivery-payment.service.ts`, cron каждые 10 мин:
      - все вещи объединения «На складе в Китае» → сервер жмёт «Собрать» (`POST /close_consolidation/{id}`) и пишет менеджерам; RAKETA пакует 4–6 ч;
      - появилась цена (`GET /price/{consolidation|order}/{id}`, `controls.pay_button`) → клиенту сумма строк `price`+`services` (межд. доставка + по РФ + пошлина + страховка, без скидок) → ссылка пополнения баланса RAKETA (`POST /billing {amount:{value}}` → `returnUrl`), статус `DELIVERY_PAYMENT_PENDING`, `actualDeliveryRub/actualDutyRub` заполняются;
-     - оплата ловится в `GET /billing_history?transaction_filter=plus`: новая строка (не из снимка `raketa_topup_seen_ids`) с той же суммой; суммы открытых ссылок уникальны (+1 ₽ при совпадении) → `DELIVERY_PAID` (+`dutyPaidAt`), затем `POST /pay/{id}/{kind}`;
+     - оплата ловится по **росту основного баланса** (`GET /auth/me/` → `balance_details.main`; пополнения картой в `billing_history` НЕ попадают): база в `raketa_state.balance_main`, рост = сумма открытой ссылки (или до 3 ссылок) → `DELIVERY_PAID` (+`dutyPaidAt`), затем `POST /pay/{id}/{kind}`; свои оплаты вычитаются из базы; суммы ссылок уникальны (+1 ₽); непонятное поступление → сообщение менеджерам;
+     - `/price/*` отдаёт суммы **в копейках** (клиент переводит в рубли); счёт > 50 000 ₽ клиенту не уходит. При оплате RAKETA сначала списывает бонусы, потом основной баланс;
      - объединения не из наших заказов: тоже «Собрать» + сообщение менеджерам с ценой (таблица `raketa_consolidations`). Заказ без клиента — только сообщение с ценой.
      - Клиент: кнопка «Оплатить доставку» в уведомлении и на странице заказа (`POST /orders/:id/delivery-payment-link`, ссылка обновляется через 6 ч).
 - Админка: `/admin/orders/new` — единая страница создания: клиент по @username (или без клиента: только RAKETA / «оплатит по ссылке»), все размеры, цена от движка или вручную, комиссия %, страховка, «уже оплачен», треки. Ссылка-приглашение `t.me/lh_poizonbot?start=pay_<token>` (`orders.claim_token`, `orders.user_id` nullable) → бот → `POST /orders-claim` (internal token) привязывает заказ.
@@ -62,8 +63,8 @@ Git: `github.com/mememach1ne/leanhustle-miniapp`, ветка `master`. Комм�
 - Deep links: `login_<code>` (вход на сайт), `pay_<token>` (привязка заказа).
 
 ## Открытые задачи
-- Оплата доставки через RAKETA (п. 4 выше) выкачена 2026-10-07, вживую ещё не проверена: формат ответов `/billing`, `/billing_history` (`summ`), `/price/*` взят из бандла кабинета. Ошибки — в `raketa_last_error` и логах `pm2 logs api | grep RAKETA`.
-- Впервые проверить вживую: создание объединения/получателя/адреса и флаг страховки в RAKETA — ошибки RAKETA видны в карточке заказа (`raketa_last_error`).
+- Оплата доставки через RAKETA проверена вживую 2026-10-07 (заказ L039): цена → ссылка Т-Банка → оплата → распознана по балансу → объединение оплачено. Не проверены вживую: авто-«Собрать» и оплата одиночного заказа (`/pay/{id}/order`). Ошибки — `raketa_last_error`, `pm2 logs api | grep RAKETA`.
+- Выставить получателя/адрес у уже созданного объединения: `PUT /consolidation/{id}` (тело как у создания + `customer_recipient_id/customer_address_id`) — в клиенте пока нет метода, делалось разовым скриптом.
 
 ## Соглашения / осторожно
 - Держись стиля существующего кода. Секреты — в `apps/*/.env`; не коммить и не печатать их.
