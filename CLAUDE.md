@@ -31,7 +31,7 @@ Git: `github.com/mememach1ne/leanhustle-miniapp`, ветка `master`. Комм�
 
 ## Ключевые подсистемы
 - **Авторизация:** Mini App — Telegram `initData`. Сайт — вход через бота: `POST /auth/bot-login/start` → ссылка `t.me/lh_poizonbot?start=login_<code>` → бот (подписка на @lh_poizon + кнопка «Да, это я») → `/auth/bot-login/confirm` (internal token) → сайт поллит статус. Код в `auth/services/bot-login.service.ts`.
-- **Цены:** `pricing.service.ts`. Комиссия из настроек минус скидка лояльности (или ручная `commissionOverride`). **Доставка — таблица «категория × размер»** `pricing/data/delivery-price-table(.data).ts` (цены из калькулятора RAKETA до Москвы); неизвестные категории молча пишутся в `delivery_category_weights` (уведомлений нет). Дозаполнение — по памяти `delivery-price-table`, скрипт `src/scripts/unfilled-delivery-categories.ts`.
+- **Цены:** `pricing.service.ts`. Комиссия из настроек минус скидка лояльности (или ручная `commissionOverride`). **Доставка — таблица «категория × размер»** `pricing/data/delivery-price-table(.data).ts` (цены из калькулятора RAKETA до Москвы) + **региональная поправка**: регион адреса → ближайший из 16 миллионников (`pricing/data/delivery-hubs.ts`, без адреса — Москва); цена СДЭК «Стандарт» до ПВЗ миллионника берётся из публичного калькулятора для 4 эталонных посылок раз в 30 дней (`delivery_city_rates`) и интерполируется (`services/regional-delivery.service.ts`). Применяется при оформлении, в корзине (`GET /cart/delivery-estimate?addressId`) и в ручном заказе с ПВЗ. Неизвестные категории молча пишутся в `delivery_category_weights` (уведомлений нет). Дозаполнение — по памяти `delivery-price-table`, скрипт `src/scripts/unfilled-delivery-categories.ts`.
 - **Оплата:** USDT через Bybit V5 (`crypto-payments`), матчинг по уникальной сумме; ETA зачисления по сетям — `PAYMENT_NETWORK_ETA` в shared.
 - **Адреса доставки:** клиент выбирает **город → пункт СДЭК** из справочника RAKETA (`GET /delivery-points/cities|cdek`, компонент `web/components/ui/pickup-point-picker.tsx`). Поля `city_id/city/region/pvz_code/pvz_index` у адреса и `delivery_*` у заказа. Старые текстовые адреса помечены «выберите пункт из списка».
 - **Страховка RAKETA** («Защита от рисков», 1% от товаров в ₽, платится с доставкой): галочка в корзине и при ручном заказе → `orders.insurance/insurance_rub`, уходит в RAKETA (`insurance: true`).
@@ -63,7 +63,6 @@ Git: `github.com/mememach1ne/leanhustle-miniapp`, ветка `master`. Комм�
 
 ## Открытые задачи
 - Оплата доставки через RAKETA (п. 4 выше) выкачена 2026-10-07, вживую ещё не проверена: формат ответов `/billing`, `/billing_history` (`summ`), `/price/*` взят из бандла кабинета. Ошибки — в `raketa_last_error` и логах `pm2 logs api | grep RAKETA`.
-- Доставка считается по Москве; для регионов СДЭК дороже — нет надбавки/расчёта по городу.
 - Впервые проверить вживую: создание объединения/получателя/адреса и флаг страховки в RAKETA — ошибки RAKETA видны в карточке заказа (`raketa_last_error`).
 
 ## Соглашения / осторожно
