@@ -6,6 +6,7 @@ import type {
   AdminUsersResponse,
   AuthPayload,
   BusinessSettingsDto,
+  CartDeliveryEstimateResponse,
   CartResponse,
   CatalogListResponse,
   CatalogSortKey,
@@ -160,6 +161,12 @@ export const pricingApi = {
 export const cartApi = {
   async getCart(): Promise<CartResponse> {
     const response = await apiClient.get<CartResponse>('/cart');
+    return response.data;
+  },
+  async getDeliveryEstimate(addressId?: string | null): Promise<CartDeliveryEstimateResponse> {
+    const response = await apiClient.get<CartDeliveryEstimateResponse>('/cart/delivery-estimate', {
+      params: addressId ? { addressId } : undefined,
+    });
     return response.data;
   },
   async addToCart(payload: AddToCartRequest): Promise<CartResponse> {

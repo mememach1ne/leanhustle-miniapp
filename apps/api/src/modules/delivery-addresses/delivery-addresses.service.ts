@@ -2,6 +2,7 @@ import type { DeliveryAddressDto } from '@lean-poizon/shared';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { RegionalDeliveryService } from '../pricing/services/regional-delivery.service';
 import { CreateDeliveryAddressDto } from './dto/create-delivery-address.dto';
 import { PickupPointDto } from './dto/pickup-point.dto';
 import { UpdateDeliveryAddressDto } from './dto/update-delivery-address.dto';
@@ -17,9 +18,14 @@ const pickupPointColumns = (point?: PickupPointDto) => ({
 @Injectable()
 export class DeliveryAddressesService {
   private readonly prisma: PrismaService;
+  private readonly regionalDelivery: RegionalDeliveryService;
 
-  constructor(@Inject(PrismaService) prisma: PrismaService) {
+  constructor(
+    @Inject(PrismaService) prisma: PrismaService,
+    @Inject(RegionalDeliveryService) regionalDelivery: RegionalDeliveryService,
+  ) {
     this.prisma = prisma;
+    this.regionalDelivery = regionalDelivery;
   }
 
   async getByUserId(userId: string): Promise<DeliveryAddressDto[]> {
@@ -52,6 +58,8 @@ export class DeliveryAddressesService {
       });
     });
 
+    // Fetch the region's delivery rates now so checkout doesn't wait for them.
+    this.regionalDelivery.warm(address.region, address.city);
     return this.toDto(address);
   }
 
@@ -84,6 +92,7 @@ export class DeliveryAddressesService {
       });
     });
 
+    this.regionalDelivery.warm(address.region, address.city);
     return this.toDto(address);
   }
 

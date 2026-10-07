@@ -1,4 +1,4 @@
-import type { CartResponse } from '@lean-poizon/shared';
+import type { CartDeliveryEstimateResponse, CartResponse, DeliveryCategory } from '@lean-poizon/shared';
 import {
   BadRequestException,
   Inject,
@@ -8,6 +8,8 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { estimateDeliveryFromTable } from '../pricing/data/delivery-price-table';
+import { RegionalDeliveryService } from '../pricing/services/regional-delivery.service';
 import { SettingsService } from '../settings/settings.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemQuantityDto } from './dto/update-cart-item-quantity.dto';
@@ -18,13 +20,42 @@ export class CartService {
   private readonly prisma: PrismaService;
 
   private readonly settingsService: SettingsService;
+  private readonly regionalDelivery: RegionalDeliveryService;
 
   constructor(
     @Inject(PrismaService) prisma: PrismaService,
     @Inject(SettingsService) settingsService: SettingsService,
+    @Inject(RegionalDeliveryService) regionalDelivery: RegionalDeliveryService,
   ) {
     this.prisma = prisma;
     this.settingsService = settingsService;
+    this.regionalDelivery = regionalDelivery;
+  }
+
+  /** Cart delivery estimate to the nearest million-plus city of an address (Moscow without one). */
+  async getDeliveryEstimate(userId: string, addressId?: string): Promise<CartDeliveryEstimateResponse> {
+    const address = addressId
+      ? await this.prisma.deliveryAddress.findFirst({ where: { id: addressId, userId } })
+      : null;
+    const { hub, adjust } = await this.regionalDelivery.forRegion(address?.region, address?.city);
+    const cart = await this.findOrCreateCart(userId);
+    const deliveryRub = cart.items.reduce((sum, item) => {
+      const fromTable = estimateDeliveryFromTable({
+        title: item.productTitle,
+        categoryL1: item.categoryL1,
+        categoryL2: item.categoryL2,
+        categoryL3: item.categoryL3,
+        size: item.sizeLabel,
+        deliveryCategory: (item.deliveryCategory as DeliveryCategory | null) ?? null,
+      });
+      const perItem = fromTable
+        ? adjust
+          ? adjust(fromTable.band, fromTable.deliveryRub)
+          : fromTable.deliveryRub
+        : Number(item.deliveryRub);
+      return sum + perItem * item.quantity;
+    }, 0);
+    return { deliveryRub: Math.round(deliveryRub), hubCity: hub.name };
   }
 
   async getCurrentCart(userId: string): Promise<CartResponse> {

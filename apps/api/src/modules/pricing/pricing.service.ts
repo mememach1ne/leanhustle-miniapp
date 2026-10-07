@@ -18,6 +18,7 @@ import {
 import { DeliveryEstimationService } from './services/delivery-estimation.service';
 import { DutyCalculationService } from './services/duty-calculation.service';
 import { ProductCategoryClassifierService } from './services/product-category-classifier.service';
+import type { DeliveryAdjuster } from './services/regional-delivery.service';
 
 interface ResolvedDeliveryInfo {
   deliveryCategory: DeliveryCategory;
@@ -159,6 +160,8 @@ export class PricingService {
     discountPercentPoints = 0,
     /** Admin-set commission % — replaces the default (and the loyalty discount). */
     commissionOverride?: number | null,
+    /** Regional price (nearest million-plus city); Moscow table price when absent. */
+    adjust?: DeliveryAdjuster | null,
   ): Promise<ManualPricingResult> {
     const settings = await this.settingsService.getCurrentSettings();
     const priceYuan = new Prisma.Decimal(dto.priceYuan);
@@ -183,7 +186,10 @@ export class PricingService {
       size: dto.size,
     });
     const { estimatedWeightKg, deliveryRub } = fromTable
-      ? { estimatedWeightKg: fromTable.weightKg, deliveryRub: fromTable.deliveryRub }
+      ? {
+          estimatedWeightKg: fromTable.weightKg,
+          deliveryRub: adjust ? adjust(fromTable.band, fromTable.deliveryRub) : fromTable.deliveryRub,
+        }
       : this.deliveryEstimationService.estimateDeliveryRub({
           deliveryCategory: dto.deliveryCategory,
           deliveryPricePerKgRub: settings.deliveryPricePerKgRub,
@@ -231,6 +237,7 @@ export class PricingService {
       categoryL3?: string | null;
       size?: string | null;
     } = {},
+    adjust?: DeliveryAdjuster | null,
   ): { totalUsd: Prisma.Decimal; deliveryRub: number; dutyRub: number } {
     const commissionPercent = this.effectiveCommissionPercent(
       settings.commissionPercent,
@@ -246,7 +253,7 @@ export class PricingService {
       deliveryCategory: deliveryCategory as DeliveryCategory,
     });
     const { deliveryRub } = fromTable
-      ? { deliveryRub: fromTable.deliveryRub }
+      ? { deliveryRub: adjust ? adjust(fromTable.band, fromTable.deliveryRub) : fromTable.deliveryRub }
       : this.deliveryEstimationService.estimateDeliveryRub({
           deliveryCategory: deliveryCategory as DeliveryCategory,
           deliveryPricePerKgRub: settings.deliveryPricePerKgRub,

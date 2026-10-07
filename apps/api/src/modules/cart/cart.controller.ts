@@ -1,4 +1,4 @@
-import type { CartResponse } from '@lean-poizon/shared';
+import type { CartDeliveryEstimateResponse, CartResponse } from '@lean-poizon/shared';
 import {
   Body,
   Controller,
@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import type { User } from '@prisma/client';
@@ -31,6 +32,15 @@ export class CartController {
   @Get()
   async getCurrentCart(@CurrentUser() user: User): Promise<CartResponse> {
     return this.cartService.getCurrentCart(user.id);
+  }
+
+  @Get('delivery-estimate')
+  async getDeliveryEstimate(
+    @CurrentUser() user: User,
+    @Query('addressId') addressId?: string,
+  ): Promise<CartDeliveryEstimateResponse> {
+    const id = addressId && /^[0-9a-f-]{36}$/i.test(addressId) ? addressId : undefined;
+    return this.cartService.getDeliveryEstimate(user.id, id);
   }
 
   @Post('items')

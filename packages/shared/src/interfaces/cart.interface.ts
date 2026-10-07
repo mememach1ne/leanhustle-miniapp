@@ -57,6 +57,13 @@ export interface CartSummaryDto {
   insuranceRub?: number;
 }
 
+/** Cart delivery priced to the nearest million-plus city of the chosen address. */
+export interface CartDeliveryEstimateResponse {
+  deliveryRub: number;
+  /** «Москва» when no address / region is known. */
+  hubCity: string;
+}
+
 export interface CartResponse {
   id: string;
   items: CartItemDto[];

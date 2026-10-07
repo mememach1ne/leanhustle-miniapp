@@ -14,6 +14,7 @@ import { DutyCalculationService } from './services/duty-calculation.service';
 import { ManagerHelpNotificationService } from './services/manager-help-notification.service';
 import { NewCategoryNotificationService } from './services/new-category-notification.service';
 import { ProductCategoryClassifierService } from './services/product-category-classifier.service';
+import { RegionalDeliveryService } from './services/regional-delivery.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, LoyaltyModule, SettingsModule, StaffModule],
@@ -26,7 +27,13 @@ import { ProductCategoryClassifierService } from './services/product-category-cl
     ManagerHelpNotificationService,
     NewCategoryNotificationService,
     ProductCategoryClassifierService,
+    RegionalDeliveryService,
   ],
-  exports: [PricingService, DeliveryCategoryWeightService, NewCategoryNotificationService],
+  exports: [
+    PricingService,
+    DeliveryCategoryWeightService,
+    NewCategoryNotificationService,
+    RegionalDeliveryService,
+  ],
 })
 export class PricingModule {}

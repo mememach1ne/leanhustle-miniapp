@@ -1,5 +1,6 @@
 'use client';
 
+import type { CartDeliveryEstimateResponse } from '@lean-poizon/shared';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -43,6 +44,26 @@ export default function CartPage() {
   const [insurance, setInsurance] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  // Delivery to the nearest million-plus city of the chosen address (Moscow without one).
+  const [deliveryEstimate, setDeliveryEstimate] = useState<CartDeliveryEstimateResponse | null>(null);
+  const cartItemsKey = cart?.items.map((item) => `${item.id}:${item.quantity}`).join(',') ?? '';
+
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || !cartItemsKey) return;
+    let cancelled = false;
+    cartApi
+      .getDeliveryEstimate(selectedAddressId)
+      .then((estimate) => {
+        if (!cancelled) setDeliveryEstimate(estimate);
+      })
+      .catch(() => {
+        if (!cancelled) setDeliveryEstimate(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authStatus, selectedAddressId, cartItemsKey]);
+  const deliveryRub = deliveryEstimate?.deliveryRub ?? cart?.summary.cartDeliveryRub ?? 0;
 
   useEffect(() => {
     if (authStatus !== 'authenticated') {
@@ -336,7 +357,8 @@ export default function CartPage() {
             title="Итоги корзины"
             itemsCount={cart.summary.itemsCount}
             totalUsd={cart.summary.cartTotalUsd}
-            deliveryRub={cart.summary.cartDeliveryRub}
+            deliveryRub={deliveryRub}
+            deliveryHub={deliveryEstimate?.hubCity}
             dutyRub={cart.summary.cartDutyRub}
             footer={
               isCheckoutConfirmOpen ? (
@@ -385,7 +407,12 @@ export default function CartPage() {
 
                   <div className="mt-4 space-y-2">
                     <InfoRow label="Итог сейчас" value={`$${cart.summary.cartTotalUsd.toFixed(2)}`} accent />
-                    <InfoRow label="Примерная доставка" value={`${cart.summary.cartDeliveryRub} ₽`} />
+                    <InfoRow
+                      label={
+                        deliveryEstimate ? `Примерная доставка (до г. ${deliveryEstimate.hubCity})` : 'Примерная доставка'
+                      }
+                      value={`${deliveryRub} ₽`}
+                    />
                     <InfoRow label="Примерная пошлина" value={`${cart.summary.cartDutyRub} ₽`} />
                   </div>
                   <label className="mt-4 flex items-start gap-3 rounded-[16px] border border-white/10 bg-white/5 p-3 text-sm text-white">

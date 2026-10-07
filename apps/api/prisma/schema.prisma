@@ -500,3 +500,14 @@ model RaketaConsolidation {
 
   @@map("raketa_consolidations")
 }
+
+/// RF-leg (CDEK) price of reference parcels per million-plus city, from the RAKETA
+/// calculator; refreshed every 30 days.
+model DeliveryCityRate {
+  cityId    String   @id @map("city_id") @db.VarChar(64)
+  /// RF-leg rubles per reference parcel (RegionalDeliveryService order).
+  points    Json
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("delivery_city_rates")
+}

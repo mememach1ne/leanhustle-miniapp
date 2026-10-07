@@ -5,6 +5,7 @@ export function PriceSummaryCard({
   title,
   totalUsd,
   deliveryRub,
+  deliveryHub,
   dutyRub,
   actualDeliveryRub,
   actualDutyRub,
@@ -14,6 +15,8 @@ export function PriceSummaryCard({
   title: string;
   totalUsd: number;
   deliveryRub: number;
+  /** Price point of the delivery estimate, e.g. «Казань». */
+  deliveryHub?: string | null;
   dutyRub: number;
   /** When set, replaces the estimated delivery and is highlighted. */
   actualDeliveryRub?: number | null;
@@ -42,7 +45,10 @@ export function PriceSummaryCard({
             accent
           />
         ) : (
-          <InfoRow label="Примерная доставка" value={`${deliveryRub} ₽`} />
+          <InfoRow
+            label={deliveryHub ? `Примерная доставка (до г. ${deliveryHub})` : 'Примерная доставка'}
+            value={`${deliveryRub} ₽`}
+          />
         )}
         {hasActualDuty ? (
           <InfoRow label="Пошлина (факт)" value={`${actualDutyRub} ₽`} accent />

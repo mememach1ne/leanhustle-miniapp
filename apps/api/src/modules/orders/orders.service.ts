@@ -31,6 +31,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { PricingService } from '../pricing/pricing.service';
+import { RegionalDeliveryService } from '../pricing/services/regional-delivery.service';
 import { SettingsService } from '../settings/settings.service';
 import { mapUserToProfile } from '../users/mappers/user-profile.mapper';
 import { UsersService } from '../users/users.service';
@@ -88,6 +89,7 @@ export class OrdersService {
   private readonly orderNumberService: OrderNumberService;
   private readonly orderNotificationsService: OrderNotificationsService;
   private readonly loyaltyService: LoyaltyService;
+  private readonly regionalDelivery: RegionalDeliveryService;
 
   constructor(
     @Inject(PrismaService) prisma: PrismaService,
@@ -98,7 +100,9 @@ export class OrdersService {
     @Inject(OrderNotificationsService)
     orderNotificationsService: OrderNotificationsService,
     @Inject(LoyaltyService) loyaltyService: LoyaltyService,
+    @Inject(RegionalDeliveryService) regionalDelivery: RegionalDeliveryService,
   ) {
+    this.regionalDelivery = regionalDelivery;
     this.prisma = prisma;
     this.settingsService = settingsService;
     this.usersService = usersService;
@@ -118,6 +122,8 @@ export class OrdersService {
     }
 
     const settings = await this.settingsService.getCurrentSettings();
+    // Delivery priced to the nearest million-plus city of the client's address.
+    const { adjust } = await this.regionalDelivery.forRegion(deliveryAddress.region, deliveryAddress.city);
 
     const createdOrderId = await this.prisma.$transaction(
       async (tx) => {
@@ -166,6 +172,7 @@ export class OrdersService {
               categoryL3: item.categoryL3,
               size: item.sizeLabel,
             },
+            adjust,
           );
           return {
             ...item,
@@ -425,6 +432,12 @@ export class OrdersService {
         ? new Prisma.Decimal(commissionOverride)
         : this.pricingService.effectiveCommissionPercent(settings.commissionPercent, loyaltyDiscount);
 
+    // Delivery to the nearest million-plus city of the picked CDEK point.
+    const regional = await this.regionalDelivery.forRegion(
+      dto.delivery?.pickupPoint?.region,
+      dto.delivery?.pickupPoint?.city,
+    );
+
     // Compute pricing for each item using the existing manual-pricing logic.
     const pricedItems = await Promise.all(
       dto.items.map(async (item) => {
@@ -448,6 +461,7 @@ export class OrdersService {
           },
           loyaltyDiscount,
           commissionOverride,
+          regional.adjust,
         );
         return { input: item, pricing };
       }),
