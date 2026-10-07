@@ -109,8 +109,8 @@ export class RaketaTrackingService {
     return {
       // RAKETA numbers stay internal — the client only gets the CDEK track.
       kind: consolidated ? 'consolidation' : 'single',
-      // CDEK knows the parcel only once it's handed over in Russia.
-      cdekTrack: order.trackCode ?? (steps[RF_SENT].done ? order.raketaTkTrack : null) ?? null,
+      // Shown as soon as RAKETA assigns it (usually right after the delivery is paid).
+      cdekTrack: order.trackCode ?? order.raketaTkTrack ?? null,
       steps,
       events: [...(main?.events ?? [])].reverse().map((e) => ({ name: clientText(e.name), at: e.at })),
       items,
