@@ -131,7 +131,7 @@ model CartItem {
 model Order {
   id                            String         @id @default(uuid()) @db.Uuid
   orderNumber                   String         @unique @map("order_number") @db.VarChar(32)
-  userId                        String         @map("user_id") @db.Uuid
+  userId                        String?        @map("user_id") @db.Uuid
   assignedStaffId               String?        @map("assigned_staff_id") @db.Uuid
   status                        OrderStatus    @default(CREATED)
   paidVia                       PaymentSource? @map("paid_via")
@@ -165,6 +165,8 @@ model Order {
   insuranceRub                  Decimal        @default(0) @map("insurance_rub") @db.Decimal(12, 0)
   // Custom title for the RAKETA consolidation / orders (auto when null).
   raketaTitle                   String?        @map("raketa_title") @db.VarChar(120)
+  // Order created for a not-yet-known client: they claim it via a bot link.
+  claimToken                    String?        @unique @map("claim_token") @db.VarChar(64)
   fulfillmentManual             Boolean        @default(false) @map("fulfillment_manual")
   raketaRecipientId             String?        @map("raketa_recipient_id") @db.VarChar(64)
   raketaAddressId               String?        @map("raketa_address_id") @db.VarChar(64)
@@ -188,7 +190,7 @@ model Order {
   createdAt                     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user            User                 @relation(fields: [userId], references: [id])
+  user            User?                @relation(fields: [userId], references: [id])
   assignedStaff   StaffAccount?        @relation("AssignedOrders", fields: [assignedStaffId], references: [id], onDelete: SetNull)
   deliveryAddress DeliveryAddress?     @relation(fields: [deliveryAddressId], references: [id], onDelete: SetNull)
   items           OrderItem[]

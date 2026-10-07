@@ -159,8 +159,10 @@ export interface CreateManualOrderItem {
 
 /** Payload for staff/admin manual order creation (bot + mini-app). */
 export interface CreateManualOrderRequest {
-  /** Client Telegram @username (with or without leading @). */
-  username: string;
+  /** Client Telegram @username (with or without leading @); empty with claimByLink. */
+  username?: string;
+  /** No client yet — they claim the order via a bot link and pay in the app. */
+  claimByLink?: boolean;
   items: CreateManualOrderItem[];
   delivery: {
     fullName: string;
@@ -227,6 +229,8 @@ export interface StaffOrderDetailsDto extends OrderDetailsDto {
   user: StaffOrderUserDto;
   statusHistory: StaffOrderStatusHistoryItemDto[];
   fulfillment: StaffOrderFulfillmentDto;
+  /** Bot link for an order created without a client (null once claimed). */
+  claimUrl: string | null;
 }
 
 export interface SetChinaTrackRequest {

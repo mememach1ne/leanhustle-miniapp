@@ -378,6 +378,23 @@ export class ApiService {
     });
   }
 
+  /** "Pay by link" order: attach it to this Telegram user. */
+  async claimOrder(payload: {
+    token: string;
+    telegramId: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    languageCode?: string;
+  }): Promise<{ orderId: string; orderNumber: string; status: string }> {
+    const response = await this.http.post<{ orderId: string; orderNumber: string; status: string }>(
+      '/orders-claim',
+      payload,
+      { headers: { 'x-internal-bot-token': botEnv.internalApiToken } },
+    );
+    return response.data;
+  }
+
   /** Website login through the bot: vouch for this Telegram user. */
   async confirmBotLogin(payload: {
     token: string;

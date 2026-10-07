@@ -372,7 +372,7 @@ export class CryptoPaymentService {
       return {
         orderId: intent.order.id,
         orderNumber: intent.order.orderNumber,
-        userTelegramId: intent.order.user.telegramId,
+        userTelegramId: intent.order.user?.telegramId ?? null,
         network: intent.network,
         amountUsdt: Number(intent.expectedAmountUsdt),
         transitioned:
@@ -381,7 +381,7 @@ export class CryptoPaymentService {
       };
     });
 
-    if (!result || !result.transitioned) return;
+    if (!result || !result.transitioned || !result.userTelegramId) return;
 
     try {
       await this.orderNotifications.notifyUserAboutStatusChange(

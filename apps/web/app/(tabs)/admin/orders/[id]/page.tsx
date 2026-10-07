@@ -347,6 +347,12 @@ export default function AdminOrderDetailPage() {
             <span>Пошлина (расчётная):</span>
             <span className="text-white">{order.summary.dutyRub} ₽</span>
           </div>
+          {order.summary.insuranceRub ? (
+            <div className="flex justify-between text-white/80">
+              <span>Защита от рисков (с доставкой):</span>
+              <span className="text-white">{order.summary.insuranceRub} ₽</span>
+            </div>
+          ) : null}
           {order.summary.actualDeliveryRub != null ? (
             <div className="flex justify-between text-white/80">
               <span>Доставка (факт):</span>
@@ -367,6 +373,28 @@ export default function AdminOrderDetailPage() {
           ) : null}
         </div>
       </SectionCard>
+
+      {order.claimUrl ? (
+        <SectionCard>
+          <h3 className="text-sm font-semibold text-white">Ссылка для клиента</h3>
+          <p className="mt-1 text-xs text-white/50">
+            Отправьте клиенту — после перехода заказ появится у него в профиле и он сможет его оплатить.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <input readOnly value={order.claimUrl} className="min-w-0 flex-1 rounded-xl bg-white/5 px-3 py-2 text-xs text-white" />
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard?.writeText(order.claimUrl ?? '');
+                setSuccess('Ссылка скопирована.');
+              }}
+              className="shrink-0 rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-slate-950"
+            >
+              Копировать
+            </button>
+          </div>
+        </SectionCard>
+      ) : null}
 
       <RaketaOrderPanel
         order={order}

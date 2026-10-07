@@ -218,8 +218,11 @@ export const deliveryPointsApi = {
 };
 
 export const ordersApi = {
-  async checkoutOrder(deliveryAddressId: string): Promise<CheckoutOrderResponse> {
-    const response = await apiClient.post<CheckoutOrderResponse>('/orders/checkout', { deliveryAddressId });
+  async checkoutOrder(deliveryAddressId: string, insurance = false): Promise<CheckoutOrderResponse> {
+    const response = await apiClient.post<CheckoutOrderResponse>('/orders/checkout', {
+      deliveryAddressId,
+      insurance,
+    });
     return response.data;
   },
   async getOrders(): Promise<OrderListItemDto[]> {

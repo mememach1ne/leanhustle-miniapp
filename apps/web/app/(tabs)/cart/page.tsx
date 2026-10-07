@@ -40,6 +40,7 @@ export default function CartPage() {
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [isCheckoutConfirmOpen, setIsCheckoutConfirmOpen] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [insurance, setInsurance] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
 
@@ -140,7 +141,7 @@ export default function CartPage() {
     setCheckoutError(null);
 
     try {
-      const response = await ordersApi.checkoutOrder(selectedAddressId);
+      const response = await ordersApi.checkoutOrder(selectedAddressId, insurance);
 
       clearCart();
       prependOrder({
@@ -387,6 +388,22 @@ export default function CartPage() {
                     <InfoRow label="Примерная доставка" value={`${cart.summary.cartDeliveryRub} ₽`} />
                     <InfoRow label="Примерная пошлина" value={`${cart.summary.cartDutyRub} ₽`} />
                   </div>
+                  <label className="mt-4 flex items-start gap-3 rounded-[16px] border border-white/10 bg-white/5 p-3 text-sm text-white">
+                    <input
+                      type="checkbox"
+                      checked={insurance}
+                      onChange={(e) => setInsurance(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                    />
+                    <span>
+                      Защита от рисков
+                      {cart.summary.insuranceRub ? ` — ≈ ${cart.summary.insuranceRub} ₽` : ''}
+                      <span className="mt-0.5 block text-xs leading-5 text-[var(--muted)]">
+                        Полное возмещение стоимости товара при порче или утере. Стоит 1% от стоимости товаров в
+                        рублях, оплачивается вместе с доставкой.
+                      </span>
+                    </span>
+                  </label>
                   <div className="mt-4 flex gap-3">
                     <button
                       type="button"

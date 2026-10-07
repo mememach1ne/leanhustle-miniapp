@@ -117,10 +117,15 @@ export class CreateManualOrderDeliveryDto {
 }
 
 export class CreateManualOrderDto {
+  /** Client @username; empty with claimByLink = the client claims the order via a bot link. */
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(64)
-  username!: string;
+  username?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  claimByLink?: boolean;
 
   @IsArray()
   @ArrayMinSize(1)

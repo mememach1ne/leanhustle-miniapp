@@ -8,6 +8,7 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemQuantityDto } from './dto/update-cart-item-quantity.dto';
 import { mapCartToResponse } from './mappers/cart-response.mapper';
@@ -16,13 +17,26 @@ import { mapCartToResponse } from './mappers/cart-response.mapper';
 export class CartService {
   private readonly prisma: PrismaService;
 
-  constructor(@Inject(PrismaService) prisma: PrismaService) {
+  private readonly settingsService: SettingsService;
+
+  constructor(
+    @Inject(PrismaService) prisma: PrismaService,
+    @Inject(SettingsService) settingsService: SettingsService,
+  ) {
     this.prisma = prisma;
+    this.settingsService = settingsService;
   }
 
   async getCurrentCart(userId: string): Promise<CartResponse> {
     const cart = await this.findOrCreateCart(userId);
-    return mapCartToResponse(cart);
+    const response = mapCartToResponse(cart);
+    // Estimate for the optional RAKETA insurance (1% of goods, paid with delivery).
+    const goodsYuan = cart.items.reduce((sum, item) => sum + Number(item.priceYuan) * item.quantity, 0);
+    if (goodsYuan > 0) {
+      const settings = await this.settingsService.getCurrentSettings();
+      response.summary.insuranceRub = Math.ceil(goodsYuan * Number(settings.cnyToRub) * 0.01);
+    }
+    return response;
   }
 
   async addItem(userId: string, dto: AddCartItemDto): Promise<CartResponse> {

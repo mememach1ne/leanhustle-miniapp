@@ -27,7 +27,7 @@ export class OrderNotificationsService {
 
   async notifyManagersAboutCreatedOrder(
     order: StaffOrderDetailsDto,
-    user: UserProfile,
+    user?: UserProfile,
   ): Promise<void> {
     const botToken = this.configService.get<string>('telegram.botToken');
     const managerTelegramIds =

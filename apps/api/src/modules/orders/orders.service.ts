@@ -1,3 +1,5 @@
+import { randomBytes } from 'crypto';
+
 import type {
   CheckoutOrderResponse,
   CreateManualOrderRequest,
@@ -106,7 +108,7 @@ export class OrdersService {
     this.loyaltyService = loyaltyService;
   }
 
-  async checkout(user: User, deliveryAddressId: string): Promise<CheckoutOrderResponse> {
+  async checkout(user: User, deliveryAddressId: string, insurance = false): Promise<CheckoutOrderResponse> {
     const deliveryAddress = await this.prisma.deliveryAddress.findFirst({
       where: { id: deliveryAddressId, userId: user.id },
     });
@@ -192,6 +194,17 @@ export class OrdersService {
             orderNumber,
             userId: user.id,
             status: OrderStatus.CREATED,
+            insurance,
+            insuranceRub: insurance
+              ? recalculatedItems
+                  .reduce(
+                    (sum, item) => sum.add(new Prisma.Decimal(item.priceYuan).mul(item.quantity)),
+                    new Prisma.Decimal(0),
+                  )
+                  .mul(settings.cnyToRub)
+                  .mul(0.01)
+                  .toDecimalPlaces(0, Prisma.Decimal.ROUND_UP)
+              : new Prisma.Decimal(0),
             itemsCount,
             originalTotalUsd: totalUsd,
             benefitDiscountUsd: new Prisma.Decimal(0),
@@ -368,20 +381,28 @@ export class OrdersService {
       throw new ForbiddenException('Ручное создание заказа доступно только сотрудникам.');
     }
 
-    const normalizedUsername = dto.username.trim().replace(/^@+/, '');
-    if (!normalizedUsername) {
+    const normalizedUsername = (dto.username ?? '').trim().replace(/^@+/, '');
+    // "Client pays by link": no client yet — they claim the order via a bot link.
+    const byLink = Boolean(dto.claimByLink) && !normalizedUsername;
+    if (!normalizedUsername && !byLink) {
       throw new BadRequestException('Укажите username клиента.');
     }
+    if (byLink && !dto.delivery.pickupPoint) {
+      throw new BadRequestException('Для заказа по ссылке выберите пункт СДЭК получателя.');
+    }
 
-    const client = await this.prisma.user.findFirst({
-      where: { username: { equals: normalizedUsername, mode: 'insensitive' } },
-    });
+    const client = byLink
+      ? null
+      : await this.prisma.user.findFirst({
+          where: { username: { equals: normalizedUsername, mode: 'insensitive' } },
+        });
 
-    if (!client) {
+    if (!byLink && !client) {
       throw new BadRequestException(
         `Клиент @${normalizedUsername} не найден. Попросите клиента запустить бота, чтобы он появился в базе.`,
       );
     }
+    const claimToken = byLink ? randomBytes(18).toString('base64url') : null;
 
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException('Добавьте хотя бы один товар в заказ.');
@@ -391,10 +412,9 @@ export class OrdersService {
 
     // Apply the client's loyalty tier (percentage points off commission) if
     // they qualify — same rule as a self-service checkout.
-    const loyaltyDiscount = await this.loyaltyService.getDiscountPercentPoints(
-      client,
-      settings,
-    );
+    const loyaltyDiscount = client
+      ? await this.loyaltyService.getDiscountPercentPoints(client, settings)
+      : 0;
     // Admin-set commission % replaces the default and the loyalty discount.
     const commissionOverride =
       dto.commissionPercent !== undefined && dto.commissionPercent !== null
@@ -476,7 +496,9 @@ export class OrdersService {
         const deliveryPhone = dto.delivery.phone.trim();
 
         const pickedPoint = dto.delivery.pickupPoint ?? null;
-        const existingAddress = await tx.deliveryAddress.findFirst({
+        const existingAddress = !client
+          ? null
+          : await tx.deliveryAddress.findFirst({
           where: {
             userId: client.id,
             fullName: deliveryFullName,
@@ -486,7 +508,7 @@ export class OrdersService {
         });
 
         let deliveryAddressId = existingAddress?.id ?? null;
-        if (!existingAddress) {
+        if (client && !existingAddress) {
           const addressCount = await tx.deliveryAddress.count({
             where: { userId: client.id },
           });
@@ -510,7 +532,8 @@ export class OrdersService {
         const order = await tx.order.create({
           data: {
             orderNumber,
-            userId: client.id,
+            userId: client?.id ?? null,
+            claimToken,
             status: initialStatus,
             ...(dto.alreadyPaid ? { paidVia: PaymentSource.MANUAL, paidAt: new Date() } : {}),
             insurance: Boolean(dto.insurance),
@@ -572,7 +595,9 @@ export class OrdersService {
             changedByStaffId: staff.id,
             comment: `Заказ создан вручную ${staffLabel} через админ-панель${
               dto.alreadyPaid ? ' (товар уже оплачен)' : ''
-            }${commissionOverride !== null ? `, комиссия ${commissionOverride}%` : ''}.`,
+            }${commissionOverride !== null ? `, комиссия ${commissionOverride}%` : ''}${
+              byLink ? ', клиент привяжется по ссылке' : ''
+            }.`,
           },
         });
 
@@ -591,7 +616,7 @@ export class OrdersService {
     try {
       await this.orderNotificationsService.notifyManagersAboutCreatedOrder(
         staffDto,
-        mapUserToProfile(client),
+        client ? mapUserToProfile(client) : undefined,
       );
     } catch (error) {
       this.logger.warn(
@@ -602,7 +627,7 @@ export class OrdersService {
     }
 
     try {
-      await this.orderNotificationsService.notifyUserAboutStatusChange(
+      if (client) await this.orderNotificationsService.notifyUserAboutStatusChange(
         client.telegramId,
         staffDto.orderNumber,
         initialStatus as unknown as SharedOrderStatus,
@@ -618,6 +643,94 @@ export class OrdersService {
     }
 
     return staffDto;
+  }
+
+  /**
+   * The bot calls this when someone opens a "pay by link" order link: the
+   * order (created without a client) is attached to that Telegram user, the
+   * recipient/pickup point is saved to their profile and they get a "pay"
+   * notification.
+   */
+  async claimOrderByLink(input: {
+    token: string;
+    telegramId: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    languageCode?: string;
+  }): Promise<{ orderId: string; orderNumber: string; status: OrderStatus }> {
+    const order = await this.prisma.order.findUnique({ where: { claimToken: input.token } });
+    if (!order) {
+      throw new NotFoundException('Ссылка недействительна или заказ уже привязан.');
+    }
+
+    const user = await this.usersService.upsertTelegramUser({
+      telegramId: input.telegramId,
+      username: input.username,
+      firstName: input.firstName || input.username || 'Telegram user',
+      lastName: input.lastName,
+      languageCode: input.languageCode,
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      // Keep the recipient + pickup point in the client's profile.
+      const sameAddress = await tx.deliveryAddress.findFirst({
+        where: {
+          userId: user.id,
+          fullName: order.deliveryFullName ?? '',
+          phone: order.deliveryPhone ?? '',
+          pvzCode: order.deliveryPvzCode,
+        },
+      });
+      let deliveryAddressId = sameAddress?.id ?? null;
+      if (!sameAddress && order.deliveryFullName && order.deliveryPhone && order.deliveryCdekAddress) {
+        const count = await tx.deliveryAddress.count({ where: { userId: user.id } });
+        const created = await tx.deliveryAddress.create({
+          data: {
+            userId: user.id,
+            fullName: order.deliveryFullName,
+            cdekAddress: order.deliveryCdekAddress,
+            phone: order.deliveryPhone,
+            isDefault: count === 0,
+            cityId: order.deliveryCityId,
+            city: order.deliveryCity,
+            region: order.deliveryRegion,
+            pvzCode: order.deliveryPvzCode,
+            pvzIndex: order.deliveryPvzIndex,
+          },
+        });
+        deliveryAddressId = created.id;
+      }
+
+      // Only one claimer wins: the token must still be on the order.
+      const updated = await tx.order.updateMany({
+        where: { id: order.id, claimToken: input.token },
+        data: { userId: user.id, claimToken: null, deliveryAddressId },
+      });
+      if (updated.count === 0) {
+        throw new NotFoundException('Ссылка недействительна или заказ уже привязан.');
+      }
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          fromStatus: order.status,
+          toStatus: order.status,
+          comment: `Клиент ${user.username ? `@${user.username}` : user.firstName} привязал заказ по ссылке.`,
+        },
+      });
+    });
+
+    await this.orderNotificationsService
+      .notifyUserAboutStatusChange(
+        input.telegramId,
+        order.orderNumber,
+        order.status as unknown as SharedOrderStatus,
+        null,
+        { orderId: order.id },
+      )
+      .catch(() => undefined);
+
+    return { orderId: order.id, orderNumber: order.orderNumber, status: order.status };
   }
 
   async getCurrentUserOrders(userId: string): Promise<OrderListItemDto[]> {

@@ -40,6 +40,7 @@ type OrderWithItems = {
   raketaConsolidationId?: string | null;
   raketaLastError?: string | null;
   raketaDeliveryAssignedAt?: Date | null;
+  claimToken?: string | null;
   insuranceRub?: Prisma.Decimal;
   deliveryPvzCode?: string | null;
   deliveryCity?: string | null;
@@ -49,7 +50,7 @@ type OrderWithItems = {
     username: string | null;
     firstName: string;
     lastName: string | null;
-  };
+  } | null;
   statusHistory?: Array<{
     id: string;
     fromStatus: string | null;
@@ -196,26 +197,35 @@ export const mapOrderToListItemDto = (
   };
 };
 
+type StaffUserSource = {
+  id: string;
+  telegramId: string;
+  username: string | null;
+  firstName: string;
+  lastName: string | null;
+};
+
+/** Orders created for a not-yet-known client have no owner until claimed via the bot link. */
+const mapStaffUser = (user: StaffUserSource | null) =>
+  user
+    ? {
+        id: user.id,
+        telegramId: user.telegramId,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      }
+    : { id: '', telegramId: '', username: null, firstName: 'Ожидает клиента (ссылка)', lastName: null };
+
 export const mapOrderToStaffDetailsDto = (
   order: OrderWithItems & {
-    user: {
-      id: string;
-      telegramId: string;
-      username: string | null;
-      firstName: string;
-      lastName: string | null;
-    };
+    user: StaffUserSource | null;
   },
 ): StaffOrderDetailsDto => {
   return {
     ...mapOrderToDetailsDto(order),
-    user: {
-      id: order.user.id,
-      telegramId: order.user.telegramId,
-      username: order.user.username,
-      firstName: order.user.firstName,
-      lastName: order.user.lastName,
-    },
+    user: mapStaffUser(order.user),
+    claimUrl: order.claimToken ? `https://t.me/lh_poizonbot?start=pay_${order.claimToken}` : null,
     statusHistory:
       order.statusHistory?.map<StaffOrderStatusHistoryItemDto>((item) => ({
         id: item.id,
@@ -246,13 +256,7 @@ export const mapOrderToStaffDetailsDto = (
 
 export const mapOrderToStaffListItemDto = (
   order: Omit<OrderWithItems, 'items'> & {
-    user: {
-      id: string;
-      telegramId: string;
-      username: string | null;
-      firstName: string;
-      lastName: string | null;
-    };
+    user: StaffUserSource | null;
     items: Array<{
       productTitle: string;
       productImage: string | null;
@@ -276,12 +280,6 @@ export const mapOrderToStaffListItemDto = (
     itemsCount: order.itemsCount,
     previewTitle: firstItem?.productTitle ?? null,
     previewImage: firstItem?.productImage ?? null,
-    user: {
-      id: order.user.id,
-      telegramId: order.user.telegramId,
-      username: order.user.username,
-      firstName: order.user.firstName,
-      lastName: order.user.lastName,
-    },
+    user: mapStaffUser(order.user),
   };
 };

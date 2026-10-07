@@ -53,6 +53,8 @@ export interface CartSummaryDto {
   cartTotalUsd: number;
   cartDeliveryRub: number;
   cartDutyRub: number;
+  /** Optional "Защита от рисков": 1% of the goods value in RUB (estimate). */
+  insuranceRub?: number;
 }
 
 export interface CartResponse {

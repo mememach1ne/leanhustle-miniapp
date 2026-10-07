@@ -26,7 +26,7 @@ export class OrdersController {
     @CurrentUser() user: User,
     @Body() dto: CheckoutDto,
   ): Promise<CheckoutOrderResponse> {
-    return this.ordersService.checkout(user, dto.deliveryAddressId);
+    return this.ordersService.checkout(user, dto.deliveryAddressId, Boolean(dto.insurance));
   }
 
   @Get()

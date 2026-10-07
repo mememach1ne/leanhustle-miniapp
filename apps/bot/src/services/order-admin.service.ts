@@ -1919,6 +1919,7 @@ export class OrderAdminService {
         ? [`Скидка на комиссию: ${order.subscriberBenefitAmountRub} ₽`]
         : []),
       ...(order.trackCode ? [`Трек-код: ${order.trackCode}`] : []),
+      ...(order.claimUrl ? ['', `Ссылка для клиента (оплата): ${order.claimUrl}`] : []),
       ...this.buildRaketaLines(order),
       ...(order.statusHistory.length > 0
         ? [
@@ -1945,6 +1946,9 @@ export class OrderAdminService {
       order.summary.actualDutyRub !== null && order.summary.actualDutyRub !== undefined
         ? `Пошлина: ${order.summary.actualDutyRub} ₽ (факт, было ~${order.summary.dutyRub} ₽)`
         : `Пошлина: ~${order.summary.dutyRub} ₽ (примерная)`,
+      ...(order.summary.insuranceRub
+        ? [`Защита от рисков: ${order.summary.insuranceRub} ₽ (с доставкой)`]
+        : []),
     ].join('\n');
   }
 

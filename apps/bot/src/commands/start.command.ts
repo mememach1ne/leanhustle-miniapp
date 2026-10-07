@@ -121,6 +121,31 @@ const sendSubscriptionGate = async (ctx: BotContext) => {
 
 export const registerStartCommand = (bot: Telegraf<BotContext>) => {
   bot.start(async (ctx) => {
+    // "Pay by link" order: t.me/<bot>?start=pay_<token> attaches the order to
+    // this user; the api then sends the order card with a "Оплатить" button.
+    const payToken = /^pay_([A-Za-z0-9_-]{16,64})$/.exec(ctx.payload ?? '')?.[1];
+    if (payToken && ctx.from) {
+      try {
+        const claimed = await apiService.claimOrder({
+          token: payToken,
+          telegramId: String(ctx.from.id),
+          username: ctx.from.username,
+          firstName: ctx.from.first_name,
+          lastName: ctx.from.last_name,
+          languageCode: ctx.from.language_code,
+        });
+        await ctx.reply(
+          `Заказ ${claimed.orderNumber} добавлен в ваш профиль. Оплатить его можно кнопкой «Оплатить» в сообщении выше или в разделе «Профиль → Заказы».`,
+        );
+      } catch (error) {
+        console.error('[claim] failed:', error instanceof Error ? error.message : error);
+        await ctx.reply(
+          'Ссылка на заказ недействительна или заказ уже привязан к другому аккаунту. Напишите менеджеру: @lh_poizonmanager',
+        );
+      }
+      return;
+    }
+
     // Website login: t.me/<bot>?start=login_<code>. Clients pass the usual
     // subscription gate first; everyone confirms with an explicit tap.
     const loginToken = extractLoginToken(ctx.payload);

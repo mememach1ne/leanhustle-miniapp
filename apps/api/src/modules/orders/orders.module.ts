@@ -8,6 +8,7 @@ import { RaketaModule } from '../raketa/raketa.module';
 import { SettingsModule } from '../settings/settings.module';
 import { StaffModule } from '../staff/staff.module';
 import { UsersModule } from '../users/users.module';
+import { OrderClaimController } from './order-claim.controller';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { OrderNotificationsService } from './services/order-notifications.service';
@@ -26,7 +27,7 @@ import { StaffOrdersController } from './staff-orders.controller';
     StaffModule,
     UsersModule,
   ],
-  controllers: [OrdersController, StaffOrdersController],
+  controllers: [OrdersController, StaffOrdersController, OrderClaimController],
   providers: [
     OrdersService,
     OrderNumberService,

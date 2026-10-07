@@ -73,6 +73,8 @@ export default function AdminCreateOrderPage() {
   const [commission, setCommission] = useState('');
   const [insurance, setInsurance] = useState(false);
   const [alreadyPaid, setAlreadyPaid] = useState(false);
+  // Without a client: own RAKETA purchase, or the client pays via a bot link.
+  const [payByLink, setPayByLink] = useState(false);
   const [cnyToRub, setCnyToRub] = useState<number | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
@@ -90,6 +92,8 @@ export default function AdminCreateOrderPage() {
   }, []);
 
   const hasClient = Boolean(lookup);
+  // Order goes into our system (client profile or claimable via link).
+  const ownOrder = hasClient || payByLink;
   const savedAddresses: DeliveryAddressDto[] = lookup?.addresses ?? [];
   const selectedAddress = savedAddresses.find((a) => a.id === addressId) ?? null;
 
@@ -155,17 +159,17 @@ export default function AdminCreateOrderPage() {
       if (!Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1) {
         return `${n}количество — целое число от 1.`;
       }
-      if (!hasClient && !item.chinaTrack.trim()) {
+      if (!ownOrder && !item.chinaTrack.trim()) {
         return `${n}без клиента заказ создаётся сразу в RAKETA — нужен китайский трек.`;
       }
     }
-    const needsNewRecipient = hasClient ? addressId === 'new' : withDelivery;
+    const needsNewRecipient = hasClient ? addressId === 'new' : payByLink || withDelivery;
     if (needsNewRecipient) {
       if (!FIO_RE.test(recipientName.trim())) return 'ФИО получателя: фамилия и имя (и отчество) на русском.';
       if (!PHONE_RE.test(recipientPhone.trim())) return 'Телефон получателя в формате +7XXXXXXXXXX.';
       if (!point) return 'Выберите пункт СДЭК.';
     }
-    if (hasClient && !(Number(commission) >= 0 && Number(commission) <= 100)) {
+    if (ownOrder && !(Number(commission) >= 0 && Number(commission) <= 100)) {
       return 'Комиссия — число от 0 до 100.';
     }
     return null;
@@ -202,9 +206,9 @@ export default function AdminCreateOrderPage() {
     setSuccess(null);
     try {
       const list = itemsPayload();
-      if (hasClient && lookup) {
+      if (ownOrder) {
         const delivery =
-          addressId !== 'new' && selectedAddress
+          hasClient && addressId !== 'new' && selectedAddress
             ? {
                 fullName: selectedAddress.fullName,
                 cdekAddress: selectedAddress.cdekAddress,
@@ -218,7 +222,8 @@ export default function AdminCreateOrderPage() {
                 pickupPoint: (point as PickedPoint).pickupPoint,
               };
         const order = await adminApi.createManualOrder({
-          username: lookup.client.username ?? username.trim().replace(/^@+/, ''),
+          username: lookup ? (lookup.client.username ?? username.trim().replace(/^@+/, '')) : undefined,
+          claimByLink: !lookup,
           items: list.map((item) => ({
             dewuLink: item.link,
             productTitle: item.productTitle,
@@ -236,7 +241,7 @@ export default function AdminCreateOrderPage() {
           delivery,
           commissionPercent: Number(commission),
           insurance,
-          alreadyPaid,
+          alreadyPaid: hasClient && alreadyPaid,
           raketaTitle: title.trim() || undefined,
         });
         router.push(`/admin/orders/${order.id}`);
@@ -336,6 +341,33 @@ export default function AdminCreateOrderPage() {
           </button>
         </div>
         {lookupError ? <p className="mt-1 text-[11px] text-rose-300">{lookupError}</p> : null}
+        {!lookup ? (
+          <div className="mt-3 space-y-2 text-xs text-white/80">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                checked={!payByLink}
+                onChange={() => setPayByLink(false)}
+                className="accent-[var(--accent)]"
+              />
+              Без клиента — только в RAKETA (себе / без комиссии)
+            </label>
+            <label className="flex items-start gap-2">
+              <input
+                type="radio"
+                checked={payByLink}
+                onChange={() => setPayByLink(true)}
+                className="mt-0.5 accent-[var(--accent)]"
+              />
+              <span>
+                Клиент оплатит по ссылке
+                <span className="block text-white/40">
+                  Получите ссылку в бота — клиент перейдёт, заказ появится у него в профиле, и он оплатит его.
+                </span>
+              </span>
+            </label>
+          </div>
+        ) : null}
         {lookup ? (
           <p className="mt-2 text-xs text-emerald-300">
             {[lookup.client.firstName, lookup.client.lastName].filter(Boolean).join(' ')}
@@ -452,7 +484,7 @@ export default function AdminCreateOrderPage() {
                     </div>
                     <div className="col-span-2 sm:col-span-1">
                       <label className="mb-1 block text-[11px] text-white/50">
-                        Китайский трек {hasClient ? '(можно позже)' : ''}
+                        Китайский трек {ownOrder ? '(можно позже)' : ''}
                       </label>
                       <input
                         type="text"
@@ -516,7 +548,7 @@ export default function AdminCreateOrderPage() {
           </div>
         ) : null}
 
-        {!hasClient ? (
+        {!hasClient && !payByLink ? (
           <label className="mb-3 flex items-center gap-2 text-xs text-white/80">
             <input
               type="checkbox"
@@ -528,7 +560,7 @@ export default function AdminCreateOrderPage() {
           </label>
         ) : null}
 
-        {(hasClient && addressId === 'new') || (!hasClient && withDelivery) ? (
+        {(hasClient && addressId === 'new') || (!hasClient && (payByLink || withDelivery)) ? (
           <div className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -571,12 +603,12 @@ export default function AdminCreateOrderPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={100}
-              placeholder={hasClient ? 'Автоматически: «LP042 Иванов 2 шт»' : 'Автоматически: «Личный N шт»'}
+              placeholder={ownOrder ? 'Автоматически: «LP042 Иванов 2 шт»' : 'Автоматически: «Личный N шт»'}
               className={inputClass}
             />
           </div>
 
-          {hasClient ? (
+          {ownOrder ? (
             <div>
               <label className="mb-1 block text-xs text-white/60">Комиссия, %</label>
               <input
@@ -637,7 +669,13 @@ export default function AdminCreateOrderPage() {
         disabled={submitting}
         className="w-full rounded-[18px] bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-slate-950 transition disabled:opacity-50"
       >
-        {submitting ? 'Создаём…' : hasClient ? 'Создать заказ клиенту' : 'Создать в RAKETA'}
+        {submitting
+          ? 'Создаём…'
+          : hasClient
+            ? 'Создать заказ клиенту'
+            : payByLink
+              ? 'Создать заказ и получить ссылку'
+              : 'Создать в RAKETA'}
       </button>
     </PageSection>
   );
