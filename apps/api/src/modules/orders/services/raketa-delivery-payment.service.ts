@@ -272,8 +272,28 @@ export class RaketaDeliveryPaymentService {
 
     const price = await this.raketa.getPrice(target.kind, target.id);
     if (price.controls?.paid_button) {
-      // Paid by hand in the cabinet.
-      await this.prisma.order.update({ where: { id: order.id }, data: { raketaPaidAt: new Date() } });
+      // Paid by hand in the cabinet: the delivery is paid, tracking takes over.
+      const now = new Date();
+      const waiting = ASK_DELIVERY_STATUSES.includes(order.status) || order.status === OrderStatus.DELIVERY_PAYMENT_PENDING;
+      await this.prisma.$transaction(async (tx) => {
+        await tx.order.update({
+          where: { id: order.id },
+          data: {
+            raketaPaidAt: now,
+            ...(waiting ? { status: OrderStatus.DELIVERY_PAID, deliveryPaidAt: order.deliveryPaidAt ?? now } : {}),
+          },
+        });
+        if (waiting) {
+          await tx.orderStatusHistory.create({
+            data: {
+              orderId: order.id,
+              fromStatus: order.status,
+              toStatus: OrderStatus.DELIVERY_PAID,
+              comment: 'RAKETA: доставка оплачена в кабинете.',
+            },
+          });
+        }
+      });
       return;
     }
     const total = parseMoney(price.total);
