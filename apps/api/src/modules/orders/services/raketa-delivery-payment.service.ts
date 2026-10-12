@@ -17,6 +17,7 @@ import {
   type RaketaPrice,
 } from '../../raketa/raketa-client.service';
 import { OrderNotificationsService } from './order-notifications.service';
+import { distinctRaketaOrderIds } from './raketa-fulfillment.service';
 
 /** A ready-made top-up link is reused for this long, then a fresh one is made. */
 const TOPUP_LINK_TTL_MS = 6 * 60 * 60 * 1000;
@@ -335,8 +336,9 @@ export class RaketaDeliveryPaymentService {
 
   private paymentTarget(order: CycleOrder): { kind: 'consolidation' | 'order'; id: string } | null {
     if (order.raketaConsolidationId) return { kind: 'consolidation', id: order.raketaConsolidationId };
-    if (order.items.length === 1 && order.items[0].raketaOrderId) {
-      return { kind: 'order', id: order.items[0].raketaOrderId };
+    const ids = distinctRaketaOrderIds(order.items);
+    if (ids.length === 1 && order.items.every((item) => item.raketaOrderId)) {
+      return { kind: 'order', id: ids[0] };
     }
     return null;
   }

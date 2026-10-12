@@ -50,6 +50,14 @@ export function RaketaOrderPanel({
   const active = RAKETA_STATUSES.includes(order.status);
   const registered = fulfillment.items.filter((item) => item.raketaOrderId).length;
   const allRegistered = registered === fulfillment.items.length;
+  // Tracks already used in this order — another item may have come in the same parcel.
+  const usedTracks = [
+    ...new Set(
+      fulfillment.items
+        .filter((item) => item.raketaOrderId && item.chinaTrackNumber)
+        .map((item) => item.chinaTrackNumber as string),
+    ),
+  ];
 
   return (
     <SectionCard>
@@ -68,17 +76,22 @@ export function RaketaOrderPanel({
       </div>
 
       {fulfillment.manual ? (
-        <p className="text-xs text-white/50">Заказ ведётся вручную — автоматика RAKETA его не трогает.</p>
+        <p className="text-xs text-white/50">
+          Заказ ведётся вручную — автоматика RAKETA его не трогает.
+        </p>
       ) : (
         <div className="space-y-3 text-xs">
           <p className="text-white/60">
-            Зарегистрировано {registered} из {fulfillment.items.length} ·{' '}
-            Пункт СДЭК:{' '}
+            Зарегистрировано {registered} из {fulfillment.items.length} · Пункт СДЭК:{' '}
             <span className={fulfillment.pickupPoint ? 'text-white' : 'text-amber-200'}>
               {fulfillment.pickupPoint ?? 'не выбран из справочника'}
             </span>
             {!fulfillment.deliveryAssigned && fulfillment.pickupPoint && !pickerOpen ? (
-              <button type="button" onClick={() => setPickerOpen(true)} className="ml-2 text-[var(--accent)]">
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="ml-2 text-[var(--accent)]"
+              >
                 изменить
               </button>
             ) : null}
@@ -88,11 +101,13 @@ export function RaketaOrderPanel({
             <div className="space-y-3 rounded-xl border border-amber-300/30 bg-amber-400/5 p-3">
               {order.delivery?.cdekAddress ? (
                 <p className="text-white/70">
-                  Адрес клиента (текстом): <span className="text-white">{order.delivery.cdekAddress}</span>
+                  Адрес клиента (текстом):{' '}
+                  <span className="text-white">{order.delivery.cdekAddress}</span>
                 </p>
               ) : null}
               <p className="text-white/50">
-                Выберите пункт СДЭК — он сохранится в заказе и в адресе клиента для следующих заказов.
+                Выберите пункт СДЭК — он сохранится в заказе и в адресе клиента для следующих
+                заказов.
               </p>
               <PickupPointPicker value={picked} onChange={setPicked} />
               <div className="flex gap-2">
@@ -160,7 +175,24 @@ export function RaketaOrderPanel({
                       В RAKETA
                     </button>
                   </div>
-                ) : (
+                ) : null}
+                {!item.raketaOrderId && active && usedTracks.length ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-white/40">
+                    Пришёл вместе с другой вещью:
+                    {usedTracks.map((track) => (
+                      <button
+                        key={track}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => onChinaTrack(item.itemId, track)}
+                        className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-white/80 disabled:opacity-50"
+                      >
+                        тот же трек {track}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                {item.raketaOrderId ? null : active ? null : (
                   <p className="mt-1 text-white/40">Для этого статуса заказа трек ввести нельзя.</p>
                 )}
               </div>

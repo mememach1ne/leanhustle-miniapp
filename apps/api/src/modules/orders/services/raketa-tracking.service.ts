@@ -7,6 +7,7 @@ import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RaketaClientService, type RaketaTracking } from '../../raketa/raketa-client.service';
 import { OrderNotificationsService } from './order-notifications.service';
+import { distinctRaketaOrderIds } from './raketa-fulfillment.service';
 
 /** RAKETA's milestones, in order (same names as its tracker's `line`). */
 const MILESTONES = [
@@ -92,7 +93,8 @@ export class RaketaTrackingService {
     if (!order) throw new NotFoundException('Заказ не найден.');
     if (order.fulfillmentManual || !order.items.some((item) => item.raketaTrackNumber)) return null;
 
-    const consolidated = order.items.length > 1 || Boolean(order.raketaConsolidationId);
+    // Several items under one China track are one RAKETA order — that's a single parcel.
+    const consolidated = distinctRaketaOrderIds(order.items).length > 1 || Boolean(order.raketaConsolidationId);
     const mainTrack = consolidated ? order.raketaParcelTrack : order.items[0].raketaTrackNumber;
     const track = (number: string | null | undefined) =>
       number ? this.raketa.getTracking(number).catch(() => null) : Promise.resolve(null);
@@ -195,7 +197,7 @@ export class RaketaTrackingService {
       const c = await this.raketa.getConsolidation(order.raketaConsolidationId);
       parcel = c.raketa_track_number ?? null;
       tk = c.tk_track_number ?? null;
-    } else if (order.items.length === 1 && order.items[0].raketaOrderId) {
+    } else if (distinctRaketaOrderIds(order.items).length === 1 && order.items[0].raketaOrderId) {
       const o = await this.raketa.getOrder(order.items[0].raketaOrderId);
       parcel = o.raketa_track_number ?? null;
       tk = o.tk_track_number ?? null;

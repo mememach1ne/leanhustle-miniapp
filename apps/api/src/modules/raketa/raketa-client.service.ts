@@ -437,6 +437,52 @@ export class RaketaClientService {
     });
   }
 
+  /**
+   * Adds an item to an existing order — several goods that Poizon sent under
+   * one China track live in one RAKETA order. Only before recipient/address
+   * are set (the caller checks). `title` replaces the order title if given.
+   */
+  async addOrderItem(input: {
+    orderId: string;
+    declarantId: string;
+    item: RaketaOrderItemPayload;
+    title?: string;
+  }): Promise<void> {
+    const res = await this.request<{ data: RaketaOrderDetails & Record<string, unknown> }>(
+      'GET',
+      `/customer_order/${encodeURIComponent(input.orderId)}`,
+    );
+    const order = res.data;
+    const keep = (key: string) => (typeof order[key] === 'string' ? (order[key] as string) : null);
+    await this.request('PUT', `/customer_order/${encodeURIComponent(input.orderId)}`, {
+      title: (input.title ?? order.title).slice(0, 190),
+      china_track_number: order.china_track_number,
+      seller_id: order.seller?.id ?? null,
+      declarant_id: input.declarantId,
+      items: [
+        ...(order.items ?? []).map((item) => ({
+          id: item.id,
+          link: item.link,
+          item_title: item.item_title,
+          discription_cn: item.discription_cn,
+          count: item.count,
+          price_cn: item.price_cn,
+          additional_services: [],
+        })),
+        input.item,
+      ],
+      additional_services: (order.additional_services ?? []).map((service) => service),
+      delivery_type: null,
+      receive_type: null,
+      customer_recipient_id: keep('customer_recipient_id'),
+      customer_address_id: keep('customer_address_id'),
+      tc_tariff_token: null,
+      consolidation_id: keep('consolidation_id'),
+      draft: false,
+      insurance: Boolean(order.insurance),
+    });
+  }
+
   async getOrder(id: string): Promise<RaketaOrder> {
     const body = await this.request<{ data: RaketaOrder }>('GET', `/customer_order/${encodeURIComponent(id)}`);
     return body.data;

@@ -762,6 +762,10 @@ export default function AdminCreateOrderPage() {
               ) : null}
             </div>
           ))}
+          <p className="text-[11px] text-white/40">
+            Если Poizon прислал несколько товаров одним треком — укажите у них одинаковый китайский
+            трек: в RAKETA они станут одним заказом.
+          </p>
           <button
             type="button"
             onClick={() => setItems((prev) => [...prev, emptyItem()])}

@@ -36,6 +36,11 @@ const RAKETA_NUMBER_RE = /^RA\d{6,}$/;
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+/** Distinct RAKETA orders of our order (items sent under one China track share one). */
+export function distinctRaketaOrderIds(items: Array<{ raketaOrderId: string | null }>): string[] {
+  return [...new Set(items.map((item) => item.raketaOrderId).filter((id): id is string => Boolean(id)))];
+}
+
 /** "Иванов Иван Иванович" → RAKETA recipient name parts (Cyrillic only). */
 function splitFullName(fullName: string): { lastName: string; name: string; middleName: string | null } | null {
   const parts = fullName.trim().split(/\s+/);
@@ -124,6 +129,47 @@ export class RaketaFulfillmentService {
         const found = await this.raketa.findOrderByTrack(track);
         if (!found) throw new Error(`в кабинете не найден заказ ${track}`);
         await this.linkItem(order, item.id, found, staff, 'привязан по номеру RAKETA');
+        await this.assignDeliveryIfReady(orderId, staff);
+        return this.ordersService.getOrderForStaff(orderId);
+      }
+
+      // Poizon sometimes ships several items under one track: they go into one RAKETA order.
+      const sibling = order.items.find(
+        (other) => other.id !== item.id && other.raketaOrderId && (other.chinaTrackNumber ?? '').toUpperCase() === track,
+      );
+      if (sibling?.raketaOrderId) {
+        if (order.raketaDeliveryAssignedAt) {
+          throw new Error('доставка по заказу уже оформлена — добавить вещь в эту посылку нельзя, оформите её вручную');
+        }
+        const ruTitleAdded = buildRaketaItemTitle({
+          title: item.productTitle,
+          categoryL1: item.categoryL1,
+          categoryL2: item.categoryL2,
+          categoryL3: item.categoryL3,
+        });
+        const existing = await this.raketa.getOrder(sibling.raketaOrderId);
+        await this.raketa.addOrderItem({
+          orderId: sibling.raketaOrderId,
+          declarantId: await this.raketa.getOwnDeclarantId(),
+          item: await this.itemPayload({
+            ruTitle: ruTitleAdded,
+            link: item.dewuLink,
+            dwSpuId: item.dwSpuId,
+            productTitle: item.productTitle,
+            size: item.sizeLabel,
+            quantity: item.quantity,
+            priceYuan: Number(item.priceYuan),
+          }),
+          title: `${existing.title} + ${ruTitleAdded}`,
+        });
+        await this.prisma.orderItem.update({ where: { id: item.id }, data: { chinaTrackNumber: track } });
+        await this.linkItem(
+          order,
+          item.id,
+          { ...existing, china_track_number: track },
+          staff,
+          'дополнен ещё одной вещью (тот же китайский трек)',
+        );
         await this.assignDeliveryIfReady(orderId, staff);
         return this.ordersService.getOrderForStaff(orderId);
       }
@@ -320,21 +366,22 @@ export class RaketaFulfillmentService {
       }
 
       let summary: string;
-      if (order.items.length > 1) {
+      const raketaOrderIds = distinctRaketaOrderIds(order.items);
+      if (raketaOrderIds.length > 1) {
         const consolidationId =
           order.raketaConsolidationId ??
           (await this.raketa.createConsolidation({
             title: order.raketaTitle?.trim() || `${order.orderNumber} ${name.lastName} ${order.items.length} шт`,
-            orderIds: order.items.map((item) => item.raketaOrderId as string),
+            orderIds: raketaOrderIds,
             recipientId,
             addressId,
             insurance: order.insurance,
           }));
         await this.prisma.order.update({ where: { id: order.id }, data: { raketaConsolidationId: consolidationId } });
-        summary = `создано объединение из ${order.items.length} заказов`;
+        summary = `создано объединение из ${raketaOrderIds.length} заказов (${order.items.length} шт)`;
       } else {
         await this.raketa.assignOrderDelivery({
-          orderId: order.items[0].raketaOrderId as string,
+          orderId: raketaOrderIds[0],
           declarantId: await this.raketa.getOwnDeclarantId(),
           recipientId,
           addressId,
@@ -417,22 +464,25 @@ export class RaketaFulfillmentService {
         );
       }
     });
-    if (new Set(tracks).size !== tracks.length) {
-      throw new BadRequestException('У каждого товара должен быть свой китайский трек.');
-    }
-
     const label = (input.label ?? '').trim().slice(0, 40) || 'Личный';
-    const many = input.items.length > 1;
+    // Items with the same China track (Poizon shipped them together) → one RAKETA order.
+    const groups = new Map<string, number[]>();
+    tracks.forEach((track, i) => groups.set(track, [...(groups.get(track) ?? []), i]));
+    const many = groups.size > 1;
     const orders: Array<{ id: string; raketaTrackNumber: string | null; title: string; existed: boolean }> = [];
 
-    for (const [i, item] of input.items.entries()) {
+    let groupNo = 0;
+    for (const [track, indexes] of groups) {
+      groupNo++;
+      const [i, ...rest] = indexes;
+      const item = input.items[i];
       const ruTitle = buildRaketaItemTitle({
         title: item.productTitle,
         categoryL1: item.categoryL1,
         categoryL2: item.categoryL2,
         categoryL3: item.categoryL3,
       });
-      const title = `${many ? `${label}-${i + 1}` : label}) ${ruTitle}`;
+      const title = `${many ? `${label}-${groupNo}` : label}) ${ruTitle}`;
       try {
         const { order, existed } = await this.findOrCreate({
           title,
@@ -447,13 +497,39 @@ export class RaketaFulfillmentService {
           titleCn: item.titleCn,
           insurance: input.insurance,
         });
-        orders.push({ id: order.id, raketaTrackNumber: order.raketa_track_number ?? null, title: order.title || title, existed });
-        this.logger.log(`RAKETA quick order ${order.id} ${existed ? 'found' : 'created'} (${tracks[i]})`);
+        let fullTitle = order.title || title;
+        for (const j of rest) {
+          const extra = input.items[j];
+          const extraTitle = buildRaketaItemTitle({
+            title: extra.productTitle,
+            categoryL1: extra.categoryL1,
+            categoryL2: extra.categoryL2,
+            categoryL3: extra.categoryL3,
+          });
+          fullTitle = `${fullTitle} + ${extraTitle}`;
+          await this.raketa.addOrderItem({
+            orderId: order.id,
+            declarantId: await this.raketa.getOwnDeclarantId(),
+            item: await this.itemPayload({
+              ruTitle: extraTitle,
+              link: extra.link,
+              dwSpuId: extra.dwSpuId,
+              productTitle: extra.productTitle,
+              size: extra.size,
+              quantity: extra.quantity,
+              priceYuan: extra.priceYuan,
+              titleCn: extra.titleCn,
+            }),
+            title: fullTitle,
+          });
+        }
+        orders.push({ id: order.id, raketaTrackNumber: order.raketa_track_number ?? null, title: fullTitle, existed });
+        this.logger.log(`RAKETA quick order ${order.id} ${existed ? 'found' : 'created'} (${track}, ${indexes.length} шт)`);
       } catch (error) {
         const done = orders.length
           ? ` Уже созданы: ${orders.map((o) => o.raketaTrackNumber ?? o.id).join(', ')}.`
           : '';
-        throw new BadRequestException(`RAKETA: товар ${i + 1} — ${errorText(error)}.${done}`);
+        throw new BadRequestException(`RAKETA: трек ${track} — ${errorText(error)}.${done}`);
       }
     }
 
@@ -529,18 +605,7 @@ export class RaketaFulfillmentService {
         china_track_number: input.track,
         seller_id: RAKETA_POIZON_SELLER_ID,
         declarant_id: await this.raketa.getOwnDeclarantId(),
-        items: [
-          {
-            link: input.link,
-            item_title: input.ruTitle,
-            discription_cn: input.titleCn
-              ? `${input.titleCn} 尺码 ${input.size}`.slice(0, 500)
-              : await this.chineseDescription(input.dwSpuId, input.productTitle, input.size),
-            count: input.quantity,
-            price_cn: input.priceYuan.toFixed(0),
-            additional_services: [],
-          },
-        ],
+        items: [await this.itemPayload(input)],
         additional_services: [],
         delivery_type: null,
         receive_type: null,
@@ -597,6 +662,29 @@ export class RaketaFulfillmentService {
         },
       }),
     ]);
+  }
+
+  /** One RAKETA order item: Russian title, Chinese description, price ¥. */
+  private async itemPayload(input: {
+    ruTitle: string;
+    link: string;
+    dwSpuId: string;
+    productTitle: string;
+    size: string;
+    quantity: number;
+    priceYuan: number;
+    titleCn?: string | null;
+  }) {
+    return {
+      link: input.link,
+      item_title: input.ruTitle,
+      discription_cn: input.titleCn
+        ? `${input.titleCn} 尺码 ${input.size}`.slice(0, 500)
+        : await this.chineseDescription(input.dwSpuId, input.productTitle, input.size),
+      count: input.quantity,
+      price_cn: input.priceYuan.toFixed(0),
+      additional_services: [] as string[],
+    };
   }
 
   /** Chinese title from the price engine (RAKETA needs a description in Chinese). */
