@@ -589,6 +589,8 @@ export class OrdersService {
             categoryL3: input.categoryL3?.trim() || null,
             sizeLabel: input.sizeLabel?.trim() || '—',
             versionLabel: input.versionLabel?.trim() || null,
+            // Kept on the item itself: the background registration uses it, no guessing by title.
+            chinaTrackNumber: input.chinaTrackNumber?.replace(/\s+/g, '').toUpperCase() || null,
             quantity: input.quantity,
             priceYuan: new Prisma.Decimal(pricing.priceYuan),
             originalTotalUsd: new Prisma.Decimal(pricing.totalUsd),

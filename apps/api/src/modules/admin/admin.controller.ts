@@ -147,31 +147,12 @@ export class AdminController {
     // Items that already have a China track go to RAKETA — in the background:
     // ~4 s per item, a big order would outlive the HTTP request. Progress and
     // errors show on the order page («Зарегистрировано N из M», RAKETA error).
-    // Items are matched by title + size in order (createMany shares one timestamp).
+    // Each item keeps its own track (saved at creation), so nothing is matched by title.
     const withTrack = dto.items.filter((item) => item.chinaTrackNumber?.trim());
     if (withTrack.length === 0) return created;
 
-    const pool = [...created.fulfillment.items];
-    const jobs: Array<{ itemId: string; track: string }> = [];
-    for (const item of withTrack) {
-      const index = pool.findIndex(
-        (f) => f.title === item.productTitle.trim() && f.size === (item.sizeLabel?.trim() || '—'),
-      );
-      const target = index >= 0 ? pool.splice(index, 1)[0] : undefined;
-      if (target) jobs.push({ itemId: target.itemId, track: item.chinaTrackNumber as string });
-    }
-    void (async () => {
-      for (const job of jobs) {
-        try {
-          await this.raketaFulfillment.registerChinaTrack(created.id, job.itemId, job.track, staff);
-        } catch (error) {
-          this.logger.warn(
-            `RAKETA background registration for ${created.orderNumber}: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
-      }
-    })();
-    return { ...created, raketaQueued: jobs.length };
+    void this.raketaFulfillment.registerStoredTracks(created.id, staff);
+    return { ...created, raketaQueued: withTrack.length };
   }
 
   @Get('orders/manual/lookup-client')

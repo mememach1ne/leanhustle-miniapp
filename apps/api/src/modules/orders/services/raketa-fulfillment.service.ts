@@ -58,6 +58,35 @@ function splitFullName(fullName: string): { lastName: string; name: string; midd
 @Injectable()
 export class RaketaFulfillmentService {
   private readonly logger = new Logger(RaketaFulfillmentService.name);
+  /** One RAKETA operation per order at a time (background registration vs. a click in the panel). */
+  private readonly orderLocks = new Map<string, Promise<unknown>>();
+
+  private withOrderLock<T>(orderId: string, fn: () => Promise<T>): Promise<T> {
+    const previous = this.orderLocks.get(orderId) ?? Promise.resolve();
+    const run = previous.catch(() => undefined).then(fn);
+    const tail = run.catch(() => undefined);
+    this.orderLocks.set(orderId, tail);
+    void tail.then(() => {
+      if (this.orderLocks.get(orderId) === tail) this.orderLocks.delete(orderId);
+    });
+    return run;
+  }
+
+  /** Background job after a manual order: register every item that came with a China track. */
+  async registerStoredTracks(orderId: string, staff: StaffAccount): Promise<void> {
+    const items = await this.prisma.orderItem.findMany({
+      where: { orderId, raketaOrderId: null, chinaTrackNumber: { not: null } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { id: true, chinaTrackNumber: true },
+    });
+    for (const item of items) {
+      try {
+        await this.registerChinaTrack(orderId, item.id, item.chinaTrackNumber as string, staff);
+      } catch (error) {
+        this.logger.warn(`RAKETA background registration (${orderId}): ${errorText(error)}`);
+      }
+    }
+  }
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
@@ -89,7 +118,16 @@ export class RaketaFulfillmentService {
     return this.ordersService.getOrderForStaff(orderId);
   }
 
-  async registerChinaTrack(
+  registerChinaTrack(
+    orderId: string,
+    itemId: string,
+    rawTrack: string,
+    staff: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.withOrderLock(orderId, () => this.registerChinaTrackUnlocked(orderId, itemId, rawTrack, staff));
+  }
+
+  private async registerChinaTrackUnlocked(
     orderId: string,
     itemId: string,
     rawTrack: string,
@@ -221,7 +259,16 @@ export class RaketaFulfillmentService {
    * (old clients). Saved on the order AND on the client's address, so next
    * orders already have it; then the delivery step runs if everything's ready.
    */
-  async setPickupPoint(
+  setPickupPoint(
+    orderId: string,
+    point: { cityId: string; city: string; region?: string | null; pvzCode: string; pvzIndex?: string | null },
+    label: string,
+    staff: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    return this.withOrderLock(orderId, () => this.setPickupPointUnlocked(orderId, point, label, staff));
+  }
+
+  private async setPickupPointUnlocked(
     orderId: string,
     point: { cityId: string; city: string; region?: string | null; pvzCode: string; pvzIndex?: string | null },
     label: string,
@@ -300,7 +347,7 @@ export class RaketaFulfillmentService {
     if (!order || order.fulfillmentManual || order.raketaDeliveryAssignedAt) return;
     if (!order.items.every((item) => item.raketaOrderId)) return;
     try {
-      await this.assignDelivery(orderId, staff);
+      await this.assignDeliveryUnlocked(orderId, staff);
     } catch (error) {
       // Already stored as raketaLastError — the bot shows it with a retry button.
       this.logger.warn(`RAKETA delivery step failed for ${order.orderNumber}: ${errorText(error)}`);
@@ -311,7 +358,11 @@ export class RaketaFulfillmentService {
    * Stage 3: recipient + CDEK pickup-point address at RAKETA; one item → set
    * on that order, several items → one consolidation with all of them.
    */
-  async assignDelivery(orderId: string, staff: StaffAccount): Promise<StaffOrderDetailsDto> {
+  assignDelivery(orderId: string, staff: StaffAccount): Promise<StaffOrderDetailsDto> {
+    return this.withOrderLock(orderId, () => this.assignDeliveryUnlocked(orderId, staff));
+  }
+
+  private async assignDeliveryUnlocked(orderId: string, staff: StaffAccount): Promise<StaffOrderDetailsDto> {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { items: { orderBy: { createdAt: 'asc' } } },
