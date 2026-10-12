@@ -602,7 +602,13 @@ export class RaketaClientService {
       | (T & { errors?: unknown; message?: unknown })
       | null;
     if (!res.ok || !json) {
-      throw new RaketaApiError(`RAKETA ${method} ${path}: ${describeError(json) ?? `HTTP ${res.status}`}`, res.status);
+      const reason = describeError(json);
+      // An expired token sometimes comes back as 400/403 «Срок действия токена истек» — log in again once.
+      if (retry && reason && /токен|token/i.test(reason)) {
+        this.token = null;
+        return this.request<T>(method, path, body, false);
+      }
+      throw new RaketaApiError(`RAKETA ${method} ${path}: ${reason ?? `HTTP ${res.status}`}`, res.status);
     }
     return json;
   }
