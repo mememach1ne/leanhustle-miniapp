@@ -281,6 +281,27 @@ export default function AdminOrderDetailPage() {
           </div>
         ) : null}
 
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {order.hiddenFromClient ? (
+            <span className="inline-flex items-center rounded-full border border-amber-300/30 bg-amber-400/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-100">
+              Скрыт от клиента
+            </span>
+          ) : null}
+          <button
+            type="button"
+            disabled={actionLoading}
+            onClick={() =>
+              runAction(
+                () => adminApi.setClientVisibility(id, !order.hiddenFromClient),
+                order.hiddenFromClient ? 'Заказ снова виден клиенту.' : 'Заказ скрыт от клиента.',
+              )
+            }
+            className="rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+          >
+            {order.hiddenFromClient ? 'Показать клиенту' : 'Скрыть от клиента'}
+          </button>
+        </div>
+
         {/* Customer info */}
         <div className="mt-4 rounded-xl bg-white/5 p-3">
           <h3 className="text-xs font-semibold text-white/60">Клиент</h3>

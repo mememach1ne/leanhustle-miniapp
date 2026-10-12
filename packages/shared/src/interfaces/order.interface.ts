@@ -289,6 +289,8 @@ export interface StaffOrderDetailsDto extends OrderDetailsDto {
   fulfillment: StaffOrderFulfillmentDto;
   /** Bot link for an order created without a client (null once claimed). */
   claimUrl: string | null;
+  /** Hidden from the client while staff fix it. */
+  hiddenFromClient: boolean;
 }
 
 export interface SetChinaTrackRequest {

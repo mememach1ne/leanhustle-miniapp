@@ -128,7 +128,7 @@ export class RaketaDeliveryPaymentService {
 
   /** Client asks for the payment link (site / Mini App «Оплатить доставку»). */
   async getPaymentLinkForUser(userId: string, orderId: string): Promise<{ url: string; amountRub: number }> {
-    const order = await this.prisma.order.findFirst({ where: { id: orderId, userId } });
+    const order = await this.prisma.order.findFirst({ where: { id: orderId, userId, hiddenFromClient: false } });
     if (!order) throw new NotFoundException('Заказ не найден.');
     if (order.status !== OrderStatus.DELIVERY_PAYMENT_PENDING || !order.raketaTopupAmount) {
       throw new BadRequestException('Для этого заказа сейчас нечего оплачивать.');

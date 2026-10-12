@@ -751,7 +751,7 @@ export class OrdersService {
 
   async getCurrentUserOrders(userId: string): Promise<OrderListItemDto[]> {
     const orders = await this.prisma.order.findMany({
-      where: { userId },
+      where: { userId, hiddenFromClient: false },
       orderBy: {
         createdAt: 'desc',
       },
@@ -777,6 +777,27 @@ export class OrdersService {
   ): Promise<OrderDetailsDto> {
     const order = await this.getOwnedOrderOrThrow(userId, orderId);
     return mapOrderToDetailsDto(order);
+  }
+
+  /** Hide / show the order to its client (staff are fixing it). */
+  async setHiddenFromClient(orderId: string, hidden: boolean, staff: StaffAccount): Promise<StaffOrderDetailsDto> {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Заказ не найден.');
+    if (order.hiddenFromClient !== hidden) {
+      await this.prisma.$transaction([
+        this.prisma.order.update({ where: { id: orderId }, data: { hiddenFromClient: hidden } }),
+        this.prisma.orderStatusHistory.create({
+          data: {
+            orderId,
+            fromStatus: order.status,
+            toStatus: order.status,
+            changedByStaffId: staff.id,
+            comment: hidden ? 'Заказ скрыт от клиента.' : 'Заказ снова виден клиенту.',
+          },
+        }),
+      ]);
+    }
+    return this.getOrderForStaff(orderId);
   }
 
   async getOrderForStaff(orderId: string): Promise<StaffOrderDetailsDto> {
@@ -1684,6 +1705,7 @@ export class OrdersService {
       where: {
         id: orderId,
         userId,
+        hiddenFromClient: false,
       },
       include: {
         statusHistory: {

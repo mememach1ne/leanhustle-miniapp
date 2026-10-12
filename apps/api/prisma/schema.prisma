@@ -181,6 +181,8 @@ model Order {
   // Order created for a not-yet-known client: they claim it via a bot link.
   claimToken                    String?        @unique @map("claim_token") @db.VarChar(64)
   fulfillmentManual             Boolean        @default(false) @map("fulfillment_manual")
+  /// Hidden from the client (list, page, tracking) while staff fix the order.
+  hiddenFromClient              Boolean        @default(false) @map("hidden_from_client")
   raketaRecipientId             String?        @map("raketa_recipient_id") @db.VarChar(64)
   raketaAddressId               String?        @map("raketa_address_id") @db.VarChar(64)
   raketaDeliveryAssignedAt      DateTime?      @map("raketa_delivery_assigned_at") @db.Timestamptz(6)

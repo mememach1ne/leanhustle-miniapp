@@ -453,6 +453,10 @@ export const adminApi = {
     });
     return response.data;
   },
+  async setClientVisibility(id: string, hidden: boolean): Promise<StaffOrderDetailsDto> {
+    const response = await apiClient.post<StaffOrderDetailsDto>(`/admin/orders/${id}/client-visibility`, { hidden });
+    return response.data;
+  },
   async assignRaketaDelivery(id: string): Promise<StaffOrderDetailsDto> {
     const response = await apiClient.post<StaffOrderDetailsDto>(
       `/admin/orders/${id}/raketa-delivery`,

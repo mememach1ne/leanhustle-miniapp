@@ -87,7 +87,7 @@ export class RaketaTrackingService {
   /** Tracking for the order page; null when the order isn't handled through RAKETA. */
   async getForUser(userId: string, orderId: string): Promise<OrderTrackingDto | null> {
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, userId },
+      where: { id: orderId, userId, hiddenFromClient: false },
       include: { items: { orderBy: { createdAt: 'asc' } } },
     });
     if (!order) throw new NotFoundException('Заказ не найден.');

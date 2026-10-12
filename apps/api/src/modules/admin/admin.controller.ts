@@ -52,6 +52,7 @@ import { SettingsService } from '../settings/settings.service';
 import { CurrentStaff } from '../staff/decorators/current-staff.decorator';
 import { JwtStaffAuthGuard } from '../staff/guards/jwt-staff-auth.guard';
 import { AdminService } from './admin.service';
+import { SetClientVisibilityDto } from './dto/set-client-visibility.dto';
 import { SetOrderPickupPointDto } from './dto/set-order-pickup-point.dto';
 import { AdminOrdersQueryDto, AdminOrdersSearchQueryDto } from './dto/admin-orders-query.dto';
 import { AdminUsersQueryDto } from './dto/admin-users-query.dto';
@@ -225,6 +226,17 @@ export class AdminController {
   ): Promise<StaffOrderDetailsDto> {
     if (!staff) throw new ForbiddenException('Staff access is required.');
     return this.raketaFulfillment.setManual(id, dto.manual, staff);
+  }
+
+  /** Hide the order from the client (or show it again) while it's being fixed. */
+  @Post('orders/:id/client-visibility')
+  async setClientVisibility(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetClientVisibilityDto,
+    @CurrentStaff() staff?: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    if (!staff) throw new ForbiddenException('Staff access is required.');
+    return this.ordersService.setHiddenFromClient(id, dto.hidden, staff);
   }
 
   /** Pick the CDEK point for an order with a hand-typed address (saved to the client's address too). */

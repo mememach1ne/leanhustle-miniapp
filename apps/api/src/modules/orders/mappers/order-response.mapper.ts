@@ -41,6 +41,7 @@ type OrderWithItems = {
   raketaLastError?: string | null;
   raketaDeliveryAssignedAt?: Date | null;
   claimToken?: string | null;
+  hiddenFromClient?: boolean;
   insuranceRub?: Prisma.Decimal;
   deliveryPvzCode?: string | null;
   deliveryCity?: string | null;
@@ -244,6 +245,7 @@ export const mapOrderToStaffDetailsDto = (
     ...mapOrderToDetailsDto(order),
     user: mapStaffUser(order.user),
     claimUrl: order.claimToken ? `https://t.me/lh_poizonbot?start=pay_${order.claimToken}` : null,
+    hiddenFromClient: order.hiddenFromClient ?? false,
     statusHistory:
       order.statusHistory?.map<StaffOrderStatusHistoryItemDto>((item) => ({
         id: item.id,
