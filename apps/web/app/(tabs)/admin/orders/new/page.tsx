@@ -12,7 +12,10 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { FeedbackMessage } from '../../../../../components/ui/feedback-message';
 import { PageSection } from '../../../../../components/ui/page-section';
-import { type PickedPoint, PickupPointPicker } from '../../../../../components/ui/pickup-point-picker';
+import {
+  type PickedPoint,
+  PickupPointPicker,
+} from '../../../../../components/ui/pickup-point-picker';
 import { SectionCard } from '../../../../../components/ui/section-card';
 import { adminApi } from '../../../../../lib/api-client';
 import { extractAxiosMessage } from '../../../../../lib/error-utils';
@@ -32,6 +35,10 @@ interface DraftItem {
   price: string;
   quantity: string;
   chinaTrack: string;
+  /** Typed by hand when the engine can't resolve the link. */
+  manual: boolean;
+  manualTitle: string;
+  manualSize: string;
 }
 
 let nextKey = 1;
@@ -45,7 +52,51 @@ const emptyItem = (): DraftItem => ({
   price: '',
   quantity: '1',
   chinaTrack: '',
+  manual: false,
+  manualTitle: '',
+  manualSize: '',
 });
+
+/** The whole form is kept in the browser for a day, so a reload or a deploy doesn't lose it. */
+const DRAFT_KEY = 'lh:admin-new-order-draft';
+const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+
+interface OrderDraft {
+  savedAt: number;
+  username: string;
+  lookup: ManualOrderClientLookupResponse | null;
+  addressId: string;
+  items: DraftItem[];
+  recipientName: string;
+  recipientPhone: string;
+  point: PickedPoint | null;
+  withDelivery: boolean;
+  title: string;
+  commission: string;
+  insurance: boolean;
+  alreadyPaid: boolean;
+  payByLink: boolean;
+}
+
+const readDraft = (): OrderDraft | null => {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as OrderDraft;
+    if (!draft.savedAt || Date.now() - draft.savedAt > DRAFT_TTL_MS || !Array.isArray(draft.items))
+      return null;
+    return draft;
+  } catch {
+    return null;
+  }
+};
+const clearDraft = () => {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // storage unavailable
+  }
+};
 
 const skuLabel = (sku: DewuProductSku) => [sku.size, sku.version].filter(Boolean).join(' · ');
 
@@ -80,6 +131,98 @@ export default function AdminCreateOrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  // Draft: restored once on mount, then saved on every change.
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftRestoredAt, setDraftRestoredAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    const draft = readDraft();
+    if (draft) {
+      const restoredItems = draft.items.map((item) => ({
+        ...item,
+        resolving: false,
+        manual: Boolean(item.manual),
+        manualTitle: item.manualTitle ?? '',
+        manualSize: item.manualSize ?? '',
+      }));
+      nextKey = Math.max(nextKey, ...restoredItems.map((item) => item.key + 1));
+      setUsername(draft.username);
+      setLookup(draft.lookup);
+      setAddressId(draft.addressId);
+      setItems(restoredItems.length ? restoredItems : [emptyItem()]);
+      setRecipientName(draft.recipientName);
+      setRecipientPhone(draft.recipientPhone);
+      setPoint(draft.point);
+      setWithDelivery(draft.withDelivery);
+      setTitle(draft.title);
+      setCommission(draft.commission);
+      setInsurance(draft.insurance);
+      setAlreadyPaid(draft.alreadyPaid);
+      setPayByLink(draft.payByLink);
+      setDraftRestoredAt(draft.savedAt);
+    }
+    setDraftReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    const timer = setTimeout(() => {
+      const draft: OrderDraft = {
+        savedAt: Date.now(),
+        username,
+        lookup,
+        addressId,
+        items,
+        recipientName,
+        recipientPhone,
+        point,
+        withDelivery,
+        title,
+        commission,
+        insurance,
+        alreadyPaid,
+        payByLink,
+      };
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      } catch {
+        // storage full / unavailable — the form still works
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [
+    draftReady,
+    username,
+    lookup,
+    addressId,
+    items,
+    recipientName,
+    recipientPhone,
+    point,
+    withDelivery,
+    title,
+    commission,
+    insurance,
+    alreadyPaid,
+    payByLink,
+  ]);
+
+  const resetForm = () => {
+    clearDraft();
+    setUsername('');
+    setLookup(null);
+    setAddressId('new');
+    setItems([emptyItem()]);
+    setRecipientName('');
+    setRecipientPhone('+7');
+    setPoint(null);
+    setWithDelivery(true);
+    setTitle('');
+    setInsurance(false);
+    setAlreadyPaid(false);
+    setPayByLink(false);
+    setDraftRestoredAt(null);
+  };
 
   useEffect(() => {
     adminApi
@@ -126,7 +269,9 @@ export default function AdminCreateOrderPage() {
         null;
       setAddressId(preferred ? preferred.id : 'new');
       if (!preferred) {
-        const fullName = [result.client.lastName, result.client.firstName].filter(Boolean).join(' ');
+        const fullName = [result.client.lastName, result.client.firstName]
+          .filter(Boolean)
+          .join(' ');
         if (FIO_RE.test(fullName)) setRecipientName(fullName);
       }
     } catch (err) {
@@ -153,8 +298,14 @@ export default function AdminCreateOrderPage() {
   const validate = (): string | null => {
     for (const [i, item] of items.entries()) {
       const n = items.length > 1 ? `Товар ${i + 1}: ` : '';
-      if (!item.product) return `${n}найдите товар по ссылке.`;
-      if (!item.sku) return `${n}выберите размер.`;
+      if (item.manual) {
+        if (!item.manualTitle.trim()) return `${n}укажите название товара.`;
+        if (!item.manualSize.trim()) return `${n}укажите размер.`;
+        if (!item.link.trim()) return `${n}вставьте ссылку на товар.`;
+      } else {
+        if (!item.product) return `${n}найдите товар по ссылке или введите его вручную.`;
+        if (!item.sku) return `${n}выберите размер.`;
+      }
       if (!(Number(item.price) > 0)) return `${n}укажите цену в юанях.`;
       if (!Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1) {
         return `${n}количество — целое число от 1.`;
@@ -165,8 +316,10 @@ export default function AdminCreateOrderPage() {
     }
     const needsNewRecipient = hasClient ? addressId === 'new' : payByLink || withDelivery;
     if (needsNewRecipient) {
-      if (!FIO_RE.test(recipientName.trim())) return 'ФИО получателя: фамилия и имя (и отчество) на русском.';
-      if (!PHONE_RE.test(recipientPhone.trim())) return 'Телефон получателя в формате +7XXXXXXXXXX.';
+      if (!FIO_RE.test(recipientName.trim()))
+        return 'ФИО получателя: фамилия и имя (и отчество) на русском.';
+      if (!PHONE_RE.test(recipientPhone.trim()))
+        return 'Телефон получателя в формате +7XXXXXXXXXX.';
       if (!point) return 'Выберите пункт СДЭК.';
     }
     if (ownOrder && !(Number(commission) >= 0 && Number(commission) <= 100)) {
@@ -177,6 +330,22 @@ export default function AdminCreateOrderPage() {
 
   const itemsPayload = () =>
     items.map((item) => {
+      if (item.manual) {
+        return {
+          link: item.link.trim(),
+          dwSpuId: 'manual',
+          productTitle: item.manualTitle.trim(),
+          titleCn: undefined as string | undefined,
+          productImage: undefined as string | undefined,
+          categoryL1: undefined as string | undefined,
+          categoryL2: undefined as string | undefined,
+          categoryL3: undefined as string | undefined,
+          size: item.manualSize.trim(),
+          priceYuan: Number(item.price),
+          quantity: Number(item.quantity),
+          chinaTrackNumber: item.chinaTrack.trim(),
+        };
+      }
       const product = item.product as DewuResolvedProduct;
       const sku = item.sku as DewuProductSku;
       return {
@@ -222,7 +391,9 @@ export default function AdminCreateOrderPage() {
                 pickupPoint: (point as PickedPoint).pickupPoint,
               };
         const order = await adminApi.createManualOrder({
-          username: lookup ? (lookup.client.username ?? username.trim().replace(/^@+/, '')) : undefined,
+          username: lookup
+            ? (lookup.client.username ?? username.trim().replace(/^@+/, ''))
+            : undefined,
           claimByLink: !lookup,
           items: list.map((item) => ({
             dewuLink: item.link,
@@ -244,6 +415,7 @@ export default function AdminCreateOrderPage() {
           alreadyPaid: hasClient && alreadyPaid,
           raketaTitle: title.trim() || undefined,
         });
+        clearDraft();
         router.push(`/admin/orders/${order.id}`);
         return;
       }
@@ -290,6 +462,7 @@ export default function AdminCreateOrderPage() {
       if (result.deliveryError) {
         setError(`Заказы созданы, но получателя/пункт указать не удалось: ${result.deliveryError}`);
       }
+      clearDraft();
       setItems([emptyItem()]);
     } catch (err) {
       setError(extractAxiosMessage(err) ?? 'Не удалось создать заказ.');
@@ -308,6 +481,22 @@ export default function AdminCreateOrderPage() {
       </Link>
       <h1 className="text-xl font-bold text-white">Новый заказ</h1>
 
+      {draftRestoredAt ? (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70">
+          <span>
+            Восстановлен черновик от{' '}
+            {new Intl.DateTimeFormat('ru-RU', {
+              day: 'numeric',
+              month: 'short',
+              hour: '2-digit',
+              minute: '2-digit',
+            }).format(new Date(draftRestoredAt))}
+          </span>
+          <button type="button" onClick={resetForm} className="shrink-0 text-rose-300">
+            Очистить форму
+          </button>
+        </div>
+      ) : null}
       {error ? <FeedbackMessage tone="error">{error}</FeedbackMessage> : null}
       {success ? <FeedbackMessage tone="success">{success}</FeedbackMessage> : null}
 
@@ -315,7 +504,8 @@ export default function AdminCreateOrderPage() {
       <SectionCard>
         <h3 className="mb-1 text-sm font-semibold text-white">Клиент</h3>
         <p className="mb-3 text-[11px] text-white/40">
-          С тегом заказ появится у клиента в профиле. Без тега — создаётся только в RAKETA (себе / без комиссии).
+          С тегом заказ появится у клиента в профиле. Без тега — создаётся только в RAKETA (себе /
+          без комиссии).
         </p>
         <div className="flex gap-2">
           <input
@@ -362,7 +552,8 @@ export default function AdminCreateOrderPage() {
               <span>
                 Клиент оплатит по ссылке
                 <span className="block text-white/40">
-                  Получите ссылку в бота — клиент перейдёт, заказ появится у него в профиле, и он оплатит его.
+                  Получите ссылку в бота — клиент перейдёт, заказ появится у него в профиле, и он
+                  оплатит его.
                 </span>
               </span>
             </label>
@@ -371,7 +562,8 @@ export default function AdminCreateOrderPage() {
         {lookup ? (
           <p className="mt-2 text-xs text-emerald-300">
             {[lookup.client.firstName, lookup.client.lastName].filter(Boolean).join(' ')}
-            {lookup.client.username ? ` (@${lookup.client.username})` : ''} — заказ будет у клиента в профиле.
+            {lookup.client.username ? ` (@${lookup.client.username})` : ''} — заказ будет у клиента
+            в профиле.
           </p>
         ) : null}
       </SectionCard>
@@ -381,7 +573,10 @@ export default function AdminCreateOrderPage() {
         <h3 className="mb-3 text-sm font-semibold text-white">Товары</h3>
         <div className="space-y-3">
           {items.map((item, index) => (
-            <div key={item.key} className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <div
+              key={item.key}
+              className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3"
+            >
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-white/70">Товар {index + 1}</p>
                 {items.length > 1 ? (
@@ -412,53 +607,121 @@ export default function AdminCreateOrderPage() {
                   {item.resolving ? 'Загружаем…' : 'Найти'}
                 </button>
               </div>
-              {item.resolving ? <p className="text-[11px] text-white/40">Обычно это занимает 10–20 секунд.</p> : null}
-              {item.resolveError ? <p className="text-[11px] text-rose-300">{item.resolveError}</p> : null}
+              {item.resolving ? (
+                <p className="text-[11px] text-white/40">Обычно это занимает 10–20 секунд.</p>
+              ) : null}
+              {item.resolveError && !item.manual ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[11px] text-rose-300">{item.resolveError}</p>
+                  <button
+                    type="button"
+                    onClick={() => patch(item.key, { manual: true, product: null, sku: null })}
+                    className="rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-white"
+                  >
+                    Ввести вручную
+                  </button>
+                </div>
+              ) : null}
+              {!item.product &&
+              !item.manual &&
+              !item.resolveError &&
+              item.link.trim() &&
+              !item.resolving ? (
+                <button
+                  type="button"
+                  onClick={() => patch(item.key, { manual: true })}
+                  className="text-[11px] text-white/40 underline"
+                >
+                  или ввести товар вручную
+                </button>
+              ) : null}
 
-              {item.product ? (
-                <>
-                  <div className="flex gap-3">
-                    {item.product.mainImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={item.product.mainImage}
-                        alt=""
-                        className="h-14 w-14 shrink-0 rounded-xl bg-white object-contain"
-                      />
-                    ) : null}
-                    <p className="min-w-0 text-xs font-semibold text-white">{item.product.title}</p>
-                  </div>
-
-                  <div>
-                    <p className="mb-1.5 text-[11px] text-white/50">
-                      Размер — все размеры, в том числе которых сейчас нет в наличии
+              {item.manual ? (
+                <div className="space-y-2 rounded-xl border border-amber-300/20 bg-amber-400/5 p-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] text-amber-100">
+                      Ручной ввод: название, размер и цена из приложения Poizon.
                     </p>
-                    <div className="flex flex-wrap gap-2">
-                      {item.product.skus.map((sku) => (
-                        <button
-                          key={sku.dwSkuId}
-                          type="button"
-                          onClick={() =>
-                            patch(item.key, {
-                              sku,
-                              price: sku.priceYuan !== null ? String(sku.priceYuan) : item.price,
-                            })
-                          }
-                          className={[
-                            'rounded-xl border px-3 py-2 text-left text-xs transition',
-                            item.sku?.dwSkuId === sku.dwSkuId
-                              ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-white'
-                              : 'border-white/10 bg-white/5 text-white/80 hover:bg-white/10',
-                          ].join(' ')}
-                        >
-                          <span className="block font-semibold">{skuLabel(sku)}</span>
-                          <span className={sku.priceYuan !== null ? 'text-white/50' : 'text-white/30'}>
-                            {sku.priceYuan !== null ? `¥${sku.priceYuan}` : 'нет в наличии'}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => patch(item.key, { manual: false })}
+                      className="text-[11px] text-white/50"
+                    >
+                      отмена
+                    </button>
                   </div>
+                  <input
+                    type="text"
+                    value={item.manualTitle}
+                    onChange={(e) => patch(item.key, { manualTitle: e.target.value })}
+                    placeholder="Название, например Nike Air Force 1 Low White"
+                    className={inputClass}
+                  />
+                  <input
+                    type="text"
+                    value={item.manualSize}
+                    onChange={(e) => patch(item.key, { manualSize: e.target.value })}
+                    placeholder="Размер, например 42 или M"
+                    className={inputClass}
+                  />
+                </div>
+              ) : null}
+
+              {item.product || item.manual ? (
+                <>
+                  {item.product ? (
+                    <>
+                      <div className="flex gap-3">
+                        {item.product.mainImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={item.product.mainImage}
+                            alt=""
+                            className="h-14 w-14 shrink-0 rounded-xl bg-white object-contain"
+                          />
+                        ) : null}
+                        <p className="min-w-0 text-xs font-semibold text-white">
+                          {item.product.title}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="mb-1.5 text-[11px] text-white/50">
+                          Размер — все размеры, в том числе которых сейчас нет в наличии
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {item.product.skus.map((sku) => (
+                            <button
+                              key={sku.dwSkuId}
+                              type="button"
+                              onClick={() =>
+                                patch(item.key, {
+                                  sku,
+                                  price:
+                                    sku.priceYuan !== null ? String(sku.priceYuan) : item.price,
+                                })
+                              }
+                              className={[
+                                'rounded-xl border px-3 py-2 text-left text-xs transition',
+                                item.sku?.dwSkuId === sku.dwSkuId
+                                  ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-white'
+                                  : 'border-white/10 bg-white/5 text-white/80 hover:bg-white/10',
+                              ].join(' ')}
+                            >
+                              <span className="block font-semibold">{skuLabel(sku)}</span>
+                              <span
+                                className={
+                                  sku.priceYuan !== null ? 'text-white/50' : 'text-white/30'
+                                }
+                              >
+                                {sku.priceYuan !== null ? `¥${sku.priceYuan}` : 'нет в наличии'}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
 
                   <div className="grid grid-cols-[1fr_72px] gap-2 sm:grid-cols-[120px_72px_1fr]">
                     <div>
@@ -597,13 +860,17 @@ export default function AdminCreateOrderPage() {
         <h3 className="mb-3 text-sm font-semibold text-white">Параметры</h3>
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-xs text-white/60">Название объединения в RAKETA</label>
+            <label className="mb-1 block text-xs text-white/60">
+              Название объединения в RAKETA
+            </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={100}
-              placeholder={ownOrder ? 'Автоматически: «LP042 Иванов 2 шт»' : 'Автоматически: «Личный N шт»'}
+              placeholder={
+                ownOrder ? 'Автоматически: «LP042 Иванов 2 шт»' : 'Автоматически: «Личный N шт»'
+              }
               className={inputClass}
             />
           </div>
@@ -637,7 +904,8 @@ export default function AdminCreateOrderPage() {
               Защита от рисков RAKETA — полное возмещение при порче или утере.
               <span className="block text-white/50">
                 Стоит 1% от стоимости товаров в рублях
-                {insuranceRub ? ` — сейчас ≈ ${insuranceRub} ₽` : ''}, оплачивается вместе с доставкой.
+                {insuranceRub ? ` — сейчас ≈ ${insuranceRub} ₽` : ''}, оплачивается вместе с
+                доставкой.
               </span>
             </span>
           </label>
