@@ -170,6 +170,84 @@ export class RaketaFulfillmentService {
     return this.ordersService.getOrderForStaff(orderId);
   }
 
+  /**
+   * Staff picks the CDEK point for an order whose address was typed by hand
+   * (old clients). Saved on the order AND on the client's address, so next
+   * orders already have it; then the delivery step runs if everything's ready.
+   */
+  async setPickupPoint(
+    orderId: string,
+    point: { cityId: string; city: string; region?: string | null; pvzCode: string; pvzIndex?: string | null },
+    label: string,
+    staff: StaffAccount,
+  ): Promise<StaffOrderDetailsDto> {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Заказ не найден.');
+    if (order.raketaDeliveryAssignedAt) {
+      throw new BadRequestException('Доставка уже оформлена в RAKETA — пункт менять нельзя.');
+    }
+    const columns = {
+      cityId: point.cityId,
+      city: point.city,
+      region: point.region ?? null,
+      pvzCode: point.pvzCode,
+      pvzIndex: point.pvzIndex ?? null,
+    };
+    const cdekAddress = label.trim().slice(0, 512);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          deliveryCdekAddress: cdekAddress,
+          deliveryCityId: columns.cityId,
+          deliveryCity: columns.city,
+          deliveryRegion: columns.region,
+          deliveryPvzCode: columns.pvzCode,
+          deliveryPvzIndex: columns.pvzIndex,
+          raketaAddressId: null,
+          raketaLastError: null,
+        },
+      });
+
+      // Pin it to the client's saved address (the one used for this order), or add one.
+      if (order.userId) {
+        const own = order.deliveryAddressId
+          ? await tx.deliveryAddress.findFirst({ where: { id: order.deliveryAddressId, userId: order.userId } })
+          : null;
+        if (own) {
+          await tx.deliveryAddress.update({ where: { id: own.id }, data: { cdekAddress, ...columns } });
+        } else if (order.deliveryFullName && order.deliveryPhone) {
+          const count = await tx.deliveryAddress.count({ where: { userId: order.userId } });
+          const created = await tx.deliveryAddress.create({
+            data: {
+              userId: order.userId,
+              fullName: order.deliveryFullName,
+              phone: order.deliveryPhone,
+              cdekAddress,
+              isDefault: count === 0,
+              ...columns,
+            },
+          });
+          await tx.order.update({ where: { id: order.id }, data: { deliveryAddressId: created.id } });
+        }
+      }
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          fromStatus: order.status,
+          toStatus: order.status,
+          changedByStaffId: staff.id,
+          comment: `Пункт СДЭК выбран менеджером: ${cdekAddress} (было: ${order.deliveryCdekAddress ?? '—'}).`,
+        },
+      });
+    });
+
+    await this.assignDeliveryIfReady(orderId, staff);
+    return this.ordersService.getOrderForStaff(orderId);
+  }
+
   /** Runs the delivery step once every item is registered; errors are kept on the order. */
   private async assignDeliveryIfReady(orderId: string, staff: StaffAccount): Promise<void> {
     const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });

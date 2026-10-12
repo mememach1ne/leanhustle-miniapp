@@ -409,6 +409,12 @@ export default function AdminOrderDetailPage() {
         onAssignDelivery={() =>
           runAction(() => adminApi.assignRaketaDelivery(id), 'Доставка оформлена в RAKETA.')
         }
+        onSetPickupPoint={(point, label) =>
+          runAction(
+            () => adminApi.setOrderPickupPoint(id, point, label),
+            'Пункт СДЭК сохранён в заказе и в адресе клиента.',
+          )
+        }
         onToggleManual={(manual) =>
           runAction(
             () => adminApi.setFulfillmentMode(id, manual),

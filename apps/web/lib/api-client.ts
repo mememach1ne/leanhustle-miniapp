@@ -442,6 +442,17 @@ export const adminApi = {
     const response = await apiClient.post<StaffOrderDetailsDto>(`/admin/orders/${id}/fulfillment-mode`, { manual });
     return response.data;
   },
+  async setOrderPickupPoint(
+    id: string,
+    pickupPoint: DeliveryPickupPoint,
+    label: string,
+  ): Promise<StaffOrderDetailsDto> {
+    const response = await apiClient.post<StaffOrderDetailsDto>(`/admin/orders/${id}/pickup-point`, {
+      pickupPoint,
+      label,
+    });
+    return response.data;
+  },
   async assignRaketaDelivery(id: string): Promise<StaffOrderDetailsDto> {
     const response = await apiClient.post<StaffOrderDetailsDto>(
       `/admin/orders/${id}/raketa-delivery`,

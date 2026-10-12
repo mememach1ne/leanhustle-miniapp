@@ -1,9 +1,10 @@
 'use client';
 
-import type { StaffOrderDetailsDto } from '@lean-poizon/shared';
+import type { DeliveryPickupPoint, StaffOrderDetailsDto } from '@lean-poizon/shared';
 import { OrderStatus } from '@lean-poizon/shared';
 import { useState } from 'react';
 
+import { type PickedPoint, PickupPointPicker } from './pickup-point-picker';
 import { SectionCard } from './section-card';
 
 const inputClass =
@@ -30,14 +31,19 @@ export function RaketaOrderPanel({
   onChinaTrack,
   onAssignDelivery,
   onToggleManual,
+  onSetPickupPoint,
 }: {
   order: StaffOrderDetailsDto;
   busy: boolean;
   onChinaTrack: (itemId: string, track: string) => Promise<void>;
   onAssignDelivery: () => Promise<void>;
   onToggleManual: (manual: boolean) => Promise<void>;
+  /** Staff picks the CDEK point (saved to the order and the client's address). */
+  onSetPickupPoint: (point: DeliveryPickupPoint, label: string) => Promise<void>;
 }) {
   const [tracks, setTracks] = useState<Record<string, string>>({});
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [picked, setPicked] = useState<PickedPoint | null>(null);
   const fulfillment = order.fulfillment;
   if (!fulfillment) return null;
 
@@ -71,7 +77,53 @@ export function RaketaOrderPanel({
             <span className={fulfillment.pickupPoint ? 'text-white' : 'text-amber-200'}>
               {fulfillment.pickupPoint ?? 'не выбран из справочника'}
             </span>
+            {!fulfillment.deliveryAssigned && fulfillment.pickupPoint && !pickerOpen ? (
+              <button type="button" onClick={() => setPickerOpen(true)} className="ml-2 text-[var(--accent)]">
+                изменить
+              </button>
+            ) : null}
           </p>
+
+          {!fulfillment.deliveryAssigned && (!fulfillment.pickupPoint || pickerOpen) ? (
+            <div className="space-y-3 rounded-xl border border-amber-300/30 bg-amber-400/5 p-3">
+              {order.delivery?.cdekAddress ? (
+                <p className="text-white/70">
+                  Адрес клиента (текстом): <span className="text-white">{order.delivery.cdekAddress}</span>
+                </p>
+              ) : null}
+              <p className="text-white/50">
+                Выберите пункт СДЭК — он сохранится в заказе и в адресе клиента для следующих заказов.
+              </p>
+              <PickupPointPicker value={picked} onChange={setPicked} />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={busy || !picked}
+                  onClick={async () => {
+                    if (!picked) return;
+                    await onSetPickupPoint(picked.pickupPoint, picked.label);
+                    setPickerOpen(false);
+                    setPicked(null);
+                  }}
+                  className="flex-1 rounded-xl bg-[var(--accent)] px-3 py-2.5 text-xs font-semibold text-slate-950 disabled:opacity-50"
+                >
+                  Сохранить пункт
+                </button>
+                {fulfillment.pickupPoint ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPickerOpen(false);
+                      setPicked(null);
+                    }}
+                    className="rounded-xl bg-white/10 px-3 py-2.5 text-xs text-white"
+                  >
+                    Отмена
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             {fulfillment.items.map((item, index) => (
