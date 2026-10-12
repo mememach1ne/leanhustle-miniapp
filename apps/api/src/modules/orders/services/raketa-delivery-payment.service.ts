@@ -18,6 +18,7 @@ import {
 } from '../../raketa/raketa-client.service';
 import { OrderNotificationsService } from './order-notifications.service';
 import { distinctRaketaOrderIds } from './raketa-fulfillment.service';
+import { ASSEMBLE_SETTLE_MS, RaketaGuardService } from './raketa-guard.service';
 
 /** A ready-made top-up link is reused for this long, then a fresh one is made. */
 const TOPUP_LINK_TTL_MS = 6 * 60 * 60 * 1000;
@@ -75,20 +76,12 @@ export class RaketaDeliveryPaymentService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(RaketaClientService) private readonly raketa: RaketaClientService,
     @Inject(OrderNotificationsService) private readonly notifications: OrderNotificationsService,
+    @Inject(RaketaGuardService) private readonly guard: RaketaGuardService,
   ) {}
 
-  /**
-   * RAKETA events that need someone to act (errors, odd top-ups, consolidations
-   * without a client) go to the owner — not to the manager, who handles clients.
-   */
-  private async notifyOwner(text: string, orderId?: string): Promise<void> {
-    const owners = await this.prisma.staffAccount.findMany({
-      where: { isOwner: true, isActive: true, telegramId: { not: null } },
-      select: { telegramId: true },
-    });
-    await this.notifications
-      .notifyTelegramIds(owners.map((o) => o.telegramId as string), text, orderId)
-      .catch(() => undefined);
+  /** RAKETA events that need someone to act go to the owner — not to the manager. */
+  private notifyOwner(text: string, orderId?: string): Promise<void> {
+    return this.guard.notifyOwner(text, orderId);
   }
 
   @Cron('0 */10 * * * *')
@@ -177,7 +170,9 @@ export class RaketaDeliveryPaymentService {
           const orders = consolidation.orders ?? [];
           const allArrived = orders.length > 0 && orders.every((o) => o.stage_name === RAKETA_STAGE_AT_WAREHOUSE);
           if (consolidation.controls?.consolidation_close && allArrived) {
-            await this.assemble(item.id, consolidation.title ?? record.title ?? item.id, orders.length, linkedOrder);
+            if (await this.mayAssemble(item.id, consolidation.title ?? item.id, orders.map((o) => o.id), linkedOrder)) {
+              await this.assemble(item.id, consolidation.title ?? record.title ?? item.id, orders.length, linkedOrder);
+            }
             continue;
           }
           // Not ready yet — or already assembled by hand (then it has a price).
@@ -207,6 +202,54 @@ export class RaketaDeliveryPaymentService {
         this.logger.warn(`RAKETA consolidation ${item.id}: ${errorText(error)}`);
       }
     }
+  }
+
+  /**
+   * «Собрать» can't be undone, so for a consolidation holding our orders it's
+   * pressed only when: it belongs to exactly one order of ours, that order
+   * points to it, all its items are registered, nothing changed for 30 min
+   * and the full cabinet check passes. Consolidations of purely own (quick)
+   * orders, unknown to our DB, are assembled as before.
+   */
+  private async mayAssemble(
+    consolidationId: string,
+    title: string,
+    memberIds: string[],
+    linkedOrder: { id: string; orderNumber: string; fulfillmentManual: boolean } | null,
+  ): Promise<boolean> {
+    const ours = await this.guard.ourOrdersOf(memberIds);
+    if (ours.length === 0 && !linkedOrder) return true;
+    if (ours.length > 1) {
+      for (const o of ours) {
+        await this.guard.quarantineWith(
+          o.id,
+          [`объединение «${title}» содержит заказы RAKETA сразу нескольких наших заказов (${ours.map((x) => x.orderNumber).join(', ')})`],
+          'Собрать',
+        );
+      }
+      return false;
+    }
+    const owner = ours[0] ?? linkedOrder;
+    if (!owner) return false;
+    if (!linkedOrder || linkedOrder.id !== owner.id) {
+      await this.guard.quarantineWith(
+        owner.id,
+        [`объединение «${title}» содержит заказы RAKETA этого заказа, но заказ привязан к другому объединению (вероятно, дубль)`],
+        'Собрать',
+      );
+      return false;
+    }
+    if (linkedOrder.fulfillmentManual) return false;
+
+    const order = await this.prisma.order.findUnique({ where: { id: owner.id }, include: { items: true } });
+    if (!order || order.fulfillmentManual) return false;
+    if (order.items.some((i) => !i.raketaOrderId)) return false;
+    const lastChange = Math.max(
+      order.raketaDeliveryAssignedAt?.getTime() ?? 0,
+      ...order.items.map((i) => i.raketaRegisteredAt?.getTime() ?? 0),
+    );
+    if (Date.now() - lastChange < ASSEMBLE_SETTLE_MS) return false;
+    return this.guard.withOrderLock(order.id, () => this.guard.ensureConsistent(order.id, 'Собрать'));
   }
 
   private async assemble(
@@ -282,10 +325,19 @@ export class RaketaDeliveryPaymentService {
       },
       include: { items: { select: { raketaOrderId: true } }, user: { select: { telegramId: true } } },
     });
-    for (const order of orders) {
+    for (const listed of orders) {
       try {
-        await this.processOrder(order);
+        await this.guard.withOrderLock(listed.id, async () => {
+          // Re-read inside the lock: a click or the reconcile may have changed it.
+          const order = await this.prisma.order.findUnique({
+            where: { id: listed.id },
+            include: { items: { select: { raketaOrderId: true } }, user: { select: { telegramId: true } } },
+          });
+          if (!order || order.fulfillmentManual || order.raketaPaidAt) return;
+          await this.processOrder(order);
+        });
       } catch (error) {
+        const order = listed;
         this.logger.warn(`RAKETA delivery step for ${order.orderNumber}: ${errorText(error)}`);
       }
     }
@@ -362,7 +414,8 @@ export class RaketaDeliveryPaymentService {
       return;
     }
 
-    if (ASK_DELIVERY_STATUSES.includes(order.status)) {
+    if (ASK_DELIVERY_STATUSES.includes(order.status) && !order.hiddenFromClient) {
+      if (!(await this.guard.ensureConsistent(order.id, 'отправка цены доставки клиенту'))) return;
       await this.requestClientPayment(order, lines);
     }
   }
@@ -531,7 +584,9 @@ export class RaketaDeliveryPaymentService {
         { orderId: order.id, allPaid: true },
       );
     }
-    if (target) await this.payRaketa({ ...order, deliveryPaidAt: now }, target, amount);
+    if (target) {
+      await this.guard.withOrderLock(order.id, () => this.payRaketa({ ...order, deliveryPaidAt: now }, target, amount));
+    }
   }
 
   private async payRaketa(
@@ -539,6 +594,23 @@ export class RaketaDeliveryPaymentService {
     target: { kind: 'consolidation' | 'order'; id: string },
     paidByClient?: number,
   ): Promise<void> {
+    // Pay only what was billed to the client, for exactly this order's parcel.
+    if (!(await this.guard.ensureConsistent(order.id, 'оплата доставки в RAKETA'))) return;
+    const current = await this.raketa.getPrice(target.kind, target.id);
+    if (current.controls?.paid_button) {
+      await this.prisma.order.update({ where: { id: order.id }, data: { raketaPaidAt: new Date(), raketaLastError: null } });
+      return;
+    }
+    const currentTotal = parseMoney(current.total);
+    const billed = order.raketaPriceTotal ? Number(order.raketaPriceTotal) : null;
+    if (currentTotal === null || billed === null || currentTotal > billed + 1) {
+      const message = `RAKETA: цена доставки изменилась (${billed ?? '—'} → ${currentTotal ?? '—'} ₽) — оплату не провёл, проверьте заказ в кабинете.`;
+      if (order.raketaLastError !== message) {
+        await this.prisma.order.update({ where: { id: order.id }, data: { raketaLastError: message } });
+        await this.notifyOwner(`${message}\nЗаказ ${order.orderNumber}.`, order.id);
+      }
+      return;
+    }
     const before = await this.raketa.getMainBalance().catch(() => null);
     try {
       await this.raketa.pay(target.kind, target.id);

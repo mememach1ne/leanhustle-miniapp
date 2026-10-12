@@ -159,6 +159,8 @@ export class RaketaTrackingService {
         where: {
           raketaDeliveryAssignedAt: { not: null },
           fulfillmentManual: false,
+          // Hidden orders are being fixed — no status moves / client messages.
+          hiddenFromClient: false,
           status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
         },
         include: {

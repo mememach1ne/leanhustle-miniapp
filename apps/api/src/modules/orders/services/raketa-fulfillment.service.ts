@@ -14,6 +14,7 @@ import { DewuApiClientService } from '../../products/services/dewu-api-client.se
 import { type RaketaOrder, RaketaClientService } from '../../raketa/raketa-client.service';
 import { buildRaketaItemTitle } from '../../raketa/raketa-title';
 import { OrdersService } from '../orders.service';
+import { RaketaGuardService } from './raketa-guard.service';
 
 /** RAKETA's seller directory id for "Poizon (Dewu)". */
 const RAKETA_POIZON_SELLER_ID = 5;
@@ -35,6 +36,7 @@ const CHINA_TRACK_RE = /^[A-Za-z0-9]{9,40}$/;
 const RAKETA_NUMBER_RE = /^RA\d{6,}$/;
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
+const norm = (value: string | null | undefined) => (value ?? '').replace(/\s+/g, '').toUpperCase();
 
 /** Distinct RAKETA orders of our order (items sent under one China track share one). */
 export function distinctRaketaOrderIds(items: Array<{ raketaOrderId: string | null }>): string[] {
@@ -58,18 +60,10 @@ function splitFullName(fullName: string): { lastName: string; name: string; midd
 @Injectable()
 export class RaketaFulfillmentService {
   private readonly logger = new Logger(RaketaFulfillmentService.name);
-  /** One RAKETA operation per order at a time (background registration vs. a click in the panel). */
-  private readonly orderLocks = new Map<string, Promise<unknown>>();
 
+  /** One RAKETA operation per order at a time — shared with the payment/assembly cycle. */
   private withOrderLock<T>(orderId: string, fn: () => Promise<T>): Promise<T> {
-    const previous = this.orderLocks.get(orderId) ?? Promise.resolve();
-    const run = previous.catch(() => undefined).then(fn);
-    const tail = run.catch(() => undefined);
-    this.orderLocks.set(orderId, tail);
-    void tail.then(() => {
-      if (this.orderLocks.get(orderId) === tail) this.orderLocks.delete(orderId);
-    });
-    return run;
+    return this.guard.withOrderLock(orderId, fn);
   }
 
   /** Background job after a manual order: register every item that came with a China track. */
@@ -93,11 +87,26 @@ export class RaketaFulfillmentService {
     @Inject(RaketaClientService) private readonly raketa: RaketaClientService,
     @Inject(DewuApiClientService) private readonly dewu: DewuApiClientService,
     @Inject(OrdersService) private readonly ordersService: OrdersService,
+    @Inject(RaketaGuardService) private readonly guard: RaketaGuardService,
   ) {}
 
-  async setManual(orderId: string, manual: boolean, staff: StaffAccount): Promise<StaffOrderDetailsDto> {
+  setManual(orderId: string, manual: boolean, staff: StaffAccount): Promise<StaffOrderDetailsDto> {
+    return this.withOrderLock(orderId, () => this.setManualUnlocked(orderId, manual, staff));
+  }
+
+  private async setManualUnlocked(orderId: string, manual: boolean, staff: StaffAccount): Promise<StaffOrderDetailsDto> {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new NotFoundException('Заказ не найден.');
+    if (!manual && order.fulfillmentManual) {
+      // Automation comes back only if the order matches the cabinet.
+      const problems = await this.guard.inspect(orderId);
+      if (problems.length) {
+        throw new BadRequestException(
+          `Автоматику включить нельзя — данные не сходятся с RAKETA: ${problems.join('; ')}. Исправьте в кабинете и попробуйте снова.`,
+        );
+      }
+      await this.prisma.order.update({ where: { id: orderId }, data: { raketaLastError: null } });
+    }
 
     if (order.fulfillmentManual !== manual) {
       await this.prisma.$transaction([
@@ -160,12 +169,18 @@ export class RaketaFulfillmentService {
         `Этот товар уже зарегистрирован в RAKETA (${item.raketaTrackNumber ?? item.raketaOrderId}).`,
       );
     }
+    if (order.raketaDeliveryAssignedAt) {
+      throw new BadRequestException(
+        'Доставка по заказу уже оформлена в RAKETA (получатель/объединение) — новую вещь в неё автоматически не добавить. Оформите её вручную.',
+      );
+    }
 
     try {
       // "RA…" — the order already exists in RAKETA (created by hand): link it.
       if (RAKETA_NUMBER_RE.test(track)) {
         const found = await this.raketa.findOrderByTrack(track);
         if (!found) throw new Error(`в кабинете не найден заказ ${track}`);
+        await this.assertLinkable(order.id, item.id, found);
         await this.linkItem(order, item.id, found, staff, 'привязан по номеру RAKETA');
         await this.assignDeliveryIfReady(orderId, staff);
         return this.ordersService.getOrderForStaff(orderId);
@@ -235,7 +250,14 @@ export class RaketaFulfillmentService {
         priceYuan: Number(item.priceYuan),
         insurance: order.insurance,
       });
+      // Re-check what RAKETA gave us: the order must carry exactly this track.
+      if (created.china_track_number && norm(created.china_track_number) !== track) {
+        throw new Error(
+          `RAKETA вернула заказ ${created.raketa_track_number ?? created.id} с треком ${created.china_track_number}, а не ${track}`,
+        );
+      }
       if (existed) {
+        await this.assertLinkable(order.id, item.id, created);
         await this.linkItem(order, item.id, created, staff, 'привязан');
         await this.assignDeliveryIfReady(orderId, staff);
         return this.ordersService.getOrderForStaff(orderId);
@@ -418,6 +440,15 @@ export class RaketaFulfillmentService {
 
       let summary: string;
       const raketaOrderIds = distinctRaketaOrderIds(order.items);
+      // Before touching RAKETA: none of these orders may already sit in another consolidation.
+      for (const id of raketaOrderIds) {
+        const d = await this.raketa.getOrderDetails(id);
+        if (d.consolidation_id && d.consolidation_id !== order.raketaConsolidationId) {
+          throw new Error(
+            `заказ RAKETA ${d.raketa_track_number ?? id} уже лежит в другом объединении — проверьте кабинет, второе объединение создавать нельзя`,
+          );
+        }
+      }
       if (raketaOrderIds.length > 1) {
         const consolidationId =
           order.raketaConsolidationId ??
@@ -429,6 +460,14 @@ export class RaketaFulfillmentService {
             insurance: order.insurance,
           }));
         await this.prisma.order.update({ where: { id: order.id }, data: { raketaConsolidationId: consolidationId } });
+        // Re-read: the consolidation must hold exactly our RAKETA orders.
+        const consolidation = await this.raketa.getConsolidation(consolidationId);
+        const members = new Set((consolidation.orders ?? []).map((o) => o.id));
+        if (members.size !== raketaOrderIds.length || raketaOrderIds.some((id) => !members.has(id))) {
+          throw new Error(
+            `в объединении ${consolidation.raketa_track_number ?? consolidationId} ${members.size} заказов вместо ${raketaOrderIds.length} — проверьте кабинет`,
+          );
+        }
         summary = `создано объединение из ${raketaOrderIds.length} заказов (${order.items.length} шт)`;
       } else {
         await this.raketa.assignOrderDelivery({
@@ -548,6 +587,12 @@ export class RaketaFulfillmentService {
           titleCn: item.titleCn,
           insurance: input.insurance,
         });
+        // A quick (RAKETA-only) order must not grab a RAKETA order that belongs to a client order.
+        const holder = await this.prisma.orderItem.findFirst({
+          where: { raketaOrderId: order.id },
+          select: { order: { select: { orderNumber: true } } },
+        });
+        if (holder) throw new Error(`заказ RAKETA ${order.raketa_track_number ?? order.id} уже привязан к заказу ${holder.order.orderNumber}`);
         let fullTitle = order.title || title;
         for (const j of rest) {
           const extra = input.items[j];
@@ -605,6 +650,10 @@ export class RaketaFulfillmentService {
           pvzIndex: point.pvzIndex ?? null,
           street: input.delivery.pointAddress,
         });
+        for (const o of orders) {
+          const d = await this.raketa.getOrderDetails(o.id);
+          if (d.consolidation_id) throw new Error(`заказ RAKETA ${d.raketa_track_number ?? o.id} уже лежит в объединении`);
+        }
         if (many) {
           consolidationId = await this.raketa.createConsolidation({
             title: input.title?.trim() || `${label} ${orders.length} шт`,
@@ -680,6 +729,23 @@ export class RaketaFulfillmentService {
       }
       return { order: found, existed: true };
     }
+  }
+
+  /**
+   * A RAKETA order found by track / RA number may be linked to this item only
+   * if it isn't someone else's: not linked to another of our orders, and in
+   * this order only to items with the same China track.
+   */
+  private async assertLinkable(orderId: string, itemId: string, raketaOrder: RaketaOrder): Promise<void> {
+    const holders = await this.prisma.orderItem.findMany({
+      where: { raketaOrderId: raketaOrder.id, id: { not: itemId } },
+      select: { orderId: true, chinaTrackNumber: true, order: { select: { orderNumber: true } } },
+    });
+    const label = raketaOrder.raketa_track_number ?? raketaOrder.id;
+    const other = holders.find((h) => h.orderId !== orderId);
+    if (other) throw new Error(`заказ RAKETA ${label} уже привязан к нашему заказу ${other.order.orderNumber}`);
+    const mismatch = holders.find((h) => norm(h.chinaTrackNumber) !== norm(raketaOrder.china_track_number));
+    if (mismatch) throw new Error(`заказ RAKETA ${label} уже привязан к другой вещи этого заказа с другим треком`);
   }
 
   private async linkItem(

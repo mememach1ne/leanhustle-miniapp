@@ -72,7 +72,9 @@ export interface RaketaPickupPoint {
   delivery_sub_type?: string | null;
 }
 
-interface RaketaOrderDetails extends RaketaOrder {
+export interface RaketaOrderDetails extends RaketaOrder {
+  /** The consolidation this order is in (null when it ships alone). */
+  consolidation_id?: string | null;
   seller?: { id: number } | null;
   additional_services?: unknown[];
   items?: Array<{
@@ -453,6 +455,11 @@ export class RaketaClientService {
       `/customer_order/${encodeURIComponent(input.orderId)}`,
     );
     const order = res.data;
+    const same = (x: { link: string; item_title: string }) =>
+      x.link === input.item.link && x.item_title === input.item.item_title;
+    // Retry-safe: an earlier attempt may have added it already (response lost).
+    if ((order.items ?? []).some(same)) return;
+    const before = (order.items ?? []).length;
     const keep = (key: string) => (typeof order[key] === 'string' ? (order[key] as string) : null);
     await this.request('PUT', `/customer_order/${encodeURIComponent(input.orderId)}`, {
       title: (input.title ?? order.title).slice(0, 190),
@@ -481,6 +488,17 @@ export class RaketaClientService {
       draft: false,
       insurance: Boolean(order.insurance),
     });
+    // Re-read: the item must be there now, exactly once more.
+    const after = await this.getOrderDetails(input.orderId);
+    if ((after.items ?? []).length !== before + 1 || !(after.items ?? []).some(same)) {
+      throw new RaketaApiError(`RAKETA не добавила вещь в заказ ${after.raketa_track_number ?? input.orderId} — проверьте его в кабинете.`);
+    }
+  }
+
+  /** Full order card: items, consolidation, tracks. */
+  async getOrderDetails(id: string): Promise<RaketaOrderDetails> {
+    const body = await this.request<{ data: RaketaOrderDetails }>('GET', `/customer_order/${encodeURIComponent(id)}`);
+    return body.data;
   }
 
   async getOrder(id: string): Promise<RaketaOrder> {
