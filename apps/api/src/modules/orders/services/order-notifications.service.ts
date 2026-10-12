@@ -456,20 +456,62 @@ export class OrderNotificationsService {
     );
   }
 
-  /** Plain message to specific Telegram users (e.g. the profit partners). */
-  async notifyTelegramIds(chatIds: string[], text: string): Promise<void> {
+  /** Plain message to specific Telegram users (owner, profit partners); optional admin-panel button. */
+  async notifyTelegramIds(chatIds: string[], text: string, orderId?: string): Promise<void> {
     const botToken = this.configService.get<string>('telegram.botToken');
     if (!botToken || chatIds.length === 0) return;
+    const miniAppUrl = this.configService.get<string>('telegram.miniAppUrl');
     await Promise.allSettled(
       chatIds.map((chatId) =>
         fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: 'POST',
           signal: AbortSignal.timeout(10_000),
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+          body: JSON.stringify({
+            chat_id: chatId,
+            text,
+            disable_web_page_preview: true,
+            ...(orderId && miniAppUrl
+              ? {
+                  reply_markup: {
+                    inline_keyboard: [[{ text: 'Открыть в панели', url: `${miniAppUrl}/admin/orders/${orderId}` }]],
+                  },
+                }
+              : {}),
+          }),
         }),
       ),
     );
+  }
+
+  /** Free-form client message (Telegram HTML, no emoji) with «Открыть заказ» / «Менеджер». */
+  async notifyUserText(userTelegramId: string, html: string, orderId?: string): Promise<void> {
+    const botToken = this.configService.get<string>('telegram.botToken');
+    if (!botToken) return;
+    const miniAppUrl = (this.configService.get<string>('telegram.miniAppUrl') || 'https://leanhustle.ru').replace(/\/$/, '');
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(10_000),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: userTelegramId,
+        text: html,
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: 'Открыть заказ',
+                web_app: { url: `${miniAppUrl}/profile/orders${orderId ? `/${orderId}` : ''}` },
+                style: 'primary',
+              },
+              { text: 'Менеджер', url: MANAGER_TELEGRAM_URL },
+            ],
+          ],
+        },
+      }),
+    }).catch((error) => this.logger.warn(`Failed to notify user ${userTelegramId}: ${String(error)}`));
   }
 
   /** Plain message to every manager (RAKETA automation events). */

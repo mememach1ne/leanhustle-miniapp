@@ -77,6 +77,20 @@ export class RaketaDeliveryPaymentService {
     @Inject(OrderNotificationsService) private readonly notifications: OrderNotificationsService,
   ) {}
 
+  /**
+   * RAKETA events that need someone to act (errors, odd top-ups, consolidations
+   * without a client) go to the owner — not to the manager, who handles clients.
+   */
+  private async notifyOwner(text: string, orderId?: string): Promise<void> {
+    const owners = await this.prisma.staffAccount.findMany({
+      where: { isOwner: true, isActive: true, telegramId: { not: null } },
+      select: { telegramId: true },
+    });
+    await this.notifications
+      .notifyTelegramIds(owners.map((o) => o.telegramId as string), text, orderId)
+      .catch(() => undefined);
+  }
+
   @Cron('0 */10 * * * *')
   async runCycle(): Promise<void> {
     if (this.running || !this.raketa.isConfigured) return;
@@ -181,7 +195,7 @@ export class RaketaDeliveryPaymentService {
             where: { id: item.id },
             data: { priceNotifiedAt: new Date() },
           });
-          await this.notifications.notifyManagers(
+          await this.notifyOwner(
             [
               `RAKETA: объединение «${record.title ?? item.id}» собрано, к оплате ${rub(total)}.`,
               ...chargeableLines(price).map((line) => `${line.name}: ${rub(line.amountRub)}`),
@@ -223,13 +237,32 @@ export class RaketaDeliveryPaymentService {
       });
     }
     this.logger.log(`RAKETA consolidation ${consolidationId} sent to assembly`);
-    await this.notifications.notifyManagers(
-      [
-        `RAKETA: объединение «${title}»${linkedOrder ? ` (${linkedOrder.orderNumber})` : ''} — все ${ordersCount} вещи на складе, нажал «Собрать».`,
-        'Цена доставки появится после упаковки (обычно 4–6 часов).',
-      ].join('\n'),
-      linkedOrder?.id,
-    );
+    const client = linkedOrder
+      ? await this.prisma.order.findUnique({
+          where: { id: linkedOrder.id },
+          select: { user: { select: { telegramId: true } } },
+        })
+      : null;
+    if (linkedOrder && client?.user?.telegramId) {
+      await this.notifications.notifyUserText(
+        client.user.telegramId,
+        [
+          '<b>Посылка собирается</b>',
+          '',
+          `Все вещи заказа <b>${linkedOrder.orderNumber}</b> приехали на склад в Китае — собираем их в одну посылку.`,
+          'Стоимость доставки пришлём после упаковки, обычно через 4–6 часов.',
+        ].join('\n'),
+        linkedOrder.id,
+      );
+    } else {
+      await this.notifyOwner(
+        [
+          `RAKETA: объединение «${title}»${linkedOrder ? ` (${linkedOrder.orderNumber})` : ''} — все ${ordersCount} вещи на складе, нажал «Собрать».`,
+          'Цена доставки появится после упаковки (обычно 4–6 часов).',
+        ].join('\n'),
+        linkedOrder?.id,
+      );
+    }
   }
 
   // ------------------------------------------------------------------
@@ -315,7 +348,7 @@ export class RaketaDeliveryPaymentService {
 
     if (!order.userId) {
       if (isNew) {
-        await this.notifications.notifyManagers(
+        await this.notifyOwner(
           [
             `RAKETA: цена доставки по заказу ${order.orderNumber} — ${rub(total)}.`,
             ...lines.map((line) => `${line.name}: ${rub(line.amountRub)}`),
@@ -350,7 +383,7 @@ export class RaketaDeliveryPaymentService {
       const message = `RAKETA: подозрительная сумма доставки ${rub(amount)} — ссылка клиенту не отправлена, проверьте цену в кабинете.`;
       if (order.raketaLastError !== message) {
         await this.prisma.order.update({ where: { id: order.id }, data: { raketaLastError: message } });
-        await this.notifications.notifyManagers(`${message}
+        await this.notifyOwner(`${message}
 Заказ ${order.orderNumber}.`, order.id);
       }
       return;
@@ -411,10 +444,7 @@ export class RaketaDeliveryPaymentService {
         { amountRub: amount, orderId: order.id, payUrl: url, lines },
       );
     }
-    await this.notifications.notifyManagers(
-      `RAKETA: по заказу ${order.orderNumber} цена доставки ${rub(amount)} — клиенту отправлена ссылка на оплату.`,
-      order.id,
-    );
+    this.logger.log(`${order.orderNumber}: delivery link ${amount} ₽ sent to the client`);
   }
 
   /**
@@ -446,7 +476,7 @@ export class RaketaDeliveryPaymentService {
     const paid = matchInflow(inflow, pending, (o) => Number(o.raketaTopupAmount));
     if (!paid) {
       this.logger.warn(`RAKETA balance +${inflow} ₽ matches no open delivery link`);
-      await this.notifications.notifyManagers(
+      await this.notifyOwner(
         `RAKETA: на баланс поступило ${rub(inflow)}, но открытой ссылки на такую сумму нет. Проверьте, чья это оплата, и отметьте доставку оплаченной вручную.`,
       );
       return;
@@ -516,7 +546,7 @@ export class RaketaDeliveryPaymentService {
       const message = `RAKETA: не удалось оплатить ${target.kind === 'consolidation' ? 'объединение' : 'заказ'} — ${errorText(error)}`;
       if (order.raketaLastError !== message.slice(0, 1000)) {
         await this.prisma.order.update({ where: { id: order.id }, data: { raketaLastError: message.slice(0, 1000) } });
-        await this.notifications.notifyManagers(
+        await this.notifyOwner(
           `${message}\nЗаказ ${order.orderNumber}: клиент оплатил, но списать с баланса RAKETA не получилось. Повторю через 10 минут; можно оплатить вручную в кабинете.`,
           order.id,
         );
@@ -551,11 +581,8 @@ export class RaketaDeliveryPaymentService {
       });
     });
     this.logger.log(`RAKETA ${target.kind} ${target.id} paid for ${order.orderNumber}`);
-    await this.notifications.notifyManagers(
-      paidByClient
-        ? `RAKETA: клиент оплатил доставку по заказу ${order.orderNumber} (${rub(paidByClient)}), ${target.kind === 'consolidation' ? 'объединение' : 'заказ'} оплачено в RAKETA.`
-        : `RAKETA: доставка по заказу ${order.orderNumber} оплачена с баланса RAKETA.`,
-      order.id,
+    this.logger.log(
+      `${order.orderNumber}: RAKETA ${target.kind} paid${paidByClient ? ` (client paid ${paidByClient} ₽)` : ''}`,
     );
   }
 }
