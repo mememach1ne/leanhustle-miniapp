@@ -48,6 +48,12 @@ export const accessMiddleware: MiddlewareFn<BotContext> = async (ctx, next) => {
     return;
   }
 
+  // Channel join requests, the bot being blocked etc. aren't conversations —
+  // the welcome screen only goes to a private chat with a message or a tap.
+  if (ctx.chat?.type !== 'private' || !(ctx.message || ctx.callbackQuery)) {
+    return;
+  }
+
   const sent = await ctx.reply(orderAdminService.getClientWelcomeText(), {
     parse_mode: 'HTML',
     reply_markup: orderAdminService.buildClientWelcomeKeyboard(),
