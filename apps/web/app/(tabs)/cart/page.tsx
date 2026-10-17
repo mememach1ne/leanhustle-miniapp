@@ -14,9 +14,11 @@ import { EmptyState } from '../../../components/ui/empty-state';
 import { FeedbackMessage } from '../../../components/ui/feedback-message';
 import { BoxIcon, CartIcon, LockIcon } from '../../../components/ui/icons';
 import { InfoRow } from '../../../components/ui/info-row';
+import { MarketplaceLogo } from '../../../components/ui/marketplace-logo';
 import { PageSection } from '../../../components/ui/page-section';
 import { PriceSummaryCard } from '../../../components/ui/price-summary-card';
 import { SectionCard } from '../../../components/ui/section-card';
+import { type ServiceIconKind, ServiceIcon } from '../../../components/ui/service-icons';
 import { CartItemSkeleton } from '../../../components/ui/skeleton';
 import { cartApi, deliveryAddressesApi, ordersApi } from '../../../lib/api-client';
 import { extractAxiosMessage } from '../../../lib/error-utils';
@@ -25,6 +27,53 @@ import { useAuthStore } from '../../../store/auth-store';
 import { useCartStore } from '../../../store/cart-store';
 import { useDeliveryAddressesStore } from '../../../store/delivery-addresses-store';
 import { useOrdersStore } from '../../../store/orders-store';
+
+const CARRIER_SHORT = { cdek: 'СДЭК', pochta: 'Почта России', raketa: 'Пункт партнёра' } as const;
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={[
+        'relative h-6 w-10 shrink-0 rounded-full transition',
+        checked ? 'bg-[var(--accent)]' : 'bg-white/15',
+      ].join(' ')}
+    >
+      <span
+        className={[
+          'absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all',
+          checked ? 'left-[18px]' : 'left-0.5',
+        ].join(' ')}
+      />
+    </button>
+  );
+}
+
+function ServiceRow({
+  icon,
+  title,
+  hint,
+  control,
+}: {
+  icon: ServiceIconKind;
+  title: string;
+  hint: string;
+  control: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3 px-3 py-3">
+      <ServiceIcon kind={icon} />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-white">{title}</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-[var(--muted)]">{hint}</p>
+      </div>
+      {control}
+    </div>
+  );
+}
 
 export default function CartPage() {
   const router = useRouter();
@@ -457,130 +506,192 @@ export default function CartPage() {
                   )}
 
                   {deliveryOptions.length > 0 ? (
-                    <div className="mt-4">
-                      <label className="mb-2 block text-xs text-[var(--muted)]">Способ доставки</label>
+                    <div className="mt-5">
+                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Доставка</p>
                       <div className="space-y-2">
-                        {deliveryOptions.map((option) => (
-                          <button
-                            key={option.key}
-                            type="button"
-                            disabled={estimateLoading}
-                            onClick={() => {
-                              hapticSelection();
-                              setDeliveryOption(option.key);
-                            }}
-                            className={[
-                              'flex w-full items-center justify-between gap-3 rounded-[16px] border px-4 py-3 text-left text-sm transition disabled:opacity-70',
-                              deliveryEstimate?.selectedKey === option.key
-                                ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-white'
-                                : 'border-white/10 bg-white/5 text-slate-300',
-                            ].join(' ')}
-                          >
-                            <span className="min-w-0">
-                              <span className="block font-medium">{option.title}</span>
-                              {option.daysMin !== null ? (
-                                <span className="mt-0.5 block text-xs text-[var(--muted)]">
-                                  ≈ {option.daysMin === option.daysMax ? option.daysMin : `${option.daysMin}–${option.daysMax}`}{' '}
-                                  дн. от склада в Китае
+                        {deliveryOptions.map((option) => {
+                          const active = deliveryEstimate?.selectedKey === option.key;
+                          const fast = option.tariff === 'EXPR';
+                          return (
+                            <button
+                              key={option.key}
+                              type="button"
+                              disabled={estimateLoading}
+                              onClick={() => {
+                                hapticSelection();
+                                setDeliveryOption(option.key);
+                              }}
+                              className={[
+                                'flex w-full items-center gap-3 rounded-[18px] border px-3 py-3 text-left transition active:scale-[0.99] disabled:opacity-70',
+                                active
+                                  ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                                  : 'border-white/10 bg-white/[0.04]',
+                              ].join(' ')}
+                            >
+                              {option.carrier === 'raketa' ? (
+                                <ServiceIcon kind="partner-point" className="h-10 w-10" />
+                              ) : (
+                                <MarketplaceLogo marketplace={option.carrier} className="h-10 w-10" />
+                              )}
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-center gap-1.5 text-sm font-semibold text-white">
+                                  {CARRIER_SHORT[option.carrier]}
+                                  <span
+                                    className={[
+                                      'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                      fast ? 'bg-amber-400/15 text-amber-200' : 'bg-white/10 text-slate-300',
+                                    ].join(' ')}
+                                  >
+                                    {option.speed}
+                                  </span>
                                 </span>
-                              ) : null}
-                            </span>
-                            <span className="shrink-0 font-semibold">≈ {option.deliveryRub} ₽</span>
-                          </button>
-                        ))}
+                                <span className="mt-0.5 block text-xs text-[var(--muted)]">
+                                  {option.kind === 'courier' ? 'курьер до двери' : option.carrier === 'pochta' ? 'в отделении' : 'в пункте выдачи'}
+                                  {option.daysMin !== null
+                                    ? ` · ${option.daysMin === option.daysMax ? option.daysMin : `${option.daysMin}–${option.daysMax}`} дн.`
+                                    : ''}
+                                </span>
+                              </span>
+                              <span className="shrink-0 text-right">
+                                <span className="block text-sm font-semibold text-white">{option.deliveryRub} ₽</span>
+                                <span
+                                  className={[
+                                    'ml-auto mt-1 block h-4 w-4 rounded-full border-2',
+                                    active ? 'border-[var(--accent)] bg-[var(--accent)]' : 'border-white/25',
+                                  ].join(' ')}
+                                />
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
+                      <p className="mt-1.5 text-[11px] leading-4 text-[var(--muted)]">
+                        Срок — от склада в Китае до вас. Цена примерная, точная придёт после взвешивания.
+                      </p>
                     </div>
                   ) : null}
 
-                  <div className="mt-4">
-                    <label className="mb-2 block text-xs text-[var(--muted)]">Дополнительная упаковка</label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {([null, 'box', 'crate'] as Array<PackagingOption | null>).map((p) => (
-                        <button
-                          key={p ?? 'none'}
-                          type="button"
-                          onClick={() => {
-                            hapticSelection();
-                            setPackaging(p);
-                          }}
-                          className={[
-                            'rounded-[14px] border px-2 py-2 text-center text-xs transition',
-                            packaging === p
-                              ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-white'
-                              : 'border-white/10 bg-white/5 text-slate-300',
-                          ].join(' ')}
-                        >
-                          <span className="block font-semibold">
-                            {p === 'box' ? 'Коробка' : p === 'crate' ? 'Обрешётка' : 'Без доп. упаковки'}
-                          </span>
-                          {p ? (
-                            <span className="mt-0.5 block text-[10px] text-[var(--muted)]">
-                              +{EXTRA_SERVICE_PRICES.packaging[p]} ₽ за посылку
-                            </span>
-                          ) : null}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="mt-1.5 text-[11px] leading-4 text-[var(--muted)]">
-                      {PACKAGING_LABELS.box} — лишний слой картона. {PACKAGING_LABELS.crate} — для хрупкого. Каждая
-                      вещь обычно едет из Китая отдельной посылкой.
-                    </p>
-                  </div>
-
-                  <div className="mt-4">
-                    <label className="mb-2 block text-xs text-[var(--muted)]">Фотоотчёт со склада в Китае</label>
-                    <div className="space-y-2">
-                      {cart.items.map((item) => {
-                        const chosen = photoReports[item.id];
-                        return (
-                          <div key={item.id} className="rounded-[16px] border border-white/10 bg-white/5 p-3">
-                            <p className="truncate text-xs text-white">
-                              {item.title} · {item.size}
-                            </p>
-                            <div className="mt-2 grid grid-cols-3 gap-1.5">
-                              {([null, 'basic', 'individual'] as Array<PhotoReportOption | null>).map((kind) => (
-                                <button
-                                  key={kind ?? 'none'}
-                                  type="button"
-                                  onClick={() => setPhoto(item.id, kind)}
-                                  className={[
-                                    'rounded-[12px] border px-2 py-1.5 text-[11px] transition',
-                                    (chosen?.kind ?? null) === kind
-                                      ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-white'
-                                      : 'border-white/10 bg-white/5 text-slate-300',
-                                  ].join(' ')}
-                                >
-                                  {kind === 'basic'
-                                    ? `Фото +${EXTRA_SERVICE_PRICES.photoReport.basic} ₽`
-                                    : kind === 'individual'
-                                      ? `Подробное +${EXTRA_SERVICE_PRICES.photoReport.individual} ₽`
-                                      : 'Без фото'}
-                                </button>
-                              ))}
-                            </div>
-                            {chosen?.kind === 'individual' ? (
-                              <textarea
-                                value={chosen.comment}
-                                onChange={(e) =>
-                                  setPhotoReports((current) => ({
-                                    ...current,
-                                    [item.id]: { kind: 'individual', comment: e.target.value.slice(0, 500) },
-                                  }))
-                                }
-                                placeholder="Что сфотографировать: бирку, подошву, шов…"
-                                rows={2}
-                                className="mt-2 w-full rounded-[12px] border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:border-[var(--accent)] focus:outline-none"
-                              />
-                            ) : null}
+                  <div className="mt-5">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Доп. услуги</p>
+                    <div className="divide-y divide-white/5 overflow-hidden rounded-[18px] border border-white/10 bg-white/[0.04]">
+                      <ServiceRow
+                        icon="insurance"
+                        title="Страховка"
+                        hint={`Вернём стоимость при порче или утере${cart.summary.insuranceRub ? ` · ≈ ${cart.summary.insuranceRub} ₽` : ' · 1%'}`}
+                        control={<Toggle checked={insurance} onChange={(v) => { hapticSelection(); setInsurance(v); }} />}
+                      />
+                      <ServiceRow
+                        icon={packaging === 'crate' ? 'crate' : 'box'}
+                        title="Упаковка"
+                        hint={
+                          packaging === 'box'
+                            ? `${PACKAGING_LABELS.box} · ${EXTRA_SERVICE_PRICES.packaging.box} ₽ за посылку`
+                            : packaging === 'crate'
+                              ? `${PACKAGING_LABELS.crate} · ${EXTRA_SERVICE_PRICES.packaging.crate} ₽ за посылку`
+                              : 'Лишний слой картона или жёсткий каркас'
+                        }
+                        control={
+                          <div className="flex rounded-full bg-white/5 p-0.5">
+                            {([null, 'box', 'crate'] as Array<PackagingOption | null>).map((p) => (
+                              <button
+                                key={p ?? 'none'}
+                                type="button"
+                                aria-label={p ? PACKAGING_LABELS[p] : 'Без доп. упаковки'}
+                                onClick={() => {
+                                  hapticSelection();
+                                  setPackaging(p);
+                                }}
+                                className={[
+                                  'rounded-full px-2.5 py-1 text-[11px] font-semibold transition',
+                                  packaging === p ? 'bg-[var(--accent)] text-[var(--accent-ink)]' : 'text-slate-300',
+                                ].join(' ')}
+                              >
+                                {p === 'box' ? 'Коробка' : p === 'crate' ? 'Каркас' : 'Нет'}
+                              </button>
+                            ))}
                           </div>
-                        );
-                      })}
+                        }
+                      />
+                      <ServiceRow
+                        icon="photo"
+                        title="Фотоотчёт"
+                        hint={`Снимки товара на складе в Китае · ${EXTRA_SERVICE_PRICES.photoReport.basic} ₽ за вещь`}
+                        control={
+                          <Toggle
+                            checked={Object.keys(photoReports).length > 0}
+                            onChange={(on) => {
+                              hapticSelection();
+                              setPhotoReports(
+                                on
+                                  ? Object.fromEntries(cart.items.map((item) => [item.id, { kind: 'basic' as const, comment: '' }]))
+                                  : {},
+                              );
+                            }}
+                          />
+                        }
+                      />
+                      {Object.keys(photoReports).length > 0 ? (
+                        <div className="space-y-2 bg-white/[0.02] px-3 py-3">
+                          {cart.items.map((item) => {
+                            const chosen = photoReports[item.id];
+                            return (
+                              <div key={item.id}>
+                                <div className="flex items-center gap-2">
+                                  {item.image ? (
+                                    <img src={item.image} alt="" className="h-8 w-8 shrink-0 rounded-[10px] bg-white/5 object-cover" />
+                                  ) : null}
+                                  <p className="min-w-0 flex-1 truncate text-xs text-white">
+                                    {item.title} · {item.size}
+                                  </p>
+                                  <div className="flex shrink-0 rounded-full bg-white/5 p-0.5">
+                                    {([null, 'basic', 'individual'] as Array<PhotoReportOption | null>).map((kind) => (
+                                      <button
+                                        key={kind ?? 'none'}
+                                        type="button"
+                                        onClick={() => setPhoto(item.id, kind)}
+                                        className={[
+                                          'rounded-full px-2 py-1 text-[10px] font-semibold transition',
+                                          (chosen?.kind ?? null) === kind
+                                            ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
+                                            : 'text-slate-300',
+                                        ].join(' ')}
+                                      >
+                                        {kind === 'basic'
+                                          ? `${EXTRA_SERVICE_PRICES.photoReport.basic} ₽`
+                                          : kind === 'individual'
+                                            ? `Подробно ${EXTRA_SERVICE_PRICES.photoReport.individual} ₽`
+                                            : 'Нет'}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                {chosen?.kind === 'individual' ? (
+                                  <div className="mt-2 flex items-start gap-2">
+                                    <ServiceIcon kind="photo-detailed" className="h-8 w-8" />
+                                    <textarea
+                                      value={chosen.comment}
+                                      onChange={(e) =>
+                                        setPhotoReports((current) => ({
+                                          ...current,
+                                          [item.id]: { kind: 'individual', comment: e.target.value.slice(0, 500) },
+                                        }))
+                                      }
+                                      placeholder="Что сфотографировать: бирку, подошву, шов…"
+                                      rows={2}
+                                      className="min-w-0 flex-1 rounded-[12px] border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:border-[var(--accent)] focus:outline-none"
+                                    />
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                          <p className="text-[11px] leading-4 text-[var(--muted)]">
+                            {PHOTO_REPORT_LABELS.basic} придёт в бота и появится в заказе. Подробный — снимем то, что вы
+                            попросите.
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
-                    <p className="mt-1.5 text-[11px] leading-4 text-[var(--muted)]">
-                      {PHOTO_REPORT_LABELS.basic} — снимки товара, когда он придёт на склад: убедитесь, что пришло то,
-                      что заказали. Подробный — сфотографируем то, что вы попросите. Фото придут в бота и появятся в
-                      заказе.
-                    </p>
                   </div>
 
                   <div className="mt-4 space-y-2">
@@ -588,35 +699,24 @@ export default function CartPage() {
                     <InfoRow
                       label={
                         selectedOption
-                          ? `Примерная доставка (${selectedOption.title.split(' · ')[0]})`
+                          ? `Примерная доставка (${CARRIER_SHORT[selectedOption.carrier]})`
                           : deliveryEstimate
                             ? `Примерная доставка (до г. ${deliveryEstimate.hubCity})`
                             : 'Примерная доставка'
                       }
                       value={estimateLoading ? '…' : `${deliveryRub} ₽`}
                     />
-                    {servicesRub > 0 ? <InfoRow label="Доп. услуги" value={`≈ ${servicesRub} ₽`} /> : null}
+                    {servicesRub + (insurance ? (cart.summary.insuranceRub ?? 0) : 0) > 0 ? (
+                      <InfoRow
+                        label="Доп. услуги"
+                        value={`≈ ${servicesRub + (insurance ? (cart.summary.insuranceRub ?? 0) : 0)} ₽`}
+                      />
+                    ) : null}
                     <InfoRow label="Примерная пошлина" value={`${cart.summary.cartDutyRub} ₽`} />
                     <p className="text-[11px] leading-4 text-[var(--muted)]">
                       Доставка и услуги оплачиваются отдельно, когда посылка будет готова к отправке из Китая.
                     </p>
                   </div>
-                  <label className="mt-4 flex items-start gap-3 rounded-[16px] border border-white/10 bg-white/5 p-3 text-sm text-white">
-                    <input
-                      type="checkbox"
-                      checked={insurance}
-                      onChange={(e) => setInsurance(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
-                    />
-                    <span>
-                      Защита от рисков
-                      {cart.summary.insuranceRub ? ` — ≈ ${cart.summary.insuranceRub} ₽` : ''}
-                      <span className="mt-0.5 block text-xs leading-5 text-[var(--muted)]">
-                        Полное возмещение стоимости товара при порче или утере. Стоит 1% от стоимости товаров в
-                        рублях, оплачивается вместе с доставкой.
-                      </span>
-                    </span>
-                  </label>
                   <div className="mt-4 flex gap-3">
                     <button
                       type="button"

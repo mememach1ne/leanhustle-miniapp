@@ -7,6 +7,7 @@ export type Marketplace =
   | 'goofish'
   | 'pinduoduo'
   | 'cdek'
+  | 'pochta'
   | 'cryptobot'
   | 'xrocket';
 

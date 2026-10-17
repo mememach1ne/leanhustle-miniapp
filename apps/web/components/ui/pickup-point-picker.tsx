@@ -13,6 +13,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { deliveryPointsApi } from '../../lib/api-client';
 import { extractAxiosMessage } from '../../lib/error-utils';
 import { hapticSelection } from '../../lib/telegram-web-app';
+import { MarketplaceLogo } from './marketplace-logo';
+import { ServiceIcon } from './service-icons';
 
 const inputClass =
   'w-full rounded-[16px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-[var(--accent)] focus:outline-none';
@@ -26,18 +28,23 @@ export interface PickedPoint {
 type Method = DeliveryCarrier | 'courier';
 
 const METHOD_LABELS: Record<Method, string> = {
-  cdek: 'Пункт СДЭК',
+  cdek: 'СДЭК',
   pochta: 'Почта России',
-  raketa: 'Пункт выдачи партнёра',
-  courier: 'Курьер до двери',
+  raketa: 'Пункт партнёра',
+  courier: 'Курьер',
 };
 
 const METHOD_HINTS: Record<Method, string> = {
-  cdek: 'Пункты выдачи СДЭК',
-  pochta: 'Получение в почтовом отделении',
-  raketa: 'Пункт выдачи нашего партнёра — доставка по городу бесплатно',
-  courier: 'СДЭК или Почта привезут посылку домой',
+  cdek: 'Пункты выдачи',
+  pochta: 'В отделении',
+  raketa: 'Дешевле всего',
+  courier: 'СДЭК или Почта',
 };
+
+function MethodIcon({ method }: { method: Method }) {
+  if (method === 'cdek' || method === 'pochta') return <MarketplaceLogo marketplace={method} className="h-9 w-9" />;
+  return <ServiceIcon kind={method === 'raketa' ? 'partner-point' : 'courier'} />;
+}
 
 /** The forwarder's brand never reaches the client. */
 const clean = (text: string) => text.replace(/\s*raketa\s*/gi, ' ').replace(/\s{2,}/g, ' ').trim();
@@ -285,14 +292,17 @@ export function PickupPointPicker({
               type="button"
               onClick={() => chooseMethod(city, m)}
               className={[
-                'rounded-[14px] border px-3 py-2 text-left text-xs transition',
+                'flex items-center gap-2.5 rounded-[16px] border px-2.5 py-2.5 text-left transition active:scale-[0.98]',
                 method === m
                   ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-white'
-                  : 'border-white/10 bg-white/5 text-slate-300',
+                  : 'border-white/10 bg-white/[0.04] text-slate-300',
               ].join(' ')}
             >
-              <span className="block font-semibold">{METHOD_LABELS[m]}</span>
-              <span className="mt-0.5 block text-[10px] leading-4 text-[var(--muted)]">{METHOD_HINTS[m]}</span>
+              <MethodIcon method={m} />
+              <span className="min-w-0">
+                <span className="block text-[13px] font-semibold leading-4">{METHOD_LABELS[m]}</span>
+                <span className="mt-0.5 block text-[11px] leading-4 text-[var(--muted)]">{METHOD_HINTS[m]}</span>
+              </span>
             </button>
           ))}
         </div>
