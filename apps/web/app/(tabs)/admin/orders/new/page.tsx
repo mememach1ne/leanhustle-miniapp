@@ -320,7 +320,7 @@ export default function AdminCreateOrderPage() {
         return 'ФИО получателя: фамилия и имя (и отчество) на русском.';
       if (!PHONE_RE.test(recipientPhone.trim()))
         return 'Телефон получателя в формате +7XXXXXXXXXX.';
-      if (!point) return 'Выберите пункт СДЭК.';
+      if (!point) return 'Выберите пункт выдачи или адрес курьера.';
     }
     if (ownOrder && !(Number(commission) >= 0 && Number(commission) <= 100)) {
       return 'Комиссия — число от 0 до 100.';
@@ -454,8 +454,8 @@ export default function AdminCreateOrderPage() {
         `Создано в RAKETA: ${created}.${
           result.deliveryAssigned
             ? result.consolidationId
-              ? ' Объединение создано, получатель и пункт СДЭК указаны.'
-              : ' Получатель и пункт СДЭК указаны.'
+              ? ' Объединение создано, получатель и пункт выдачи указаны.'
+              : ' Получатель и пункт выдачи указаны.'
             : ''
         }`,
       );
@@ -778,7 +778,7 @@ export default function AdminCreateOrderPage() {
 
       {/* 3. Delivery */}
       <SectionCard>
-        <h3 className="mb-3 text-sm font-semibold text-white">Получатель и пункт СДЭК</h3>
+        <h3 className="mb-3 text-sm font-semibold text-white">Получатель и пункт выдачи</h3>
         {hasClient && savedAddresses.length > 0 ? (
           <div className="mb-3 space-y-2">
             {savedAddresses.map((address) => (
@@ -823,7 +823,7 @@ export default function AdminCreateOrderPage() {
               onChange={(e) => setWithDelivery(e.target.checked)}
               className="h-4 w-4 accent-[var(--accent)]"
             />
-            Сразу указать получателя и пункт СДЭК{items.length > 1 ? ' и создать объединение' : ''}
+            Сразу указать получателя и пункт выдачи{items.length > 1 ? ' и создать объединение' : ''}
           </label>
         ) : null}
 
@@ -852,7 +852,7 @@ export default function AdminCreateOrderPage() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-xs text-white/60">Пункт СДЭК</label>
+              <label className="mb-1 block text-xs text-white/60">Пункт выдачи</label>
               <PickupPointPicker value={point} onChange={setPoint} />
             </div>
           </div>

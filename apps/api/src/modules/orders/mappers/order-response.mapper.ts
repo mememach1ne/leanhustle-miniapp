@@ -1,4 +1,6 @@
 import type {
+  DeliveryCarrier,
+  DeliveryKind,
   OrderDetailsDto,
   OrderItemDto,
   OrderListItemDto,
@@ -10,6 +12,7 @@ import type {
 } from '@lean-poizon/shared';
 import {
   DeliveryCategory,
+  deliveryMethodTitle,
   getFallbackDeliveryCategoryForGroup,
   ProductCategoryGroup,
 } from '@lean-poizon/shared';
@@ -45,6 +48,12 @@ type OrderWithItems = {
   insuranceRub?: Prisma.Decimal;
   deliveryPvzCode?: string | null;
   deliveryCity?: string | null;
+  deliveryCarrier?: string;
+  deliveryKind?: string;
+  deliveryTariff?: string;
+  deliveryDaysMin?: number | null;
+  deliveryDaysMax?: number | null;
+  packaging?: string | null;
   raketaAssembledAt?: Date | null;
   raketaPriceTotal?: Prisma.Decimal | null;
   raketaPriceLines?: Prisma.JsonValue | null;
@@ -85,6 +94,9 @@ type OrderWithItems = {
     chinaTrackNumber?: string | null;
     raketaOrderId?: string | null;
     raketaTrackNumber?: string | null;
+    photoReport?: string | null;
+    photoReportComment?: string | null;
+    photoReportUrls?: Prisma.JsonValue | null;
   }>;
 };
 
@@ -131,6 +143,16 @@ export const mapOrderItemToDto = (item: OrderWithItems['items'][number]): OrderI
     categoryGroup,
     deliveryCategory: resolveDeliveryCategory(item.deliveryCategory, categoryGroup),
     estimatedWeightKg: roundUsd(item.estimatedWeightKg),
+    photoReport:
+      item.photoReport === 'basic' || item.photoReport === 'individual'
+        ? {
+            kind: item.photoReport,
+            comment: item.photoReportComment ?? null,
+            photos: Array.isArray(item.photoReportUrls)
+              ? item.photoReportUrls.filter((u): u is string => typeof u === 'string')
+              : [],
+          }
+        : null,
   };
 };
 
@@ -164,6 +186,16 @@ export const mapOrderToDetailsDto = (order: OrderWithItems): OrderDetailsDto => 
           fullName: order.deliveryFullName,
           cdekAddress: order.deliveryCdekAddress!,
           phone: order.deliveryPhone!,
+          carrier: (order.deliveryCarrier ?? 'cdek') as DeliveryCarrier,
+          kind: (order.deliveryKind ?? 'pvz') as DeliveryKind,
+          methodTitle: deliveryMethodTitle(
+            (order.deliveryCarrier ?? 'cdek') as DeliveryCarrier,
+            (order.deliveryKind ?? 'pvz') as DeliveryKind,
+            order.deliveryTariff ?? 'STND',
+          ),
+          daysMin: order.deliveryDaysMin ?? null,
+          daysMax: order.deliveryDaysMax ?? null,
+          packaging: order.packaging === 'box' || order.packaging === 'crate' ? order.packaging : null,
         }
       : null,
     summary: mapOrderSummaryToDto(order),
@@ -259,9 +291,14 @@ export const mapOrderToStaffDetailsDto = (
       consolidationId: order.raketaConsolidationId ?? null,
       lastError: order.raketaLastError ?? null,
       deliveryAssigned: Boolean(order.raketaDeliveryAssignedAt),
-      pickupPoint: order.deliveryPvzCode
-        ? `${order.deliveryPvzCode}${order.deliveryCity ? `, ${order.deliveryCity}` : ''}`
-        : null,
+      pickupPoint:
+        order.deliveryKind === 'courier' && order.deliveryCity
+          ? `курьер, ${order.deliveryCity} (${deliveryMethodTitle((order.deliveryCarrier ?? 'cdek') as DeliveryCarrier, 'courier', order.deliveryTariff ?? 'STND')})`
+          : order.deliveryPvzCode
+            ? `${order.deliveryPvzCode}${order.deliveryCity ? `, ${order.deliveryCity}` : ''}${
+                order.deliveryCarrier && order.deliveryCarrier !== 'cdek' ? ` (${order.deliveryCarrier === 'pochta' ? 'Почта' : 'пункт RAKETA'})` : ''
+              }${order.deliveryTariff && order.deliveryTariff === 'EXPR' ? ', Экспресс' : ''}`
+            : null,
       items: order.items.map((item) => ({
         itemId: item.id,
         title: item.productTitle,

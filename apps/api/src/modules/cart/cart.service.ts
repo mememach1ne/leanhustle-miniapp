@@ -9,11 +9,18 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { estimateDeliveryFromTable } from '../pricing/data/delivery-price-table';
-import { RegionalDeliveryService } from '../pricing/services/regional-delivery.service';
+import { type DeliveryAdjuster, RegionalDeliveryService } from '../pricing/services/regional-delivery.service';
 import { SettingsService } from '../settings/settings.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemQuantityDto } from './dto/update-cart-item-quantity.dto';
 import { mapCartToResponse } from './mappers/cart-response.mapper';
+
+/** The cheapest «Стандарт» (or any) option — what a client gets without choosing. */
+export function defaultOption<T extends { tariff: string; deliveryRub?: number }>(options: T[]): T | undefined {
+  const standard = options.filter((o) => o.tariff !== 'EXPR');
+  const pool = standard.length ? standard : options;
+  return [...pool].sort((a, b) => (a.deliveryRub ?? 0) - (b.deliveryRub ?? 0))[0];
+}
 
 @Injectable()
 export class CartService {
@@ -32,14 +39,62 @@ export class CartService {
     this.regionalDelivery = regionalDelivery;
   }
 
-  /** Cart delivery estimate to the nearest million-plus city of an address (Moscow without one). */
-  async getDeliveryEstimate(userId: string, addressId?: string): Promise<CartDeliveryEstimateResponse> {
+  /**
+   * Delivery estimate of the cart for every way to deliver to an address
+   * (carrier × pickup point/courier × speed); deliveryRub is for `optionKey`
+   * or the cheapest standard one. No address → Moscow, CDEK «Стандарт».
+   */
+  async getDeliveryEstimate(
+    userId: string,
+    addressId?: string,
+    optionKey?: string,
+  ): Promise<CartDeliveryEstimateResponse> {
     const address = addressId
       ? await this.prisma.deliveryAddress.findFirst({ where: { id: addressId, userId } })
       : null;
-    const { hub, adjust } = await this.regionalDelivery.forRegion(address?.region, address?.city);
     const cart = await this.findOrCreateCart(userId);
-    const deliveryRub = cart.items.reduce((sum, item) => {
+    const { hub, options } = await this.regionalDelivery.optionsFor({
+      cityId: address?.cityId,
+      city: address?.city,
+      region: address?.region,
+      carrier: address?.carrier,
+      kind: address?.kind,
+      courierIndex: address?.kind === 'courier' ? address.pvzIndex : null,
+    });
+    const quoted = options.map((o) => ({
+      key: o.key,
+      carrier: o.carrier,
+      kind: o.kind,
+      tariff: o.tariff,
+      title: o.title,
+      speed: o.speed,
+      deliveryRub: this.cartDelivery(cart.items, o.adjust),
+      daysMin: o.daysMin,
+      daysMax: o.daysMax,
+    }));
+    const selected = quoted.find((o) => o.key === optionKey) ?? defaultOption(quoted);
+    return {
+      deliveryRub: selected?.deliveryRub ?? this.cartDelivery(cart.items, null),
+      hubCity: hub.name,
+      options: quoted,
+      selectedKey: selected?.key ?? null,
+    };
+  }
+
+  private cartDelivery(
+    items: Array<{
+      productTitle: string;
+      categoryL1: string | null;
+      categoryL2: string | null;
+      categoryL3: string | null;
+      sizeLabel: string;
+      deliveryCategory: string | null;
+      deliveryRub: Prisma.Decimal;
+      quantity: number;
+    }>,
+    adjust: DeliveryAdjuster | null,
+  ): number {
+    const deliveryRub = items.reduce((sum, item) => {
       const fromTable = estimateDeliveryFromTable({
         title: item.productTitle,
         categoryL1: item.categoryL1,
@@ -55,7 +110,7 @@ export class CartService {
         : Number(item.deliveryRub);
       return sum + perItem * item.quantity;
     }, 0);
-    return { deliveryRub: Math.round(deliveryRub), hubCity: hub.name };
+    return Math.round(deliveryRub);
   }
 
   async getCurrentCart(userId: string): Promise<CartResponse> {

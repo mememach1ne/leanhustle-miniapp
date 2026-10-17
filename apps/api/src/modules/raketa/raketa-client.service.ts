@@ -6,13 +6,32 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+/** An item service as the cabinet sends it (photo report). */
+export interface RaketaItemServicePayload {
+  item_additional_service_list_id: string;
+  need_comment: boolean;
+  comment: string;
+  price: string | null;
+  name: string;
+}
+
+/** An order service as the cabinet sends it (extra packaging). */
+export interface RaketaOrderServicePayload {
+  id: string;
+  additional_service_list_id: string;
+  name: string;
+  price: string | null;
+  selected: true;
+  [key: string]: unknown;
+}
+
 export interface RaketaOrderItemPayload {
   link: string;
   item_title: string;
   discription_cn: string;
   count: number;
   price_cn: string;
-  additional_services: string[];
+  additional_services: unknown[];
 }
 
 export interface RaketaCreateOrderPayload {
@@ -21,7 +40,7 @@ export interface RaketaCreateOrderPayload {
   seller_id: number;
   declarant_id: string;
   items: RaketaOrderItemPayload[];
-  additional_services: string[];
+  additional_services: unknown[];
   delivery_type: string | null;
   receive_type: string | null;
   customer_recipient_id: string | null;
@@ -84,7 +103,64 @@ export interface RaketaOrderDetails extends RaketaOrder {
     discription_cn: string;
     count: number;
     price_cn: string;
+    /** Item services; a photo report carries its photo URLs in \`items\`. */
+    additional_services?: Array<{
+      item_additional_service_list_id?: string;
+      name?: string;
+      items?: unknown[];
+      [key: string]: unknown;
+    }>;
   }>;
+}
+
+/** Carriers of the RF leg as RAKETA names them (tk) and their ids. */
+export const RAKETA_TK = {
+  cdek: '78cbeab6-821e-48c8-9c2e-028a1ea99805',
+  pochta: '380dcf2c-dd8a-4b10-8a65-62a4f8fbc667',
+  raketa: '9e2f24eb-f7ee-4dde-9dc0-327cf7e7b3ed',
+} as const;
+export type RaketaCarrier = keyof typeof RAKETA_TK;
+
+/** A pickup point or a door, with the carrier and tariff (STND | EXPR | ECON). */
+export interface RaketaAddressInput {
+  title: string;
+  cityId: string;
+  city: string;
+  region: string | null;
+  carrier: RaketaCarrier;
+  kind: 'pvz' | 'courier';
+  tariff: string;
+  pvzCode?: string | null;
+  pvzIndex?: string | null;
+  /** Pickup point address text (pvz). */
+  street: string;
+  courier?: {
+    fullAddress: string;
+    street: string;
+    house: string;
+    index: string;
+    apartment?: string | null;
+    entrance?: string | null;
+    floor?: string | null;
+    intercom?: string | null;
+    privateHouse?: boolean;
+  } | null;
+}
+
+/** RAKETA's catalog of extra services. */
+export interface RaketaServiceCatalog {
+  order: Array<{ id: string; name: string; img: string; price: string | null; is_insurance?: boolean; [key: string]: unknown }>;
+  item: Array<{ id: string; name: string; img: string; price: string | null; need_comment?: boolean }>;
+}
+
+/** House suggestion from RAKETA's address directory (for a courier). */
+export interface RaketaAddressSuggestion {
+  street_with_type: string | null;
+  full_adress: string;
+  index: string | null;
+  city: string | null;
+  street: string | null;
+  house_number: string | null;
 }
 
 export interface RaketaConsolidation {
@@ -166,6 +242,8 @@ export class RaketaClientService {
   private declarantId: string | null = null;
   private readonly cityCache = new Map<string, { value: RaketaCity[]; expiresAt: number }>();
   private readonly pvzCache = new Map<string, { value: RaketaPickupPoint[]; expiresAt: number }>();
+  private readonly carriersCache = new Map<string, { value: { pvz: RaketaCarrier[]; kd: RaketaCarrier[] }; expiresAt: number }>();
+  private servicesCache: { value: RaketaServiceCatalog; expiresAt: number } | null = null;
   private readonly trackingCache = new Map<string, { value: RaketaTracking; expiresAt: number }>();
 
   constructor(@Inject(ConfigService) configService: ConfigService) {
@@ -260,23 +338,98 @@ export class RaketaClientService {
   }
 
   /** CDEK pickup points in a city (tariff "Стандарт"). Cached for 12 hours. */
-  async getCdekPickupPoints(cityId: string): Promise<RaketaPickupPoint[]> {
-    const cached = this.pvzCache.get(cityId);
+  getCdekPickupPoints(cityId: string): Promise<RaketaPickupPoint[]> {
+    return this.getPickupPoints('cdek', cityId);
+  }
+
+  /** Pickup points of a carrier in a city (CDEK / post offices / RAKETA's own). Cached for 12 hours. */
+  async getPickupPoints(carrier: RaketaCarrier, cityId: string): Promise<RaketaPickupPoint[]> {
+    const key = `${carrier}:${cityId}`;
+    const cached = this.pvzCache.get(key);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const tk = RAKETA_TK[carrier];
     const tariffs = await this.request<{ data?: Array<{ id: string; tariff_code: string }> }>(
       'GET',
-      `/get_tariff_list/${RAKETA_CDEK_TK_ID}/pvz/${encodeURIComponent(cityId)}`,
+      `/get_tariff_list/${tk}/pvz/${encodeURIComponent(cityId)}`,
     );
     const list = tariffs.data ?? [];
     const tariff = list.find((t) => t.tariff_code === RAKETA_CDEK_TARIFF_CODE) ?? list[0];
     if (!tariff) return [];
     const body = await this.request<{ data?: RaketaPickupPoint[] }>(
       'GET',
-      `/pvz_list/${RAKETA_CDEK_TK_ID}/${encodeURIComponent(cityId)}/${tariff.id}`,
+      `/pvz_list/${tk}/${encodeURIComponent(cityId)}/${tariff.id}`,
     );
     const value = body.data ?? [];
-    this.pvzCache.set(cityId, { value, expiresAt: Date.now() + 12 * 60 * 60 * 1000 });
+    this.pvzCache.set(key, { value, expiresAt: Date.now() + 12 * 60 * 60 * 1000 });
     return value;
+  }
+
+  /** Carriers that deliver to a city: with pickup points (pvz) and by courier (kd). Cached for 12 hours. */
+  async getCityCarriers(cityId: string): Promise<{ pvz: RaketaCarrier[]; kd: RaketaCarrier[] }> {
+    const cached = this.carriersCache.get(cityId);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const body = await this.request<{ data?: { pvz?: Array<{ id: string }>; kd?: Array<{ id: string }> } }>(
+      'GET',
+      `/tk_by_city/${encodeURIComponent(cityId)}`,
+    );
+    const known = (list?: Array<{ id: string }>) =>
+      (Object.keys(RAKETA_TK) as RaketaCarrier[]).filter((c) => (list ?? []).some((x) => x.id === RAKETA_TK[c]));
+    const value = { pvz: known(body.data?.pvz), kd: known(body.data?.kd) };
+    this.carriersCache.set(cityId, { value, expiresAt: Date.now() + 12 * 60 * 60 * 1000 });
+    return value;
+  }
+
+  /** House suggestions for a courier address («Москва Тверская 13»). */
+  async suggestAddress(text: string): Promise<RaketaAddressSuggestion[]> {
+    const body = await this.request<RaketaAddressSuggestion[] | { data?: RaketaAddressSuggestion[] }>(
+      'GET',
+      `/get_address?address=${encodeURIComponent(text)}`,
+    );
+    return Array.isArray(body) ? body : (body.data ?? []);
+  }
+
+  /** Whether a carrier's courier serves this postal index in the city. */
+  async courierServes(carrier: RaketaCarrier, cityId: string, index: string): Promise<boolean> {
+    try {
+      await this.request('GET', `/kd_list/${RAKETA_TK[carrier]}/${encodeURIComponent(cityId)}/${encodeURIComponent(index)}`);
+      return true;
+    } catch (error) {
+      if (error instanceof RaketaApiError && error.status === 422) return false;
+      throw error;
+    }
+  }
+
+  /** Extra services (packaging, photo report…). Cached for 6 hours. */
+  async getServiceCatalog(): Promise<RaketaServiceCatalog> {
+    if (this.servicesCache && this.servicesCache.expiresAt > Date.now()) return this.servicesCache.value;
+    const body = await this.request<{
+      data?: { additional_service_list?: RaketaServiceCatalog['order']; item_additional_service_list?: RaketaServiceCatalog['item'] };
+    }>('GET', '/get_additional_service_list');
+    const value = { order: body.data?.additional_service_list ?? [], item: body.data?.item_additional_service_list ?? [] };
+    this.servicesCache = { value, expiresAt: Date.now() + 6 * 60 * 60 * 1000 };
+    return value;
+  }
+
+  /** Order service «extra packaging» (box / crate) in the cabinet's format. */
+  async packagingService(kind: 'box' | 'crate'): Promise<RaketaOrderServicePayload> {
+    const img = kind === 'box' ? 'box' : 'package';
+    const s = (await this.getServiceCatalog()).order.find((x) => x.img === img);
+    if (!s) throw new RaketaApiError(`В RAKETA нет услуги «${kind === 'box' ? 'Дополнительная коробка' : 'Обрешётка'}».`);
+    return { ...s, additional_service_list_id: s.id, selected: true };
+  }
+
+  /** Item service «photo report» (basic / individual with a comment) in the cabinet's format. */
+  async photoReportService(kind: 'basic' | 'individual', comment?: string | null): Promise<RaketaItemServicePayload> {
+    const img = kind === 'basic' ? 'photoreport' : 'individual_photoreport';
+    const s = (await this.getServiceCatalog()).item.find((x) => x.img === img);
+    if (!s) throw new RaketaApiError('В RAKETA нет услуги «Фотоотчёт».');
+    return {
+      item_additional_service_list_id: s.id,
+      need_comment: Boolean(s.need_comment),
+      comment: s.need_comment ? (comment ?? '').slice(0, 500) : '',
+      price: s.price,
+      name: s.name,
+    };
   }
 
   /** Existing recipient with the same full name and phone, or a new one. */
@@ -306,24 +459,83 @@ export class RaketaClientService {
   }
 
   /** Existing (active) CDEK address for this pickup point, or a new one. */
-  async findOrCreateCdekAddress(input: Parameters<RaketaClientService['createCdekAddress']>[0]): Promise<string> {
-    const wanted = input.pvzCode.toUpperCase();
+  findOrCreateCdekAddress(input: Parameters<RaketaClientService['createCdekAddress']>[0]): Promise<string> {
+    return this.findOrCreateAddress({ ...input, carrier: 'cdek', kind: 'pvz', tariff: RAKETA_CDEK_TARIFF_CODE });
+  }
+
+  /**
+   * Existing (active) address with the same carrier, kind, tariff and point
+   * (or door), or a new one. The tariff lives in the address — that's how
+   * RAKETA knows Стандарт vs Экспресс.
+   */
+  async findOrCreateAddress(input: RaketaAddressInput): Promise<string> {
+    const pvz = (input.pvzCode ?? '').toUpperCase();
+    const door = input.courier;
     let firstId: string | undefined;
     for (let offset = 0; offset < 30; offset++) {
       const body = await this.request<{
-        data?: Array<{ id: string; tk: string; pvz_code: string | null; disabled?: boolean }>;
+        data?: Array<{
+          id: string;
+          tk: string;
+          delivery_type: string | null;
+          tariff_code: string | null;
+          pvz_code: string | null;
+          index: string | null;
+          house_number: string | null;
+          apartment: string | null;
+          street: string | null;
+          city_id: string | null;
+          disabled?: boolean;
+        }>;
       }>('GET', `/customer_addresses_full?offset=${offset}`);
       const list = body.data ?? [];
       // Stop if the endpoint ignores paging and keeps returning the same page.
       if (offset > 0 && list[0]?.id === firstId) break;
       firstId ??= list[0]?.id;
-      const hit = list.find(
-        (a) => a.tk === 'cdek' && !a.disabled && (a.pvz_code ?? '').toUpperCase() === wanted,
-      );
+      const hit = list.find((a) => {
+        if (a.disabled || a.tk !== input.carrier || (a.tariff_code ?? 'STND') !== input.tariff) return false;
+        if (input.kind === 'pvz') return a.delivery_type === 'pvz' && (a.pvz_code ?? '').toUpperCase() === pvz;
+        return (
+          a.delivery_type === 'kd' &&
+          a.city_id === input.cityId &&
+          (a.index ?? '') === (door?.index ?? '') &&
+          (a.street ?? '') === (door?.street ?? '') &&
+          (a.house_number ?? '') === (door?.house ?? '') &&
+          (a.apartment ?? '') === (door?.apartment ?? '')
+        );
+      });
       if (hit) return hit.id;
       if (list.length < 10) break;
     }
-    return this.createCdekAddress(input);
+    return this.createAddress(input);
+  }
+
+  /** Creates a pickup-point or courier address with its carrier and tariff. Returns its id. */
+  async createAddress(input: RaketaAddressInput): Promise<string> {
+    const door = input.courier;
+    const isDoor = input.kind === 'courier';
+    const body = await this.request<{ address_id?: string }>('POST', '/customer_address', {
+      title: input.title.slice(0, 190),
+      country: 'Россия',
+      city_id: input.cityId,
+      city: input.city,
+      region: input.region ?? input.city,
+      tk: input.carrier,
+      delivery_type: isDoor ? 'kd' : 'pvz',
+      tariff_code: input.tariff,
+      pvz_code: isDoor ? '' : (input.pvzCode ?? ''),
+      index: isDoor ? (door?.index ?? '') : (input.pvzIndex ?? ''),
+      street: isDoor ? (door?.street ?? '') : input.street,
+      full_address: isDoor ? (door?.fullAddress ?? '') : '',
+      house_number: isDoor ? (door?.house ?? '') : '',
+      apartment: isDoor && !door?.privateHouse ? (door?.apartment ?? '') : '',
+      entrance_number: isDoor && !door?.privateHouse ? (door?.entrance ?? '') : '',
+      intercom_code: isDoor && !door?.privateHouse ? (door?.intercom ?? '') : '',
+      floor_number: isDoor && !door?.privateHouse ? (door?.floor ?? '') : '',
+      is_apartment: Boolean(isDoor && door?.privateHouse),
+    });
+    if (!body.address_id) throw new RaketaApiError('RAKETA не вернула ID адреса.');
+    return body.address_id;
   }
 
   /** Creates a recipient (Cyrillic names, phone as 10 digits). Returns its id. */
@@ -345,7 +557,7 @@ export class RaketaClientService {
   }
 
   /** Creates a CDEK pickup-point address. Returns its id. */
-  async createCdekAddress(input: {
+  createCdekAddress(input: {
     title: string;
     cityId: string;
     city: string;
@@ -354,28 +566,7 @@ export class RaketaClientService {
     pvzIndex: string | null;
     street: string;
   }): Promise<string> {
-    const body = await this.request<{ address_id?: string }>('POST', '/customer_address', {
-      title: input.title.slice(0, 190),
-      country: 'Россия',
-      city_id: input.cityId,
-      city: input.city,
-      region: input.region ?? input.city,
-      tk: 'cdek',
-      delivery_type: 'pvz',
-      tariff_code: RAKETA_CDEK_TARIFF_CODE,
-      pvz_code: input.pvzCode,
-      index: input.pvzIndex ?? '',
-      street: input.street,
-      full_address: '',
-      house_number: '',
-      apartment: '',
-      entrance_number: '',
-      intercom_code: '',
-      floor_number: '',
-      is_apartment: false,
-    });
-    if (!body.address_id) throw new RaketaApiError('RAKETA не вернула ID адреса.');
-    return body.address_id;
+    return this.createAddress({ ...input, carrier: 'cdek', kind: 'pvz', tariff: RAKETA_CDEK_TARIFF_CODE });
   }
 
   /** Groups several orders into one consolidation with recipient + address. */
@@ -425,7 +616,8 @@ export class RaketaClientService {
         discription_cn: item.discription_cn,
         count: item.count,
         price_cn: item.price_cn,
-        additional_services: [],
+        // Keep ordered services (photo report) — an empty list would cancel them.
+        additional_services: item.additional_services ?? [],
       })),
       additional_services: (order.additional_services ?? []).map((service) => service),
       delivery_type: null,
@@ -474,7 +666,7 @@ export class RaketaClientService {
           discription_cn: item.discription_cn,
           count: item.count,
           price_cn: item.price_cn,
-          additional_services: [],
+          additional_services: item.additional_services ?? [],
         })),
         input.item,
       ],

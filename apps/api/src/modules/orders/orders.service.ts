@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import type {
   CheckoutOrderResponse,
   CreateManualOrderRequest,
+  DeliveryCourierAddress,
   ManualOrderClientLookupResponse,
   OrderDetailsDto,
   OrderListItemDto,
@@ -35,6 +36,9 @@ import { RegionalDeliveryService } from '../pricing/services/regional-delivery.s
 import { SettingsService } from '../settings/settings.service';
 import { mapUserToProfile } from '../users/mappers/user-profile.mapper';
 import { UsersService } from '../users/users.service';
+import { pickupPointColumns } from '../delivery-addresses/delivery-addresses.service';
+import { pointDeliveryColumns } from './delivery-method';
+import type { CheckoutDto } from './dto/checkout.dto';
 import {
   mapOrderToDetailsDto,
   mapOrderToListItemDto,
@@ -112,9 +116,10 @@ export class OrdersService {
     this.loyaltyService = loyaltyService;
   }
 
-  async checkout(user: User, deliveryAddressId: string, insurance = false): Promise<CheckoutOrderResponse> {
+  async checkout(user: User, dto: CheckoutDto): Promise<CheckoutOrderResponse> {
+    const insurance = Boolean(dto.insurance);
     const deliveryAddress = await this.prisma.deliveryAddress.findFirst({
-      where: { id: deliveryAddressId, userId: user.id },
+      where: { id: dto.deliveryAddressId, userId: user.id },
     });
 
     if (!deliveryAddress) {
@@ -122,8 +127,34 @@ export class OrdersService {
     }
 
     const settings = await this.settingsService.getCurrentSettings();
-    // Delivery priced to the nearest million-plus city of the client's address.
-    const { adjust } = await this.regionalDelivery.forRegion(deliveryAddress.region, deliveryAddress.city);
+    // The delivery method the client picked (carrier × pickup point/courier ×
+    // speed), priced to the nearest million-plus city of the address.
+    const { options } = await this.regionalDelivery.optionsFor({
+      cityId: deliveryAddress.cityId,
+      city: deliveryAddress.city,
+      region: deliveryAddress.region,
+      carrier: deliveryAddress.carrier,
+      kind: deliveryAddress.kind,
+      courierIndex: deliveryAddress.kind === 'courier' ? deliveryAddress.pvzIndex : null,
+    });
+    const option = dto.deliveryOption
+      ? options.find((o) => o.key === dto.deliveryOption)
+      : (options.find((o) => o.tariff !== 'EXPR') ?? options[0]);
+    if (!option) {
+      throw new BadRequestException(
+        deliveryAddress.kind === 'courier' && options.length === 0
+          ? 'Курьер по этому адресу не доставляет. Выберите пункт выдачи или другой адрес.'
+          : 'Этот способ доставки сейчас недоступен — обновите страницу и выберите другой.',
+      );
+    }
+    const adjust = option.adjust;
+
+    const photoByCartItem = new Map((dto.photoReports ?? []).map((p) => [p.cartItemId, p]));
+    for (const p of photoByCartItem.values()) {
+      if (p.kind === 'individual' && !p.comment?.trim()) {
+        throw new BadRequestException('Для индивидуального фотоотчёта напишите, что нужно сфотографировать.');
+      }
+    }
 
     const createdOrderId = await this.prisma.$transaction(
       async (tx) => {
@@ -230,6 +261,16 @@ export class OrdersService {
             deliveryRegion: deliveryAddress.region,
             deliveryPvzCode: deliveryAddress.pvzCode,
             deliveryPvzIndex: deliveryAddress.pvzIndex,
+            deliveryCarrier: option.carrier,
+            deliveryKind: option.kind,
+            deliveryTariff: option.tariff,
+            deliveryCourier:
+              option.kind === 'courier' && deliveryAddress.courier
+                ? (deliveryAddress.courier as Prisma.InputJsonValue)
+                : Prisma.DbNull,
+            deliveryDaysMin: option.daysMin,
+            deliveryDaysMax: option.daysMax,
+            packaging: dto.packaging ?? null,
           },
         });
 
@@ -255,6 +296,11 @@ export class OrdersService {
             categoryGroup: item.categoryGroup,
             deliveryCategory: item.deliveryCategory,
             estimatedWeightKg: item.estimatedWeightKg,
+            photoReport: photoByCartItem.get(item.id)?.kind ?? null,
+            photoReportComment:
+              photoByCartItem.get(item.id)?.kind === 'individual'
+                ? (photoByCartItem.get(item.id)?.comment?.trim().slice(0, 500) ?? null)
+                : null,
           })),
         });
 
@@ -361,13 +407,19 @@ export class OrdersService {
         isDefault: address.isDefault,
         createdAt: address.createdAt.toISOString(),
         pickupPoint:
-          address.cityId && address.city && address.pvzCode
+          address.cityId && address.city && (address.pvzCode || (address.kind === 'courier' && address.courier))
             ? {
                 cityId: address.cityId,
                 city: address.city,
                 region: address.region,
-                pvzCode: address.pvzCode,
+                kind: address.kind as 'pvz' | 'courier',
+                carrier: address.carrier as 'cdek' | 'pochta' | 'raketa',
+                pvzCode: address.pvzCode ?? '',
                 pvzIndex: address.pvzIndex,
+                courier:
+                  address.kind === 'courier'
+                    ? (address.courier as unknown as DeliveryCourierAddress | null)
+                    : null,
               }
             : null,
       })),
@@ -432,11 +484,24 @@ export class OrdersService {
         ? new Prisma.Decimal(commissionOverride)
         : this.pricingService.effectiveCommissionPercent(settings.commissionPercent, loyaltyDiscount);
 
-    // Delivery to the nearest million-plus city of the picked CDEK point.
-    const regional = await this.regionalDelivery.forRegion(
-      dto.delivery?.pickupPoint?.region,
-      dto.delivery?.pickupPoint?.city,
-    );
+    // Delivery for the picked point (its carrier, standard speed), priced to
+    // the nearest million-plus city.
+    const picked = dto.delivery?.pickupPoint;
+    const { options: pointOptions } = await this.regionalDelivery.optionsFor({
+      cityId: picked?.cityId,
+      city: picked?.city,
+      region: picked?.region,
+      carrier: picked?.kind === 'courier' ? 'cdek' : picked?.carrier,
+      kind: picked?.kind,
+      courierIndex: picked?.courier?.index,
+    });
+    const pointColumns = pointDeliveryColumns(picked);
+    const regional = {
+      adjust:
+        (pointOptions.find(
+          (o) => o.carrier === pointColumns.deliveryCarrier && o.tariff === pointColumns.deliveryTariff,
+        ) ?? pointOptions[0])?.adjust ?? null,
+    };
 
     // Compute pricing for each item using the existing manual-pricing logic.
     const pricedItems = await Promise.all(
@@ -517,7 +582,11 @@ export class OrdersService {
             userId: client.id,
             fullName: deliveryFullName,
             phone: deliveryPhone,
-            ...(pickedPoint ? { pvzCode: pickedPoint.pvzCode } : { cdekAddress: deliveryCdekAddress }),
+            ...(pickedPoint
+              ? pickedPoint.kind === 'courier'
+                ? { kind: 'courier', cdekAddress: deliveryCdekAddress }
+                : { pvzCode: pickedPoint.pvzCode, carrier: pickedPoint.carrier ?? 'cdek' }
+              : { cdekAddress: deliveryCdekAddress }),
           },
         });
 
@@ -533,11 +602,7 @@ export class OrdersService {
               cdekAddress: deliveryCdekAddress,
               phone: deliveryPhone,
               isDefault: addressCount === 0,
-              cityId: pickedPoint?.cityId ?? null,
-              city: pickedPoint?.city ?? null,
-              region: pickedPoint?.region ?? null,
-              pvzCode: pickedPoint?.pvzCode ?? null,
-              pvzIndex: pickedPoint?.pvzIndex ?? null,
+              ...pickupPointColumns(pickedPoint ?? undefined),
             },
           });
           deliveryAddressId = createdAddress.id;
@@ -572,6 +637,7 @@ export class OrdersService {
             deliveryRegion: pickedPoint?.region ?? existingAddress?.region ?? null,
             deliveryPvzCode: pickedPoint?.pvzCode ?? existingAddress?.pvzCode ?? null,
             deliveryPvzIndex: pickedPoint?.pvzIndex ?? existingAddress?.pvzIndex ?? null,
+            ...pointDeliveryColumns(pickedPoint ?? (existingAddress?.cityId ? existingAddress : null)),
             customerComment: dto.delivery.comment ?? null,
           },
         });
@@ -696,6 +762,8 @@ export class OrdersService {
           fullName: order.deliveryFullName ?? '',
           phone: order.deliveryPhone ?? '',
           pvzCode: order.deliveryPvzCode,
+          kind: order.deliveryKind,
+          ...(order.deliveryKind === 'courier' ? { cdekAddress: order.deliveryCdekAddress ?? '' } : {}),
         },
       });
       let deliveryAddressId = sameAddress?.id ?? null;
@@ -713,6 +781,9 @@ export class OrdersService {
             region: order.deliveryRegion,
             pvzCode: order.deliveryPvzCode,
             pvzIndex: order.deliveryPvzIndex,
+            carrier: order.deliveryCarrier,
+            kind: order.deliveryKind,
+            courier: order.deliveryCourier ?? Prisma.DbNull,
           },
         });
         deliveryAddressId = created.id;

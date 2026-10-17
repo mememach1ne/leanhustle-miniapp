@@ -11,7 +11,15 @@ import { OrderStatus } from '@prisma/client';
 
 import { PrismaService } from '../../../prisma/prisma.service';
 import { DewuApiClientService } from '../../products/services/dewu-api-client.service';
-import { type RaketaOrder, RaketaClientService } from '../../raketa/raketa-client.service';
+import {
+  type RaketaAddressInput,
+  type RaketaCarrier,
+  type RaketaOrder,
+  RaketaClientService,
+} from '../../raketa/raketa-client.service';
+import { pickupPointColumns } from '../../delivery-addresses/delivery-addresses.service';
+import type { PickupPointDto } from '../../delivery-addresses/dto/pickup-point.dto';
+import { deliveryMethodLabel, defaultTariff, pointDeliveryColumns } from '../delivery-method';
 import { buildRaketaItemTitle } from '../../raketa/raketa-title';
 import { OrdersService } from '../orders.service';
 import { RaketaGuardService } from './raketa-guard.service';
@@ -182,6 +190,7 @@ export class RaketaFulfillmentService {
         if (!found) throw new Error(`в кабинете не найден заказ ${track}`);
         await this.assertLinkable(order.id, item.id, found);
         await this.linkItem(order, item.id, found, staff, 'привязан по номеру RAKETA');
+        await this.noteServicesNotAdded(order, item, found);
         await this.assignDeliveryIfReady(orderId, staff);
         return this.ordersService.getOrderForStaff(orderId);
       }
@@ -212,6 +221,8 @@ export class RaketaFulfillmentService {
             size: item.sizeLabel,
             quantity: item.quantity,
             priceYuan: Number(item.priceYuan),
+            photoReport: item.photoReport,
+            photoReportComment: item.photoReportComment,
           }),
           title: `${existing.title} + ${ruTitleAdded}`,
         });
@@ -249,6 +260,9 @@ export class RaketaFulfillmentService {
         quantity: item.quantity,
         priceYuan: Number(item.priceYuan),
         insurance: order.insurance,
+        packaging: order.packaging,
+        photoReport: item.photoReport,
+        photoReportComment: item.photoReportComment,
       });
       // Re-check what RAKETA gave us: the order must carry exactly this track.
       if (created.china_track_number && norm(created.china_track_number) !== track) {
@@ -259,6 +273,7 @@ export class RaketaFulfillmentService {
       if (existed) {
         await this.assertLinkable(order.id, item.id, created);
         await this.linkItem(order, item.id, created, staff, 'привязан');
+        await this.noteServicesNotAdded(order, item, created);
         await this.assignDeliveryIfReady(orderId, staff);
         return this.ordersService.getOrderForStaff(orderId);
       }
@@ -283,7 +298,7 @@ export class RaketaFulfillmentService {
    */
   setPickupPoint(
     orderId: string,
-    point: { cityId: string; city: string; region?: string | null; pvzCode: string; pvzIndex?: string | null },
+    point: PickupPointDto,
     label: string,
     staff: StaffAccount,
   ): Promise<StaffOrderDetailsDto> {
@@ -292,7 +307,7 @@ export class RaketaFulfillmentService {
 
   private async setPickupPointUnlocked(
     orderId: string,
-    point: { cityId: string; city: string; region?: string | null; pvzCode: string; pvzIndex?: string | null },
+    point: PickupPointDto,
     label: string,
     staff: StaffAccount,
   ): Promise<StaffOrderDetailsDto> {
@@ -301,13 +316,8 @@ export class RaketaFulfillmentService {
     if (order.raketaDeliveryAssignedAt) {
       throw new BadRequestException('Доставка уже оформлена в RAKETA — пункт менять нельзя.');
     }
-    const columns = {
-      cityId: point.cityId,
-      city: point.city,
-      region: point.region ?? null,
-      pvzCode: point.pvzCode,
-      pvzIndex: point.pvzIndex ?? null,
-    };
+    const columns = pickupPointColumns(point);
+    const method = pointDeliveryColumns(point, order.deliveryTariff);
     const cdekAddress = label.trim().slice(0, 512);
 
     await this.prisma.$transaction(async (tx) => {
@@ -320,6 +330,7 @@ export class RaketaFulfillmentService {
           deliveryRegion: columns.region,
           deliveryPvzCode: columns.pvzCode,
           deliveryPvzIndex: columns.pvzIndex,
+          ...method,
           raketaAddressId: null,
           raketaLastError: null,
         },
@@ -354,7 +365,7 @@ export class RaketaFulfillmentService {
           fromStatus: order.status,
           toStatus: order.status,
           changedByStaffId: staff.id,
-          comment: `Пункт СДЭК выбран менеджером: ${cdekAddress} (было: ${order.deliveryCdekAddress ?? '—'}).`,
+          comment: `Пункт выдачи выбран менеджером (${deliveryMethodLabel(method)}): ${cdekAddress} (было: ${order.deliveryCdekAddress ?? '—'}).`,
         },
       });
     });
@@ -399,9 +410,10 @@ export class RaketaFulfillmentService {
     if (missing > 0) {
       throw new BadRequestException(`Сначала зарегистрируйте в RAKETA все товары (осталось ${missing}).`);
     }
-    if (!order.deliveryPvzCode || !order.deliveryCityId || !order.deliveryCity) {
+    const door = order.deliveryKind === 'courier' ? (order.deliveryCourier as RaketaAddressInput['courier']) : null;
+    if (!order.deliveryCityId || !order.deliveryCity || (door ? !door.house : !order.deliveryPvzCode)) {
       throw new BadRequestException(
-        'У заказа нет пункта СДЭК из справочника (адрес введён вручную). Попросите клиента выбрать пункт в приложении или оформите доставку вручную.',
+        'У заказа нет пункта выдачи из справочника (адрес введён вручную). Попросите клиента выбрать пункт в приложении или оформите доставку вручную.',
       );
     }
     const name = splitFullName(order.deliveryFullName ?? '');
@@ -423,16 +435,21 @@ export class RaketaFulfillmentService {
         await this.prisma.order.update({ where: { id: order.id }, data: { raketaRecipientId: recipientId } });
       }
 
+      // The carrier, pickup point/courier and tariff (Стандарт/Экспресс) live in the address.
       const addressId =
         order.raketaAddressId ??
-        (await this.raketa.findOrCreateCdekAddress({
-          title: `${order.deliveryFullName} — ${order.deliveryCity}`,
+        (await this.raketa.findOrCreateAddress({
+          title: `${order.deliveryFullName} — ${order.deliveryCity}${door ? ', курьер' : ''}`,
           cityId: order.deliveryCityId,
           city: order.deliveryCity,
           region: order.deliveryRegion,
-          pvzCode: order.deliveryPvzCode,
-          pvzIndex: order.deliveryPvzIndex,
+          carrier: order.deliveryCarrier as RaketaCarrier,
+          kind: door ? 'courier' : 'pvz',
+          tariff: order.deliveryTariff,
+          pvzCode: door ? null : order.deliveryPvzCode,
+          pvzIndex: door ? door.index : order.deliveryPvzIndex,
           street: (order.deliveryCdekAddress ?? '').replace(/\s*\([A-Za-z0-9_-]+\)\s*$/, ''),
+          courier: door,
         }));
       if (!order.raketaAddressId) {
         await this.prisma.order.update({ where: { id: order.id }, data: { raketaAddressId: addressId } });
@@ -491,7 +508,7 @@ export class RaketaFulfillmentService {
             fromStatus: order.status,
             toStatus: order.status,
             changedByStaffId: staff.id,
-            comment: `RAKETA: ${summary}; СДЭК ${order.deliveryPvzCode}, ${order.deliveryCity}.`,
+            comment: `RAKETA: ${summary}; ${deliveryMethodLabel(order)}, ${order.deliveryCity}.`,
           },
         }),
       ]);
@@ -532,13 +549,7 @@ export class RaketaFulfillmentService {
       fullName: string;
       phone: string;
       pointAddress: string;
-      pickupPoint: {
-        cityId: string;
-        city: string;
-        region?: string | null;
-        pvzCode: string;
-        pvzIndex?: string | null;
-      };
+      pickupPoint: PickupPointDto;
     };
   }): Promise<{
     orders: Array<{ id: string; raketaTrackNumber: string | null; title: string; existed: boolean }>;
@@ -641,14 +652,20 @@ export class RaketaFulfillmentService {
         if (!/^\d{10}$/.test(phone10)) throw new Error('Телефон должен быть в формате +7XXXXXXXXXX.');
         const point = input.delivery.pickupPoint;
         const recipientId = await this.raketa.findOrCreateRecipient({ ...name, phone10 });
-        const addressId = await this.raketa.findOrCreateCdekAddress({
-          title: `${input.delivery.fullName} — ${point.city}`,
+        const door = point.kind === 'courier' ? (point.courier ?? null) : null;
+        const carrier = (door ? 'cdek' : (point.carrier ?? 'cdek')) as RaketaCarrier;
+        const addressId = await this.raketa.findOrCreateAddress({
+          title: `${input.delivery.fullName} — ${point.city}${door ? ', курьер' : ''}`,
           cityId: point.cityId,
           city: point.city,
           region: point.region ?? null,
-          pvzCode: point.pvzCode,
-          pvzIndex: point.pvzIndex ?? null,
+          carrier,
+          kind: door ? 'courier' : 'pvz',
+          tariff: defaultTariff(carrier),
+          pvzCode: door ? null : point.pvzCode,
+          pvzIndex: door ? door.index : (point.pvzIndex ?? null),
           street: input.delivery.pointAddress,
+          courier: door,
         });
         for (const o of orders) {
           const d = await this.raketa.getOrderDetails(o.id);
@@ -694,6 +711,9 @@ export class RaketaFulfillmentService {
     priceYuan: number;
     titleCn?: string | null;
     insurance?: boolean;
+    packaging?: string | null;
+    photoReport?: string | null;
+    photoReportComment?: string | null;
   }): Promise<{ order: RaketaOrder; existed: boolean }> {
     // Retry-safe: a previous attempt may have created the order already.
     const existing = await this.raketa.findOrderByTrack(input.track);
@@ -706,7 +726,11 @@ export class RaketaFulfillmentService {
         seller_id: RAKETA_POIZON_SELLER_ID,
         declarant_id: await this.raketa.getOwnDeclarantId(),
         items: [await this.itemPayload(input)],
-        additional_services: [],
+        // Extra packaging is ordered per China parcel (RAKETA order).
+        additional_services:
+          input.packaging === 'box' || input.packaging === 'crate'
+            ? [await this.raketa.packagingService(input.packaging)]
+            : [],
         delivery_type: null,
         receive_type: null,
         customer_recipient_id: null,
@@ -781,6 +805,27 @@ export class RaketaFulfillmentService {
     ]);
   }
 
+  /**
+   * An existing RAKETA order was linked (created by hand / earlier): the
+   * client's paid-for services aren't in it — tell the owner to add them.
+   */
+  private async noteServicesNotAdded(
+    order: { id: string; orderNumber: string; status: OrderStatus; packaging: string | null },
+    item: { productTitle: string; photoReport: string | null },
+    raketaOrder: RaketaOrder,
+  ): Promise<void> {
+    const wanted = [
+      order.packaging === 'box' ? 'доп. коробка' : order.packaging === 'crate' ? 'обрешётка' : null,
+      item.photoReport === 'individual' ? 'индивидуальный фотоотчёт' : item.photoReport ? 'фотоотчёт' : null,
+    ].filter(Boolean);
+    if (wanted.length === 0) return;
+    const text = `${order.orderNumber}: заказ RAKETA ${raketaOrder.raketa_track_number ?? raketaOrder.id} привязан готовым — добавьте в кабинете услуги, которые выбрал клиент: ${wanted.join(', ')} («${item.productTitle.slice(0, 40)}»).`;
+    await this.prisma.orderStatusHistory.create({
+      data: { orderId: order.id, fromStatus: order.status, toStatus: order.status, comment: `RAKETA: ${text}` },
+    });
+    await this.guard.notifyOwner(`RAKETA: ${text}`, order.id);
+  }
+
   /** One RAKETA order item: Russian title, Chinese description, price ¥. */
   private async itemPayload(input: {
     ruTitle: string;
@@ -791,7 +836,13 @@ export class RaketaFulfillmentService {
     quantity: number;
     priceYuan: number;
     titleCn?: string | null;
+    photoReport?: string | null;
+    photoReportComment?: string | null;
   }) {
+    const photo =
+      input.photoReport === 'basic' || input.photoReport === 'individual'
+        ? await this.raketa.photoReportService(input.photoReport, input.photoReportComment)
+        : null;
     return {
       link: input.link,
       item_title: input.ruTitle,
@@ -800,7 +851,7 @@ export class RaketaFulfillmentService {
         : await this.chineseDescription(input.dwSpuId, input.productTitle, input.size),
       count: input.quantity,
       price_cn: input.priceYuan.toFixed(0),
-      additional_services: [] as string[],
+      additional_services: photo ? [photo] : [],
     };
   }
 

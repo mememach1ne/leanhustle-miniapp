@@ -25,3 +25,4 @@ export * from './utils/delivery-category';
 export * from './utils/manager-order-actions';
 export * from './utils/order-number';
 export * from './interfaces/partners.interface';
+export * from './utils/delivery-method';

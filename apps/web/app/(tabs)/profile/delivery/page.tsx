@@ -51,7 +51,7 @@ function AddressForm({
 
   const handleSubmit = () => {
     if (!picked) {
-      setValidationError('Выберите пункт СДЭК из списка');
+      setValidationError('Выберите пункт выдачи или адрес для курьера');
       return;
     }
     const trimmed = {
@@ -93,7 +93,7 @@ function AddressForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs text-[var(--muted)]">Пункт выдачи СДЭК</label>
+          <label className="mb-1 block text-xs text-[var(--muted)]">Где получить посылку</label>
           {legacyAddress && !picked ? (
             <p className="mb-2 text-[11px] leading-4 text-amber-200/80">
               Сейчас указано: «{legacyAddress}». Выберите этот пункт из списка — так заказ оформится автоматически.
@@ -349,7 +349,7 @@ export default function DeliveryPage() {
         <EmptyState
           icon={<BoxIcon />}
           title="Нет адресов доставки"
-          description="Добавьте адрес для оформления заказов. Укажите ФИО, пункт СДЭК и телефон."
+          description="Добавьте адрес для оформления заказов. Укажите ФИО, пункт выдачи (СДЭК, Почта) или адрес для курьера и телефон."
           action={
             <button
               type="button"

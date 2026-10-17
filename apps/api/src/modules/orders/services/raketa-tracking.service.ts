@@ -1,4 +1,4 @@
-import type { OrderTrackingDto, OrderTrackingItemDto } from '@lean-poizon/shared';
+import type { DeliveryCarrier, OrderTrackingDto, OrderTrackingItemDto } from '@lean-poizon/shared';
 import { OrderStatus as SharedOrderStatus } from '@lean-poizon/shared';
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
@@ -141,6 +141,7 @@ export class RaketaTrackingService {
       kind: consolidated ? 'consolidation' : 'single',
       // Shown as soon as RAKETA assigns it (usually right after the delivery is paid).
       cdekTrack: order.trackCode ?? order.raketaTkTrack ?? null,
+      carrier: (order.deliveryCarrier ?? 'cdek') as DeliveryCarrier,
       steps,
       events: [...(main?.events ?? [])]
         .filter((e) => !HIDDEN_EVENTS.has(e.id))
@@ -189,6 +190,7 @@ export class RaketaTrackingService {
     raketaParcelTrack: string | null;
     raketaTkTrack: string | null;
     raketaPaidAt: Date | null;
+    deliveryCarrier: string;
     items: Array<{ raketaOrderId: string | null }>;
     user: { telegramId: string } | null;
   }): Promise<void> {
@@ -221,8 +223,16 @@ export class RaketaTrackingService {
       await this.move(order, OrderStatus.DELIVERED, cdek, 'RAKETA: посылка доставлена.');
       return;
     }
-    if (reached(tracking, RF_SENT) && cdek && order.status !== OrderStatus.TRACK_CODE_RECEIVED) {
-      await this.move(order, OrderStatus.TRACK_CODE_RECEIVED, cdek, `RAKETA: посылка передана в СДЭК, трек ${cdek}.`);
+    // The partner's own points have no carrier track — «in transit» is enough.
+    const ownPoints = order.deliveryCarrier === 'raketa';
+    if (reached(tracking, RF_SENT) && (cdek || ownPoints) && order.status !== OrderStatus.TRACK_CODE_RECEIVED) {
+      const carrierName = order.deliveryCarrier === 'pochta' ? 'Почту России' : ownPoints ? 'пункт выдачи' : 'СДЭК';
+      await this.move(
+        order,
+        OrderStatus.TRACK_CODE_RECEIVED,
+        cdek,
+        `RAKETA: посылка передана в ${carrierName}${cdek ? `, трек ${cdek}` : ''}.`,
+      );
     }
   }
 

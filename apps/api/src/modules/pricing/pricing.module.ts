@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
+import { RaketaModule } from '../raketa/raketa.module';
 import { SettingsModule } from '../settings/settings.module';
 import { StaffModule } from '../staff/staff.module';
 import { PricingController } from './pricing.controller';
@@ -17,7 +18,7 @@ import { ProductCategoryClassifierService } from './services/product-category-cl
 import { RegionalDeliveryService } from './services/regional-delivery.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, LoyaltyModule, SettingsModule, StaffModule],
+  imports: [PrismaModule, AuthModule, LoyaltyModule, RaketaModule, SettingsModule, StaffModule],
   controllers: [PricingController, StaffDeliveryCategoriesController],
   providers: [
     PricingService,

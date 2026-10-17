@@ -1,7 +1,7 @@
 'use client';
 
 import type { OrderStatusHistoryItemDto, OrderTrackingDto } from '@lean-poizon/shared';
-import { OrderStatus } from '@lean-poizon/shared';
+import { carrierTracking, OrderStatus } from '@lean-poizon/shared';
 import { useState } from 'react';
 
 import { hapticNotification } from '../../lib/telegram-web-app';
@@ -136,6 +136,9 @@ export function OrderProgress({
     }
   };
 
+  const carrierLink = tracking?.cdekTrack ? carrierTracking(tracking.carrier, tracking.cdekTrack) : null;
+  const isCdek = (tracking?.carrier ?? 'cdek') === 'cdek';
+
   const items = tracking?.items ?? [];
   const arrived = items.filter((item) => item.arrived).length;
   const showItems = tracking?.kind === 'consolidation' && !steps[3].done && items.length > 0;
@@ -151,23 +154,23 @@ export function OrderProgress({
         </p>
       ) : null}
 
-      {tracking?.cdekTrack ? (
+      {tracking?.cdekTrack && carrierLink ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={copyCdek}
             className="inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-400/10 py-1.5 pl-1.5 pr-3 text-xs font-semibold text-emerald-100 transition active:scale-[0.98]"
           >
-            <MarketplaceLogo marketplace="cdek" className="h-5 w-5" />
-            {copied ? 'Скопировано!' : `СДЭК ${tracking.cdekTrack}`}
+            {isCdek ? <MarketplaceLogo marketplace="cdek" className="h-5 w-5" /> : null}
+            {copied ? 'Скопировано!' : `${carrierLink.name} ${tracking.cdekTrack}`}
           </button>
           <a
-            href={`https://www.cdek.ru/ru/tracking?order_id=${encodeURIComponent(tracking.cdekTrack)}`}
+            href={carrierLink.url}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-[var(--accent)]"
           >
-            Отследить на сайте СДЭК ↗
+            {isCdek ? 'Отследить на сайте СДЭК ↗' : 'Отследить на сайте Почты ↗'}
           </a>
         </div>
       ) : null}

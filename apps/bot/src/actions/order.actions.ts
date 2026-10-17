@@ -260,8 +260,8 @@ export const registerOrderActions = (bot: Telegraf<BotContext>) => {
             const order = await apiService.assignRaketaDelivery(payload.orderId, getActor(ctx));
             await ctx.reply(
               order.fulfillment.items.length > 1
-                ? `Заказ ${order.orderNumber}: объединение в RAKETA создано, получатель и пункт СДЭК указаны.`
-                : `Заказ ${order.orderNumber}: получатель и пункт СДЭК указаны в RAKETA.`,
+                ? `Заказ ${order.orderNumber}: объединение в RAKETA создано, получатель и пункт выдачи указаны.`
+                : `Заказ ${order.orderNumber}: получатель и пункт выдачи указаны в RAKETA.`,
             );
           } catch (error) {
             await ctx.reply(extractAxiosMessage(error) ?? 'Не удалось оформить доставку в RAKETA.');

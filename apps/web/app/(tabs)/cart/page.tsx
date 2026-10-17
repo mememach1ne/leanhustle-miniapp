@@ -1,6 +1,11 @@
 'use client';
 
-import type { CartDeliveryEstimateResponse } from '@lean-poizon/shared';
+import type {
+  CartDeliveryEstimateResponse,
+  PackagingOption,
+  PhotoReportOption,
+} from '@lean-poizon/shared';
+import { EXTRA_SERVICE_PRICES, PACKAGING_LABELS, PHOTO_REPORT_LABELS } from '@lean-poizon/shared';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -44,26 +49,50 @@ export default function CartPage() {
   const [insurance, setInsurance] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  // Delivery to the nearest million-plus city of the chosen address (Moscow without one).
+  // Ways to deliver to the chosen address (carrier × pickup/courier × speed) with prices.
   const [deliveryEstimate, setDeliveryEstimate] = useState<CartDeliveryEstimateResponse | null>(null);
+  const [deliveryOption, setDeliveryOption] = useState<string | null>(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const [packaging, setPackaging] = useState<PackagingOption | null>(null);
+  const [photoReports, setPhotoReports] = useState<Record<string, { kind: PhotoReportOption; comment: string }>>({});
   const cartItemsKey = cart?.items.map((item) => `${item.id}:${item.quantity}`).join(',') ?? '';
 
   useEffect(() => {
     if (authStatus !== 'authenticated' || !cartItemsKey) return;
     let cancelled = false;
+    setEstimateLoading(true);
     cartApi
-      .getDeliveryEstimate(selectedAddressId)
+      .getDeliveryEstimate(selectedAddressId, deliveryOption)
       .then((estimate) => {
         if (!cancelled) setDeliveryEstimate(estimate);
       })
       .catch(() => {
         if (!cancelled) setDeliveryEstimate(null);
+      })
+      .finally(() => {
+        if (!cancelled) setEstimateLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [authStatus, selectedAddressId, cartItemsKey]);
+  }, [authStatus, selectedAddressId, deliveryOption, cartItemsKey]);
   const deliveryRub = deliveryEstimate?.deliveryRub ?? cart?.summary.cartDeliveryRub ?? 0;
+  const deliveryOptions = deliveryEstimate?.options ?? [];
+  const selectedOption = deliveryOptions.find((o) => o.key === deliveryEstimate?.selectedKey) ?? null;
+  // Extra services are charged per China parcel (packaging) / per item (photos) with the delivery.
+  const parcels = cart?.items.length ?? 0;
+  const servicesRub =
+    (packaging ? EXTRA_SERVICE_PRICES.packaging[packaging] * parcels : 0) +
+    Object.values(photoReports).reduce((sum, p) => sum + EXTRA_SERVICE_PRICES.photoReport[p.kind], 0);
+  const setPhoto = (itemId: string, kind: PhotoReportOption | null) => {
+    hapticSelection();
+    setPhotoReports((current) => {
+      const next = { ...current };
+      if (kind) next[itemId] = { kind, comment: current[itemId]?.comment ?? '' };
+      else delete next[itemId];
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (authStatus !== 'authenticated') {
@@ -158,11 +187,29 @@ export default function CartPage() {
       return;
     }
 
+    if (Object.values(photoReports).some((p) => p.kind === 'individual' && !p.comment.trim())) {
+      setCheckoutError('Для подробного фотоотчёта напишите, что нужно сфотографировать.');
+      hapticNotification('error');
+      return;
+    }
+
     setIsCheckingOut(true);
     setCheckoutError(null);
 
     try {
-      const response = await ordersApi.checkoutOrder(selectedAddressId, insurance);
+      const response = await ordersApi.checkoutOrder({
+        deliveryAddressId: selectedAddressId,
+        insurance,
+        deliveryOption: deliveryEstimate?.selectedKey ?? undefined,
+        packaging,
+        photoReports: Object.entries(photoReports)
+          .filter(([id]) => cart?.items.some((item) => item.id === id))
+          .map(([cartItemId, p]) => ({
+            cartItemId,
+            kind: p.kind,
+            comment: p.kind === 'individual' ? p.comment.trim() : null,
+          })),
+      });
 
       clearCart();
       prependOrder({
@@ -387,7 +434,11 @@ export default function CartPage() {
                           <button
                             key={addr.id}
                             type="button"
-                            onClick={() => { hapticSelection(); setSelectedAddressId(addr.id); }}
+                            onClick={() => {
+                              hapticSelection();
+                              setSelectedAddressId(addr.id);
+                              setDeliveryOption(null);
+                            }}
                             className={[
                               'w-full rounded-[16px] border px-4 py-3 text-left text-sm transition',
                               selectedAddressId === addr.id
@@ -405,15 +456,150 @@ export default function CartPage() {
                     </div>
                   )}
 
+                  {deliveryOptions.length > 0 ? (
+                    <div className="mt-4">
+                      <label className="mb-2 block text-xs text-[var(--muted)]">Способ доставки</label>
+                      <div className="space-y-2">
+                        {deliveryOptions.map((option) => (
+                          <button
+                            key={option.key}
+                            type="button"
+                            disabled={estimateLoading}
+                            onClick={() => {
+                              hapticSelection();
+                              setDeliveryOption(option.key);
+                            }}
+                            className={[
+                              'flex w-full items-center justify-between gap-3 rounded-[16px] border px-4 py-3 text-left text-sm transition disabled:opacity-70',
+                              deliveryEstimate?.selectedKey === option.key
+                                ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-white'
+                                : 'border-white/10 bg-white/5 text-slate-300',
+                            ].join(' ')}
+                          >
+                            <span className="min-w-0">
+                              <span className="block font-medium">{option.title}</span>
+                              {option.daysMin !== null ? (
+                                <span className="mt-0.5 block text-xs text-[var(--muted)]">
+                                  ≈ {option.daysMin === option.daysMax ? option.daysMin : `${option.daysMin}–${option.daysMax}`}{' '}
+                                  дн. от склада в Китае
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="shrink-0 font-semibold">≈ {option.deliveryRub} ₽</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-4">
+                    <label className="mb-2 block text-xs text-[var(--muted)]">Дополнительная упаковка</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([null, 'box', 'crate'] as Array<PackagingOption | null>).map((p) => (
+                        <button
+                          key={p ?? 'none'}
+                          type="button"
+                          onClick={() => {
+                            hapticSelection();
+                            setPackaging(p);
+                          }}
+                          className={[
+                            'rounded-[14px] border px-2 py-2 text-center text-xs transition',
+                            packaging === p
+                              ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-white'
+                              : 'border-white/10 bg-white/5 text-slate-300',
+                          ].join(' ')}
+                        >
+                          <span className="block font-semibold">
+                            {p === 'box' ? 'Коробка' : p === 'crate' ? 'Обрешётка' : 'Без доп. упаковки'}
+                          </span>
+                          {p ? (
+                            <span className="mt-0.5 block text-[10px] text-[var(--muted)]">
+                              +{EXTRA_SERVICE_PRICES.packaging[p]} ₽ за посылку
+                            </span>
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 text-[11px] leading-4 text-[var(--muted)]">
+                      {PACKAGING_LABELS.box} — лишний слой картона. {PACKAGING_LABELS.crate} — для хрупкого. Каждая
+                      вещь обычно едет из Китая отдельной посылкой.
+                    </p>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="mb-2 block text-xs text-[var(--muted)]">Фотоотчёт со склада в Китае</label>
+                    <div className="space-y-2">
+                      {cart.items.map((item) => {
+                        const chosen = photoReports[item.id];
+                        return (
+                          <div key={item.id} className="rounded-[16px] border border-white/10 bg-white/5 p-3">
+                            <p className="truncate text-xs text-white">
+                              {item.title} · {item.size}
+                            </p>
+                            <div className="mt-2 grid grid-cols-3 gap-1.5">
+                              {([null, 'basic', 'individual'] as Array<PhotoReportOption | null>).map((kind) => (
+                                <button
+                                  key={kind ?? 'none'}
+                                  type="button"
+                                  onClick={() => setPhoto(item.id, kind)}
+                                  className={[
+                                    'rounded-[12px] border px-2 py-1.5 text-[11px] transition',
+                                    (chosen?.kind ?? null) === kind
+                                      ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-white'
+                                      : 'border-white/10 bg-white/5 text-slate-300',
+                                  ].join(' ')}
+                                >
+                                  {kind === 'basic'
+                                    ? `Фото +${EXTRA_SERVICE_PRICES.photoReport.basic} ₽`
+                                    : kind === 'individual'
+                                      ? `Подробное +${EXTRA_SERVICE_PRICES.photoReport.individual} ₽`
+                                      : 'Без фото'}
+                                </button>
+                              ))}
+                            </div>
+                            {chosen?.kind === 'individual' ? (
+                              <textarea
+                                value={chosen.comment}
+                                onChange={(e) =>
+                                  setPhotoReports((current) => ({
+                                    ...current,
+                                    [item.id]: { kind: 'individual', comment: e.target.value.slice(0, 500) },
+                                  }))
+                                }
+                                placeholder="Что сфотографировать: бирку, подошву, шов…"
+                                rows={2}
+                                className="mt-2 w-full rounded-[12px] border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-slate-500 focus:border-[var(--accent)] focus:outline-none"
+                              />
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-1.5 text-[11px] leading-4 text-[var(--muted)]">
+                      {PHOTO_REPORT_LABELS.basic} — снимки товара, когда он придёт на склад: убедитесь, что пришло то,
+                      что заказали. Подробный — сфотографируем то, что вы попросите. Фото придут в бота и появятся в
+                      заказе.
+                    </p>
+                  </div>
+
                   <div className="mt-4 space-y-2">
                     <InfoRow label="Итог сейчас" value={`$${cart.summary.cartTotalUsd.toFixed(2)}`} accent />
                     <InfoRow
                       label={
-                        deliveryEstimate ? `Примерная доставка (до г. ${deliveryEstimate.hubCity})` : 'Примерная доставка'
+                        selectedOption
+                          ? `Примерная доставка (${selectedOption.title.split(' · ')[0]})`
+                          : deliveryEstimate
+                            ? `Примерная доставка (до г. ${deliveryEstimate.hubCity})`
+                            : 'Примерная доставка'
                       }
-                      value={`${deliveryRub} ₽`}
+                      value={estimateLoading ? '…' : `${deliveryRub} ₽`}
                     />
+                    {servicesRub > 0 ? <InfoRow label="Доп. услуги" value={`≈ ${servicesRub} ₽`} /> : null}
                     <InfoRow label="Примерная пошлина" value={`${cart.summary.cartDutyRub} ₽`} />
+                    <p className="text-[11px] leading-4 text-[var(--muted)]">
+                      Доставка и услуги оплачиваются отдельно, когда посылка будет готова к отправке из Китая.
+                    </p>
                   </div>
                   <label className="mt-4 flex items-start gap-3 rounded-[16px] border border-white/10 bg-white/5 p-3 text-sm text-white">
                     <input

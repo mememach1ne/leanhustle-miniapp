@@ -11,16 +11,20 @@ import type {
   CatalogListResponse,
   CatalogSortKey,
   CatalogSyncResultDto,
+  CheckoutOrderRequest,
   CheckoutOrderResponse,
   CreateCryptoPaymentIntentRequest,
   CreateDeliveryAddressRequest,
   CreateManualOrderRequest,
   CryptoPaymentIntentDto,
   DeliveryAddressDto,
+  DeliveryCarrier,
   DeliveryCityDto,
+  DeliveryCityOptionsDto,
   DeliveryPaymentLinkResponse,
   DeliveryPickupPoint,
   DeliveryPointDto,
+  DeliveryStreetSuggestionDto,
   DewuResolvedProduct,
   LoyaltyStatusDto,
   ManagerHelpRequest,
@@ -169,9 +173,11 @@ export const cartApi = {
     const response = await apiClient.get<CartResponse>('/cart');
     return response.data;
   },
-  async getDeliveryEstimate(addressId?: string | null): Promise<CartDeliveryEstimateResponse> {
+  async getDeliveryEstimate(addressId?: string | null, option?: string | null): Promise<CartDeliveryEstimateResponse> {
     const response = await apiClient.get<CartDeliveryEstimateResponse>('/cart/delivery-estimate', {
-      params: addressId ? { addressId } : undefined,
+      params: { ...(addressId ? { addressId } : {}), ...(option ? { option } : {}) },
+      // The first estimate for a new city asks the carriers' calculator.
+      timeout: 45000,
     });
     return response.data;
   },
@@ -223,8 +229,25 @@ export const deliveryPointsApi = {
     return response.data;
   },
   async getCdekPoints(cityId: string): Promise<DeliveryPointDto[]> {
-    const response = await apiClient.get<DeliveryPointDto[]>('/delivery-points/cdek', {
+    return this.getPoints(cityId, 'cdek');
+  },
+  async getPoints(cityId: string, carrier: DeliveryCarrier): Promise<DeliveryPointDto[]> {
+    const response = await apiClient.get<DeliveryPointDto[]>('/delivery-points/points', {
+      params: { cityId, carrier },
+      timeout: 30000,
+    });
+    return response.data;
+  },
+  async getCityOptions(cityId: string): Promise<DeliveryCityOptionsDto> {
+    const response = await apiClient.get<DeliveryCityOptionsDto>('/delivery-points/options', {
       params: { cityId },
+      timeout: 30000,
+    });
+    return response.data;
+  },
+  async searchStreets(city: string, region: string | null, q: string): Promise<DeliveryStreetSuggestionDto[]> {
+    const response = await apiClient.get<DeliveryStreetSuggestionDto[]>('/delivery-points/streets', {
+      params: { city, ...(region ? { region } : {}), q },
       timeout: 30000,
     });
     return response.data;
@@ -232,11 +255,8 @@ export const deliveryPointsApi = {
 };
 
 export const ordersApi = {
-  async checkoutOrder(deliveryAddressId: string, insurance = false): Promise<CheckoutOrderResponse> {
-    const response = await apiClient.post<CheckoutOrderResponse>('/orders/checkout', {
-      deliveryAddressId,
-      insurance,
-    });
+  async checkoutOrder(payload: CheckoutOrderRequest): Promise<CheckoutOrderResponse> {
+    const response = await apiClient.post<CheckoutOrderResponse>('/orders/checkout', payload, { timeout: 45000 });
     return response.data;
   },
   async getOrders(): Promise<OrderListItemDto[]> {

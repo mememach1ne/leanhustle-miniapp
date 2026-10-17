@@ -1965,7 +1965,7 @@ export class OrderAdminService {
     return [
       '',
       `RAKETA: зарегистрировано ${registered.length} из ${fulfillment.items.length}`,
-      `Пункт СДЭК: ${fulfillment.pickupPoint ?? 'не выбран из справочника (адрес введён вручную)'}`,
+      `Пункт выдачи: ${fulfillment.pickupPoint ?? 'не выбран из справочника (адрес введён вручную)'}`,
       ...(fulfillment.deliveryAssigned
         ? [
             fulfillment.items.length > 1

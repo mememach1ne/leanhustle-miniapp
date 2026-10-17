@@ -318,8 +318,33 @@ export default function AdminOrderDetailPage() {
           <div className="mt-3 rounded-xl bg-white/5 p-3">
             <h3 className="text-xs font-semibold text-white/60">Доставка</h3>
             <p className="mt-1 text-sm text-white">{order.delivery.fullName}</p>
+            {order.delivery.methodTitle ? (
+              <p className="text-xs font-semibold text-white/80">{order.delivery.methodTitle}</p>
+            ) : null}
             <p className="text-xs text-white/50">{order.delivery.cdekAddress}</p>
             <p className="text-xs text-white/50">{order.delivery.phone}</p>
+            {order.delivery.packaging || order.items.some((item) => item.photoReport) ? (
+              <p className="mt-1 text-xs text-amber-200/80">
+                Услуги:{' '}
+                {[
+                  order.delivery.packaging === 'box'
+                    ? 'доп. коробка на каждую посылку'
+                    : order.delivery.packaging === 'crate'
+                      ? 'обрешётка на каждую посылку'
+                      : null,
+                  ...order.items
+                    .filter((item) => item.photoReport)
+                    .map(
+                      (item) =>
+                        `${item.photoReport?.kind === 'individual' ? 'подробный фотоотчёт' : 'фотоотчёт'} — ${item.title.slice(0, 30)}${
+                          item.photoReport?.comment ? ` («${item.photoReport.comment}»)` : ''
+                        }${item.photoReport?.photos.length ? `, ${item.photoReport.photos.length} фото` : ''}`,
+                    ),
+                ]
+                  .filter(Boolean)
+                  .join('; ')}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </SectionCard>
@@ -433,7 +458,7 @@ export default function AdminOrderDetailPage() {
         onSetPickupPoint={(point, label) =>
           runAction(
             () => adminApi.setOrderPickupPoint(id, point, label),
-            'Пункт СДЭК сохранён в заказе и в адресе клиента.',
+            'Пункт выдачи сохранён в заказе и в адресе клиента.',
           )
         }
         onToggleManual={(manual) =>

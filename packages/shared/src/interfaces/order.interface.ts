@@ -56,6 +56,7 @@ export interface OrderItemDto {
   categoryGroup: ProductCategoryGroup;
   deliveryCategory: DeliveryCategory;
   estimatedWeightKg: number;
+  photoReport?: OrderItemPhotoReportDto | null;
 }
 
 export interface OrderListItemDto {
@@ -84,6 +85,22 @@ export interface OrderDeliveryDto {
   fullName: string;
   cdekAddress: string;
   phone: string;
+  /** How the parcel is received (absent on old orders = CDEK pickup point). */
+  carrier?: import('./delivery-address.interface').DeliveryCarrier;
+  kind?: import('./delivery-address.interface').DeliveryKind;
+  /** «СДЭК · пункт выдачи · Экспресс». */
+  methodTitle?: string;
+  daysMin?: number | null;
+  daysMax?: number | null;
+  packaging?: import('./cart.interface').PackagingOption | null;
+}
+
+/** RAKETA photo report of an item. */
+export interface OrderItemPhotoReportDto {
+  kind: import('./cart.interface').PhotoReportOption;
+  comment?: string | null;
+  /** Empty until the warehouse has taken the photos. */
+  photos: string[];
 }
 
 /** How the goods payment was registered. */
@@ -121,8 +138,10 @@ export interface OrderTrackingItemDto {
 export interface OrderTrackingDto {
   /** 'single' — one item; 'consolidation' — several items packed into one parcel. */
   kind: 'single' | 'consolidation';
-  /** CDEK track of the RF leg, once RAKETA hands the parcel over. */
+  /** Carrier track of the RF leg (CDEK or Почта), once the parcel is handed over. */
   cdekTrack: string | null;
+  /** Who carries the RF leg — decides the tracking link (absent = CDEK). */
+  carrier?: import('./delivery-address.interface').DeliveryCarrier;
   steps: OrderTrackingStepDto[];
   /** Newest first. */
   events: Array<{ name: string; at: string }>;
@@ -156,6 +175,16 @@ export interface OrderDetailsDto {
 
 export interface CheckoutOrderRequest {
   deliveryAddressId: string;
+  insurance?: boolean;
+  /** CartDeliveryOptionDto.key; default = the cheapest standard option. */
+  deliveryOption?: string;
+  packaging?: import('./cart.interface').PackagingOption | null;
+  /** Photo reports per cart item. */
+  photoReports?: Array<{
+    cartItemId: string;
+    kind: import('./cart.interface').PhotoReportOption;
+    comment?: string | null;
+  }>;
 }
 
 export interface CheckoutOrderResponse {

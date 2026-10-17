@@ -38,9 +38,11 @@ export class CartController {
   async getDeliveryEstimate(
     @CurrentUser() user: User,
     @Query('addressId') addressId?: string,
+    @Query('option') option?: string,
   ): Promise<CartDeliveryEstimateResponse> {
     const id = addressId && /^[0-9a-f-]{36}$/i.test(addressId) ? addressId : undefined;
-    return this.cartService.getDeliveryEstimate(user.id, id);
+    const key = option && /^[a-z]+:[a-z]+:[A-Z]+$/.test(option) ? option : undefined;
+    return this.cartService.getDeliveryEstimate(user.id, id, key);
   }
 
   @Post('items')

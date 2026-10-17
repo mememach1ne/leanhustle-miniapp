@@ -423,8 +423,28 @@ export default function OrderDetailsPage() {
           <h3 className="mb-3 text-sm font-semibold text-white">Данные доставки</h3>
           <div className="space-y-2">
             <InfoRow label="ФИО" value={order.delivery.fullName} />
-            <InfoRow label="Пункт СДЭК" value={order.delivery.cdekAddress} />
+            {order.delivery.methodTitle ? <InfoRow label="Способ" value={order.delivery.methodTitle} /> : null}
+            <InfoRow
+              label={order.delivery.kind === 'courier' ? 'Адрес' : 'Пункт выдачи'}
+              value={order.delivery.cdekAddress}
+            />
             <InfoRow label="Телефон" value={order.delivery.phone} />
+            {order.delivery.daysMin ? (
+              <InfoRow
+                label="Срок от склада в Китае"
+                value={`≈ ${
+                  order.delivery.daysMin === order.delivery.daysMax
+                    ? order.delivery.daysMin
+                    : `${order.delivery.daysMin}–${order.delivery.daysMax}`
+                } дн.`}
+              />
+            ) : null}
+            {order.delivery.packaging ? (
+              <InfoRow
+                label="Доп. упаковка"
+                value={order.delivery.packaging === 'box' ? 'Коробка' : 'Обрешётка'}
+              />
+            ) : null}
           </div>
         </SectionCard>
       ) : null}
@@ -462,6 +482,31 @@ export default function OrderDetailsPage() {
                 <InfoRow label="Доставка" value={`${item.lineDeliveryRub} ₽`} />
                 {item.lineDutyRub > 0 ? (
                   <InfoRow label="Пошлина" value={`${item.lineDutyRub} ₽`} />
+                ) : null}
+                {item.photoReport ? (
+                  <div className="pt-1">
+                    <InfoRow
+                      label={item.photoReport.kind === 'individual' ? 'Подробный фотоотчёт' : 'Фотоотчёт'}
+                      value={item.photoReport.photos.length ? `${item.photoReport.photos.length} фото` : 'ждём склад'}
+                    />
+                    {item.photoReport.comment ? (
+                      <p className="mt-1 text-[11px] leading-4 text-[var(--muted)]">«{item.photoReport.comment}»</p>
+                    ) : null}
+                    {item.photoReport.photos.length ? (
+                      <div className="mt-2 grid grid-cols-3 gap-1.5">
+                        {item.photoReport.photos.map((url) => (
+                          <a key={url} href={url} target="_blank" rel="noreferrer" className="block">
+                            <img
+                              src={url}
+                              alt="Фото товара на складе"
+                              loading="lazy"
+                              className="aspect-square w-full rounded-[10px] bg-white/5 object-cover"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             }

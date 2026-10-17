@@ -1,5 +1,6 @@
-import type { DeliveryAddressDto } from '@lean-poizon/shared';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { DeliveryAddressDto, DeliveryCarrier, DeliveryCourierAddress, DeliveryKind } from '@lean-poizon/shared';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { RegionalDeliveryService } from '../pricing/services/regional-delivery.service';
@@ -7,13 +8,21 @@ import { CreateDeliveryAddressDto } from './dto/create-delivery-address.dto';
 import { PickupPointDto } from './dto/pickup-point.dto';
 import { UpdateDeliveryAddressDto } from './dto/update-delivery-address.dto';
 
-const pickupPointColumns = (point?: PickupPointDto) => ({
-  cityId: point?.cityId ?? null,
-  city: point?.city ?? null,
-  region: point?.region ?? null,
-  pvzCode: point?.pvzCode ?? null,
-  pvzIndex: point?.pvzIndex ?? null,
-});
+/** Address columns for a directory point / courier door (or none for a free-text address). */
+export const pickupPointColumns = (point?: PickupPointDto) => {
+  const courier = point?.kind === 'courier';
+  if (courier && !point?.courier) throw new BadRequestException('Укажите улицу и дом для курьера.');
+  return {
+    cityId: point?.cityId ?? null,
+    city: point?.city ?? null,
+    region: point?.region ?? null,
+    carrier: courier ? 'cdek' : (point?.carrier ?? 'cdek'),
+    kind: courier ? 'courier' : 'pvz',
+    pvzCode: courier ? null : (point?.pvzCode ?? null),
+    pvzIndex: courier ? (point?.courier?.index ?? null) : (point?.pvzIndex ?? null),
+    courier: courier && point?.courier ? (point.courier as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
+  };
+};
 
 @Injectable()
 export class DeliveryAddressesService {
@@ -58,8 +67,8 @@ export class DeliveryAddressesService {
       });
     });
 
-    // Fetch the region's delivery rates now so checkout doesn't wait for them.
-    this.regionalDelivery.warm(address.region, address.city);
+    // Fetch the city's delivery rates now so checkout doesn't wait for them.
+    this.regionalDelivery.warm(address.region, address.city, address.cityId);
     return this.toDto(address);
   }
 
@@ -92,7 +101,7 @@ export class DeliveryAddressesService {
       });
     });
 
-    this.regionalDelivery.warm(address.region, address.city);
+    this.regionalDelivery.warm(address.region, address.city, address.cityId);
     return this.toDto(address);
   }
 
@@ -125,7 +134,11 @@ export class DeliveryAddressesService {
     region: string | null;
     pvzCode: string | null;
     pvzIndex: string | null;
+    carrier: string;
+    kind: string;
+    courier: Prisma.JsonValue;
   }): DeliveryAddressDto {
+    const courier = address.kind === 'courier' ? (address.courier as unknown as DeliveryCourierAddress | null) : null;
     return {
       id: address.id,
       fullName: address.fullName,
@@ -134,13 +147,16 @@ export class DeliveryAddressesService {
       isDefault: address.isDefault,
       createdAt: address.createdAt.toISOString(),
       pickupPoint:
-        address.cityId && address.city && address.pvzCode
+        address.cityId && address.city && (address.pvzCode || courier)
           ? {
               cityId: address.cityId,
               city: address.city,
               region: address.region,
-              pvzCode: address.pvzCode,
+              kind: address.kind as DeliveryKind,
+              carrier: address.carrier as DeliveryCarrier,
+              pvzCode: address.pvzCode ?? '',
               pvzIndex: address.pvzIndex,
+              courier,
             }
           : null,
     };

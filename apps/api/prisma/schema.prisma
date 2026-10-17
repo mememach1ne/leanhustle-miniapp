@@ -86,6 +86,12 @@ model DeliveryAddress {
   region      String?  @db.VarChar(128)
   pvzCode     String?  @map("pvz_code") @db.VarChar(32)
   pvzIndex    String?  @map("pvz_index") @db.VarChar(16)
+  // How the parcel is received: carrier (cdek | pochta | raketa) for a pickup
+  // point, kind pvz | courier. Courier = door address (street/house/flat…),
+  // the courier carrier is picked at checkout.
+  carrier     String   @default("cdek") @db.VarChar(16)
+  kind        String   @default("pvz") @db.VarChar(8)
+  courier     Json?
   isDefault   Boolean  @default(false) @map("is_default")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -203,6 +209,17 @@ model Order {
   // Tracking: RAKETA number of the whole parcel (RAC… / single item RA…) + CDEK track.
   raketaParcelTrack             String?        @map("raketa_parcel_track") @db.VarChar(64)
   raketaTkTrack                 String?        @map("raketa_tk_track") @db.VarChar(64)
+  // Delivery method picked at checkout: carrier × pvz/courier × RAKETA tariff
+  // code (STND | EXPR | ECON), the door address for a courier and the quoted
+  // days (from the China warehouse).
+  deliveryCarrier               String         @default("cdek") @map("delivery_carrier") @db.VarChar(16)
+  deliveryKind                  String         @default("pvz") @map("delivery_kind") @db.VarChar(8)
+  deliveryTariff                String         @default("STND") @map("delivery_tariff") @db.VarChar(8)
+  deliveryCourier               Json?          @map("delivery_courier")
+  deliveryDaysMin               Int?           @map("delivery_days_min")
+  deliveryDaysMax               Int?           @map("delivery_days_max")
+  // RAKETA extra packaging for every China parcel: box | crate (null = none).
+  packaging                     String?        @db.VarChar(8)
   // Profit ledger: when the order's commission was split / reversed.
   profitAccountedAt             DateTime?      @map("profit_accounted_at") @db.Timestamptz(6)
   profitReversedAt              DateTime?      @map("profit_reversed_at") @db.Timestamptz(6)
@@ -308,6 +325,12 @@ model OrderItem {
   raketaOrderId      String?   @map("raketa_order_id") @db.VarChar(64)
   raketaTrackNumber  String?   @map("raketa_track_number") @db.VarChar(64)
   raketaRegisteredAt DateTime? @map("raketa_registered_at") @db.Timestamptz(6)
+  // RAKETA photo report of this item: basic | individual (with a comment);
+  // photo URLs once RAKETA has taken them, sent to the client once.
+  photoReport        String?   @map("photo_report") @db.VarChar(16)
+  photoReportComment String?   @map("photo_report_comment") @db.VarChar(500)
+  photoReportUrls    Json?     @map("photo_report_urls")
+  photoReportSentAt  DateTime? @map("photo_report_sent_at") @db.Timestamptz(6)
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 

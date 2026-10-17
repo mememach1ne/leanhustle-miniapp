@@ -1,11 +1,14 @@
-import type { StaffOrderDetailsDto, UserProfile } from '@lean-poizon/shared';
+import type { DeliveryCarrier, StaffOrderDetailsDto, UserProfile } from '@lean-poizon/shared';
 import {
+  carrierTracking,
   encodeManagerOrderCallback,
   MANAGER_ORDER_ACTIONS,
   OrderStatus,
 } from '@lean-poizon/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+
+import { PrismaService } from '../../../prisma/prisma.service';
 
 const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
 
@@ -21,8 +24,20 @@ export class OrderNotificationsService {
   private readonly logger = new Logger(OrderNotificationsService.name);
   private readonly configService: ConfigService;
 
-  constructor(@Inject(ConfigService) configService: ConfigService) {
+  constructor(
+    @Inject(ConfigService) configService: ConfigService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+  ) {
     this.configService = configService;
+  }
+
+  /** Carrier of the RF leg of an order (СДЭК / Почта / partner points). */
+  private async carrierOf(orderId?: string): Promise<DeliveryCarrier> {
+    if (!orderId) return 'cdek';
+    const order = await this.prisma.order
+      .findUnique({ where: { id: orderId }, select: { deliveryCarrier: true } })
+      .catch(() => null);
+    return (order?.deliveryCarrier as DeliveryCarrier | undefined) ?? 'cdek';
   }
 
   async notifyManagersAboutCreatedOrder(
@@ -149,7 +164,11 @@ export class OrderNotificationsService {
       return;
     }
 
-    const text = this.buildClientStatusText(orderNumber, newStatus, trackCode, details.amountRub, details);
+    const carrier = await this.carrierOf(details.orderId);
+    const text = this.buildClientStatusText(orderNumber, newStatus, trackCode, details.amountRub, {
+      ...details,
+      carrier,
+    });
 
     try {
       const response = await fetch(
@@ -166,7 +185,7 @@ export class OrderNotificationsService {
             text,
             parse_mode: 'HTML',
             link_preview_options: { is_disabled: true },
-            reply_markup: this.buildClientKeyboard(newStatus, trackCode, details.orderId, details.payUrl),
+            reply_markup: this.buildClientKeyboard(newStatus, trackCode, details.orderId, details.payUrl, carrier),
           }),
         },
       );
@@ -194,8 +213,14 @@ export class OrderNotificationsService {
     status: OrderStatus,
     trackCode?: string | null,
     amountRub?: number,
-    extra: { payUrl?: string; lines?: Array<{ name: string; amountRub: number }>; allPaid?: boolean } = {},
+    extra: {
+      payUrl?: string;
+      lines?: Array<{ name: string; amountRub: number }>;
+      allPaid?: boolean;
+      carrier?: DeliveryCarrier;
+    } = {},
   ): string {
+    const carrierName = extra.carrier === 'pochta' ? 'Почту России' : extra.carrier === 'raketa' ? null : 'СДЭК';
     const order = `<b>${escapeHtml(orderNumber)}</b>`;
     const amount = typeof amountRub === 'number' ? formatRub(amountRub) : null;
     const lines = (headline: string, ...body: string[]) =>
@@ -248,7 +273,9 @@ export class OrderNotificationsService {
           ? lines(
               'Доставка оплачена',
               `Спасибо! Оплата получена, заказ ${order} отправляется в Россию.`,
-              'Трек-код СДЭК пришлём, как только посылка будет передана в доставку.',
+              carrierName
+                ? `Трек-код ${carrierName === 'СДЭК' ? 'СДЭК' : 'Почты России'} пришлём, как только посылка будет передана в доставку.`
+                : 'Сообщим, когда посылка прибудет в пункт выдачи.',
             )
           : lines(
               'Доставка оплачена',
@@ -276,7 +303,7 @@ export class OrderNotificationsService {
       case OrderStatus.TRACK_CODE_RECEIVED:
         return lines(
           'Посылка в пути',
-          `Заказ ${order} передан в СДЭК.`,
+          carrierName ? `Заказ ${order} передан в ${carrierName}.` : `Заказ ${order} в пути по России.`,
           ...(trackCode
             ? [
                 '',
@@ -307,6 +334,7 @@ export class OrderNotificationsService {
     trackCode?: string | null,
     orderId?: string,
     payUrl?: string,
+    carrier: DeliveryCarrier = 'cdek',
   ) {
     const miniAppUrl =
       this.configService.get<string>('telegram.miniAppUrl') || 'https://leanhustle.ru';
@@ -316,11 +344,12 @@ export class OrderNotificationsService {
       rows.push([{ text: 'Оплатить доставку', url: payUrl, style: 'success' }]);
     }
 
-    if (status === OrderStatus.TRACK_CODE_RECEIVED && trackCode) {
+    const tracking = status === OrderStatus.TRACK_CODE_RECEIVED && trackCode ? carrierTracking(carrier, trackCode) : null;
+    if (tracking) {
       rows.push([
         {
-          text: 'Отследить в СДЭК',
-          url: `https://www.cdek.ru/ru/tracking?order_id=${encodeURIComponent(trackCode)}`,
+          text: carrier === 'pochta' ? 'Отследить на Почте' : 'Отследить в СДЭК',
+          url: tracking.url,
           style: 'primary',
         },
       ]);
@@ -331,7 +360,7 @@ export class OrderNotificationsService {
         web_app: {
           url: `${miniAppUrl.replace(/\/$/, '')}/profile/orders${orderId ? `/${orderId}` : ''}`,
         },
-        ...(status === OrderStatus.TRACK_CODE_RECEIVED ? {} : { style: 'primary' }),
+        ...(tracking ? {} : { style: 'primary' }),
       },
       { text: 'Менеджер', url: MANAGER_TELEGRAM_URL },
     ]);
@@ -370,7 +399,7 @@ export class OrderNotificationsService {
       ...(order.delivery
         ? [
             `ФИО: ${order.delivery.fullName}`,
-            `СДЭК: ${order.delivery.cdekAddress}`,
+            `${order.delivery.methodTitle ?? 'СДЭК'}: ${order.delivery.cdekAddress}`,
             `Телефон: ${order.delivery.phone}`,
             '',
           ]
@@ -482,6 +511,67 @@ export class OrderNotificationsService {
         }),
       ),
     );
+  }
+
+  /**
+   * Photos to a client as an album (up to 10 per message). Telegram fetches
+   * the URLs itself; if it can't, the server downloads and uploads them.
+   * Returns false when nothing could be sent.
+   */
+  async sendUserPhotos(userTelegramId: string, urls: string[], caption: string): Promise<boolean> {
+    const botToken = this.configService.get<string>('telegram.botToken');
+    if (!botToken || urls.length === 0) return false;
+    const api = `https://api.telegram.org/bot${botToken}/sendMediaGroup`;
+    let sentAny = false;
+    for (let i = 0; i < urls.length; i += 10) {
+      const chunk = urls.slice(i, i + 10);
+      const media = chunk.map((url, j) => ({
+        type: 'photo',
+        media: url,
+        ...(i === 0 && j === 0 ? { caption, parse_mode: 'HTML' } : {}),
+      }));
+      const byUrl = await fetch(api, {
+        method: 'POST',
+        signal: AbortSignal.timeout(30_000),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: userTelegramId, media }),
+      })
+        .then((r) => r.ok)
+        .catch(() => false);
+      if (byUrl) {
+        sentAny = true;
+        continue;
+      }
+      // Upload ourselves (the image host may be unreachable for Telegram).
+      try {
+        const form = new FormData();
+        form.append('chat_id', userTelegramId);
+        const files = await Promise.all(
+          chunk.map(async (url) => {
+            const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+            if (!res.ok) throw new Error(`HTTP ${res.status} for a photo`);
+            return new Blob([await res.arrayBuffer()], { type: res.headers.get('content-type') ?? 'image/jpeg' });
+          }),
+        );
+        files.forEach((blob, j) => form.append(`p${j}`, blob, `photo${j}.jpg`));
+        form.append(
+          'media',
+          JSON.stringify(
+            chunk.map((_, j) => ({
+              type: 'photo',
+              media: `attach://p${j}`,
+              ...(i === 0 && j === 0 ? { caption, parse_mode: 'HTML' } : {}),
+            })),
+          ),
+        );
+        const res = await fetch(api, { method: 'POST', signal: AbortSignal.timeout(60_000), body: form });
+        if (res.ok) sentAny = true;
+        else this.logger.warn(`Photo upload to ${userTelegramId} failed: HTTP ${res.status}`);
+      } catch (error) {
+        this.logger.warn(`Photo upload to ${userTelegramId} failed: ${String(error)}`);
+      }
+    }
+    return sentAny;
   }
 
   /** Free-form client message (Telegram HTML, no emoji) with «Открыть заказ» / «Менеджер». */
