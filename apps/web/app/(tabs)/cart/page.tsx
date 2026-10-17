@@ -18,7 +18,7 @@ import { MarketplaceLogo } from '../../../components/ui/marketplace-logo';
 import { PageSection } from '../../../components/ui/page-section';
 import { PriceSummaryCard } from '../../../components/ui/price-summary-card';
 import { SectionCard } from '../../../components/ui/section-card';
-import { type ServiceIconKind, ServiceIcon } from '../../../components/ui/service-icons';
+import { ServiceIcon, type ServiceIconKind } from '../../../components/ui/service-icons';
 import { CartItemSkeleton } from '../../../components/ui/skeleton';
 import { cartApi, deliveryAddressesApi, ordersApi } from '../../../lib/api-client';
 import { extractAxiosMessage } from '../../../lib/error-utils';
