@@ -52,25 +52,76 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (value: boo
   );
 }
 
+/** Equal-width segmented control that fills its row. */
+function Segmented<T extends string | null>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: Array<{ value: T; label: string; hint?: string }>;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div
+      className="grid gap-1 rounded-[14px] bg-white/5 p-1"
+      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+    >
+      {options.map((option) => (
+        <button
+          key={option.value ?? 'none'}
+          type="button"
+          onClick={() => {
+            hapticSelection();
+            onChange(option.value);
+          }}
+          className={[
+            'rounded-[10px] px-1 py-1.5 text-center transition',
+            value === option.value ? 'bg-[var(--accent)] text-[var(--accent-ink)]' : 'text-slate-300',
+          ].join(' ')}
+        >
+          <span className="block truncate text-xs font-semibold leading-4">{option.label}</span>
+          {option.hint ? (
+            <span
+              className={[
+                'block truncate text-[10px] leading-3',
+                value === option.value ? 'text-[var(--accent-ink)]/75' : 'text-[var(--muted)]',
+              ].join(' ')}
+            >
+              {option.hint}
+            </span>
+          ) : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ServiceRow({
   icon,
   title,
   hint,
   control,
+  below,
 }: {
   icon: ServiceIconKind;
   title: string;
   hint: string;
-  control: React.ReactNode;
+  control?: React.ReactNode;
+  /** Full-width control under the text (choices that don't fit beside it). */
+  below?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-3">
-      <ServiceIcon kind={icon} />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-white">{title}</p>
-        <p className="mt-0.5 text-[11px] leading-4 text-[var(--muted)]">{hint}</p>
+    <div className="px-3 py-3">
+      <div className="flex items-center gap-3">
+        <ServiceIcon kind={icon} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-white">{title}</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-[var(--muted)]">{hint}</p>
+        </div>
+        {control}
       </div>
-      {control}
+      {below ? <div className="mt-2.5">{below}</div> : null}
     </div>
   );
 }
@@ -585,31 +636,21 @@ export default function CartPage() {
                         title="Упаковка"
                         hint={
                           packaging === 'box'
-                            ? `${PACKAGING_LABELS.box} · ${EXTRA_SERVICE_PRICES.packaging.box} ₽ за посылку`
+                            ? `${PACKAGING_LABELS.box} — лишний слой картона`
                             : packaging === 'crate'
-                              ? `${PACKAGING_LABELS.crate} · ${EXTRA_SERVICE_PRICES.packaging.crate} ₽ за посылку`
-                              : 'Лишний слой картона или жёсткий каркас'
+                              ? `${PACKAGING_LABELS.crate} — для хрупкого`
+                              : 'Цена за каждую посылку из Китая'
                         }
-                        control={
-                          <div className="flex rounded-full bg-white/5 p-0.5">
-                            {([null, 'box', 'crate'] as Array<PackagingOption | null>).map((p) => (
-                              <button
-                                key={p ?? 'none'}
-                                type="button"
-                                aria-label={p ? PACKAGING_LABELS[p] : 'Без доп. упаковки'}
-                                onClick={() => {
-                                  hapticSelection();
-                                  setPackaging(p);
-                                }}
-                                className={[
-                                  'rounded-full px-2.5 py-1 text-[11px] font-semibold transition',
-                                  packaging === p ? 'bg-[var(--accent)] text-[var(--accent-ink)]' : 'text-slate-300',
-                                ].join(' ')}
-                              >
-                                {p === 'box' ? 'Коробка' : p === 'crate' ? 'Каркас' : 'Нет'}
-                              </button>
-                            ))}
-                          </div>
+                        below={
+                          <Segmented<PackagingOption | null>
+                            value={packaging}
+                            onChange={setPackaging}
+                            options={[
+                              { value: null, label: 'Без упаковки' },
+                              { value: 'box', label: 'Коробка', hint: `+${EXTRA_SERVICE_PRICES.packaging.box} ₽` },
+                              { value: 'crate', label: 'Обрешётка', hint: `+${EXTRA_SERVICE_PRICES.packaging.crate} ₽` },
+                            ]}
+                          />
                         }
                       />
                       <ServiceRow
@@ -635,39 +676,34 @@ export default function CartPage() {
                           {cart.items.map((item) => {
                             const chosen = photoReports[item.id];
                             return (
-                              <div key={item.id}>
-                                <div className="flex items-center gap-2">
+                              <div key={item.id} className="rounded-[14px] bg-white/[0.03] p-2.5">
+                                <div className="flex items-center gap-2.5">
                                   {item.image ? (
-                                    <img src={item.image} alt="" className="h-8 w-8 shrink-0 rounded-[10px] bg-white/5 object-cover" />
+                                    <img src={item.image} alt="" className="h-9 w-9 shrink-0 rounded-[10px] bg-white/5 object-cover" />
                                   ) : null}
-                                  <p className="min-w-0 flex-1 truncate text-xs text-white">
-                                    {item.title} · {item.size}
+                                  <p className="min-w-0 flex-1 text-xs leading-4 text-white">
+                                    <span className="line-clamp-1">{item.title}</span>
+                                    <span className="text-[var(--muted)]">Размер {item.size}</span>
                                   </p>
-                                  <div className="flex shrink-0 rounded-full bg-white/5 p-0.5">
-                                    {([null, 'basic', 'individual'] as Array<PhotoReportOption | null>).map((kind) => (
-                                      <button
-                                        key={kind ?? 'none'}
-                                        type="button"
-                                        onClick={() => setPhoto(item.id, kind)}
-                                        className={[
-                                          'rounded-full px-2 py-1 text-[10px] font-semibold transition',
-                                          (chosen?.kind ?? null) === kind
-                                            ? 'bg-[var(--accent)] text-[var(--accent-ink)]'
-                                            : 'text-slate-300',
-                                        ].join(' ')}
-                                      >
-                                        {kind === 'basic'
-                                          ? `${EXTRA_SERVICE_PRICES.photoReport.basic} ₽`
-                                          : kind === 'individual'
-                                            ? `Подробно ${EXTRA_SERVICE_PRICES.photoReport.individual} ₽`
-                                            : 'Нет'}
-                                      </button>
-                                    ))}
-                                  </div>
+                                </div>
+                                <div className="mt-2">
+                                  <Segmented<PhotoReportOption | null>
+                                    value={chosen?.kind ?? null}
+                                    onChange={(kind) => setPhoto(item.id, kind)}
+                                    options={[
+                                      { value: null, label: 'Без фото' },
+                                      { value: 'basic', label: 'Фото', hint: `+${EXTRA_SERVICE_PRICES.photoReport.basic} ₽` },
+                                      {
+                                        value: 'individual',
+                                        label: 'Подробно',
+                                        hint: `+${EXTRA_SERVICE_PRICES.photoReport.individual} ₽`,
+                                      },
+                                    ]}
+                                  />
                                 </div>
                                 {chosen?.kind === 'individual' ? (
                                   <div className="mt-2 flex items-start gap-2">
-                                    <ServiceIcon kind="photo-detailed" className="h-8 w-8" />
+                                    <ServiceIcon kind="photo-detailed" className="h-9 w-9" />
                                     <textarea
                                       value={chosen.comment}
                                       onChange={(e) =>
