@@ -78,6 +78,14 @@ const shortDate = (value: Date | string | null | undefined) => {
         .replace('.', '');
 };
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/** Title cut on a word boundary («Nike Dunk CNY Unisex Skate Shoes, Black» → «Nike Dunk CNY Unisex Skate Shoes»). */
+const shortTitle = (title: string, max = 40) => {
+  const clean = title.replace(/s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max + 1);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > 15 ? cut.slice(0, space) : clean.slice(0, max)).replace(/[,.;:-–]+$/, '')}…`;
+};
 const formatRub = (value: number) => `${new Intl.NumberFormat('ru-RU').format(Math.round(value))} ₽`;
 
 class TelegramError extends Error {
@@ -317,7 +325,7 @@ export class OrderWidgetService {
 
     // Items last: as many as fit into chat_data.
     const items = order.items.map(
-      (item) => [item.productTitle.slice(0, 32), item.sizeLabel.slice(0, 10)] as [string, string],
+      (item) => [shortTitle(item.productTitle), item.sizeLabel.slice(0, 10)] as [string, string],
     );
     for (let count = Math.min(items.length, 6); count >= 0; count--) {
       const candidate: CardState = { ...state, it: items.slice(0, count) };
@@ -335,9 +343,8 @@ export class OrderWidgetService {
     const steps = STEPS.filter((_, i) => i !== 5 || state.h);
     const index = state.h || state.c < 5 ? state.c : state.c - 1;
     const label = state.x ? 'Отменён' : state.w ? WAITING[state.c] : steps[index];
-    const parts = [`<b>Заказ ${escapeHtml(order.orderNumber)}</b> — ${escapeHtml(label ?? '')}`];
+    const parts = [`<b>Заказ ${escapeHtml(order.orderNumber)}</b> · ${escapeHtml(label ?? '')}`];
     if (state.p) parts.push(`Доставка: ${formatRub(state.p.a)}`);
-    if (state.tr) parts.push(`Трек: <code>${escapeHtml(state.tr.n)}</code>`);
     return parts.join('\n');
   }
 
