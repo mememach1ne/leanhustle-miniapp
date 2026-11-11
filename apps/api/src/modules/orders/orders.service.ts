@@ -353,6 +353,9 @@ export class OrdersService {
       }
     }
 
+    // The live order card goes to the client's chat right away (no await — checkout answers fast).
+    void this.orderNotificationsService.refreshOrderCard(order.id, { create: true }).catch(() => undefined);
+
     return {
       order: mapOrderToDetailsDto(order),
     };

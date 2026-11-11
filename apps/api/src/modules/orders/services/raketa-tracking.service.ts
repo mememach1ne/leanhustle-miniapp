@@ -172,6 +172,8 @@ export class RaketaTrackingService {
       for (const order of orders) {
         try {
           await this.syncOrder(order);
+          // The parcel may have moved without a status change — keep the card current.
+          await this.notifications.refreshOrderCard(order.id);
         } catch (error) {
           this.logger.warn(`RAKETA tracking for ${order.orderNumber}: ${errorText(error)}`);
         }

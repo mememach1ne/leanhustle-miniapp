@@ -17,6 +17,8 @@ import { RaketaDeliveryPaymentService } from './services/raketa-delivery-payment
 import { RaketaFulfillmentService } from './services/raketa-fulfillment.service';
 import { RaketaGuardService } from './services/raketa-guard.service';
 import { RaketaPhotoReportService } from './services/raketa-photo-report.service';
+import { OrderWidgetService } from './widget/order-widget.service';
+import { OrderWidgetInternalController } from './widget/order-widget-internal.controller';
 import { RaketaTrackingService } from './services/raketa-tracking.service';
 import { StaffOrdersController } from './staff-orders.controller';
 
@@ -31,7 +33,7 @@ import { StaffOrdersController } from './staff-orders.controller';
     StaffModule,
     UsersModule,
   ],
-  controllers: [OrdersController, StaffOrdersController, OrderClaimController],
+  controllers: [OrdersController, StaffOrdersController, OrderClaimController, OrderWidgetInternalController],
   providers: [
     OrdersService,
     OrderNumberService,
@@ -41,6 +43,7 @@ import { StaffOrdersController } from './staff-orders.controller';
     RaketaTrackingService,
     RaketaGuardService,
     RaketaPhotoReportService,
+    OrderWidgetService,
   ],
   exports: [
     OrdersService,

@@ -395,6 +395,20 @@ export class ApiService {
     return response.data;
   }
 
+  /** A query from a live order card — the api refreshes the card and answers it. */
+  async widgetQuery(payload: {
+    id: string;
+    fromId: string;
+    data: string;
+    chatId?: string;
+    messageId?: number;
+  }): Promise<void> {
+    await this.http.post('/widgets-internal/query', payload, {
+      headers: { 'x-internal-bot-token': botEnv.internalApiToken },
+      timeout: 14000,
+    });
+  }
+
   /** Referral link t.me/<bot>?start=ref_<code>: ties a NEW user to the referrer. */
   async attachReferral(payload: {
     code: string;

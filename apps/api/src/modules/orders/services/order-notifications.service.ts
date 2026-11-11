@@ -9,6 +9,20 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { PrismaService } from '../../../prisma/prisma.service';
+import { OrderWidgetService } from '../widget/order-widget.service';
+
+/**
+ * With the live order card in the chat, only these steps still come as a
+ * message of their own (the client must act or wants to know right away);
+ * every other step just updates the card silently.
+ */
+const LOUD_STATUSES = new Set<string>([
+  OrderStatus.DELIVERY_PAYMENT_PENDING,
+  OrderStatus.DUTY_PAYMENT_PENDING,
+  OrderStatus.TRACK_CODE_RECEIVED,
+  OrderStatus.DELIVERED,
+  OrderStatus.CANCELLED,
+]);
 
 const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
 
@@ -27,8 +41,19 @@ export class OrderNotificationsService {
   constructor(
     @Inject(ConfigService) configService: ConfigService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(OrderWidgetService) private readonly widgets: OrderWidgetService,
   ) {
     this.configService = configService;
+  }
+
+  /**
+   * Silent update of the order card (assembly started, parcel moved…).
+   * False when there is no card to update — then send a message instead.
+   */
+  async refreshOrderCard(orderId: string, options: { create?: boolean } = {}): Promise<boolean> {
+    const result = await this.widgets.syncCard(orderId, { create: Boolean(options.create) });
+    if (result === 'sent') return true;
+    return result === 'updated' || result === 'unchanged';
   }
 
   /** Carrier of the RF leg of an order (СДЭК / Почта / partner points). */
@@ -162,6 +187,12 @@ export class OrderNotificationsService {
 
     if (!botToken) {
       return;
+    }
+
+    // The live card takes every step; quiet ones don't need a message too.
+    if (details.orderId) {
+      const card = await this.widgets.syncCard(details.orderId, { create: true });
+      if ((card === 'sent' || card === 'updated' || card === 'unchanged') && !LOUD_STATUSES.has(newStatus)) return;
     }
 
     const carrier = await this.carrierOf(details.orderId);

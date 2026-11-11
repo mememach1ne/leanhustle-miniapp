@@ -7,6 +7,7 @@ import { registerSettingsCommands } from './commands/settings.command';
 import { registerStartCommand } from './commands/start.command';
 import { accessMiddleware } from './middlewares/access.middleware';
 import { messageLogMiddleware } from './middlewares/message-log.middleware';
+import { widgetQueryMiddleware } from './middlewares/widget-query.middleware';
 import type { BotContext } from './types/bot-context';
 import { botEnv } from './utils/env';
 import { logger } from './utils/logger';
@@ -19,6 +20,8 @@ async function bootstrap() {
 
   const bot = new Telegraf<BotContext>(botEnv.token);
 
+  // Before the access check: card queries aren't conversations.
+  bot.use(widgetQueryMiddleware);
   bot.use(messageLogMiddleware);
   bot.use(accessMiddleware);
 

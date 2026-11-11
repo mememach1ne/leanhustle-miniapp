@@ -286,7 +286,9 @@ export class RaketaDeliveryPaymentService {
           select: { user: { select: { telegramId: true } } },
         })
       : null;
-    if (linkedOrder && client?.user?.telegramId) {
+    // With a live order card the «assembling» note goes there silently.
+    const onCard = linkedOrder ? await this.notifications.refreshOrderCard(linkedOrder.id) : false;
+    if (linkedOrder && client?.user?.telegramId && !onCard) {
       await this.notifications.notifyUserText(
         client.user.telegramId,
         [

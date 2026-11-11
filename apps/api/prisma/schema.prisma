@@ -220,6 +220,11 @@ model Order {
   deliveryDaysMax               Int?           @map("delivery_days_max")
   // RAKETA extra packaging for every China parcel: box | crate (null = none).
   packaging                     String?        @db.VarChar(8)
+  // Live order card in the client's chat (Telegram widget): its message id,
+  // what was last sent (data + caption + keyboard) and when it was refreshed.
+  widgetMessageId               Int?           @map("widget_message_id")
+  widgetState                   String?        @map("widget_state") @db.Text
+  widgetRefreshedAt             DateTime?      @map("widget_refreshed_at") @db.Timestamptz(6)
   // Profit ledger: when the order's commission was split / reversed.
   profitAccountedAt             DateTime?      @map("profit_accounted_at") @db.Timestamptz(6)
   profitReversedAt              DateTime?      @map("profit_reversed_at") @db.Timestamptz(6)
