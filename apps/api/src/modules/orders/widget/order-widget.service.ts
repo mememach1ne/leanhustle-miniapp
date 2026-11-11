@@ -6,7 +6,7 @@ import { ModuleRef } from '@nestjs/core';
 import { OrderStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../../prisma/prisma.service';
-import { RaketaTrackingService } from '../services/raketa-tracking.service';
+import type { RaketaTrackingService } from '../services/raketa-tracking.service';
 import { ORDER_CARD_HTML } from './order-card.html';
 
 const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
@@ -229,7 +229,9 @@ export class OrderWidgetService {
 
   private async tracking(userId: string, orderId: string): Promise<OrderTrackingDto | null> {
     try {
-      const service = this.moduleRef.get(RaketaTrackingService, { strict: false });
+      // Loaded lazily: tracking → notifications → this service would be an import cycle.
+      const { RaketaTrackingService: Tracking } = await import('../services/raketa-tracking.service');
+      const service: RaketaTrackingService = this.moduleRef.get(Tracking, { strict: false });
       return await service.getForUser(userId, orderId);
     } catch {
       return null;
