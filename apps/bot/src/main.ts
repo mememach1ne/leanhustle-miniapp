@@ -38,7 +38,17 @@ async function bootstrap() {
     });
   });
 
-  await bot.launch();
+  // Explicit list: without it Telegram keeps the previously set one, which
+  // predates widget_query (live order card, Bot API 10.4).
+  await bot.launch({
+    allowedUpdates: [
+      'message',
+      'edited_message',
+      'callback_query',
+      'my_chat_member',
+      'widget_query',
+    ] as never,
+  });
   logger.info('LEAN HUSTLE POIZON bot started');
 
   process.once('SIGINT', () => bot.stop('SIGINT'));

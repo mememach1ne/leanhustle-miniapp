@@ -27,6 +27,7 @@ export const widgetQueryMiddleware: MiddlewareFn<BotContext> = async (ctx, next)
     await next();
     return;
   }
+  logger.info('Widget query', { from: query.from.id, data: query.data, messageId: query.message_id });
   try {
     await apiService.widgetQuery({
       id: query.id,
