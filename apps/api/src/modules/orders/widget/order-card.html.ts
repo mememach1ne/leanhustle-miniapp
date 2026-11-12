@@ -50,14 +50,14 @@ G=[["Оплата",1],["Выкуп",2],["Китай",6],["В пути",10],["П�
 WT={1:"Оплатите заказ",4:"Оплатите доставку",5:"Оплатите пошлину"},
 SS=["Отправлен","Таможня","Склад РФ","Доставка"],
 TU={cdek:"https://www.cdek.ru/ru/tracking?order_id=",pochta:"https://www.pochta.ru/tracking?barcode="},
-L={cdek:["#1ab248","СДЭК",8.5],pochta:["#0055a6","ПОЧТА",7],poizon:["#000","POIZON",6.2]},
+L={cdek:1,pochta:1},
 I={card:'<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h3"/>',box:'<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5zM3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
 truck:'<path d="M2 6h11v10H2zM13 9h4l4 4v3h-8"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/>',ok:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
-x:'<path d="M6 6l12 12M18 6 6 18"/>',paid:'<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.6"/>',plane:'<path d="M3 13l18-7-5 15-4-6zM12 15l9-9"/>'};
+x:'<path d="M6 6l12 12M18 6 6 18"/>',bag:'<path d="M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0"/>',paid:'<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.6"/>',plane:'<path d="M3 13l18-7-5 15-4-6zM12 15l9-9"/>'};
 function e(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return"&#"+c.charCodeAt(0)+";"})}
 function rub(v){return String(Math.round(v)).replace(/\\B(?=(\\d{3})+(?!\\d))/g," ")+" ₽"}
 function ic(k){return'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+I[k]+'</svg>'}
-function lg(k){if(D.lg)return'<img class="lg" src="'+D.lg+'">';var l=L[k];return'<svg class="lg" viewBox="0 0 30 30"><rect width="30" height="30" rx="9" fill="'+l[0]+'"/><text x="15" y="18.5" font-size="'+l[2]+'" font-weight="900" letter-spacing=".2" fill="#fff" text-anchor="middle" font-family="system-ui,sans-serif">'+l[1]+'</text></svg>'}
+function lg(k){return D.lg?'<img class="lg" src="'+D.lg+'">':t(k=="poizon"?"bag":"truck")}
 function bx(k,a,b){return'<div class="bx"><div class="row">'+k+'<div><div class="b">'+a+'</div>'+(b?'<div class="mu">'+b+'</div>':"")+'</div></div></div>'}
 function t(k,w){return'<div class="ic ti'+(w?" w":"")+'">'+ic(k)+'</div>'}
 function b(id,f){var x=document.getElementById(id);x&&x.addEventListener("click",f)}
