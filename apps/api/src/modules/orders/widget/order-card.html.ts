@@ -12,6 +12,7 @@
  *   e  expected delivery («~5 дек») or days («19–20 дн.») before shipping
  *   p  delivery bill {a: rubles, l: [[name, rubles], …], u: pay url}
  *   tr track {c: cdek | pochta, n: number}
+ *   id order id (opens it in the mini app)    lg data: URI of the brand logo the card shows
  *
  * The scale shows 5 stages; a stage is current while the parcel is in it:
  * Оплата (c<1) · Выкуп (c<2) · Китай (c<6) · В пути (c<10) · Получен.
@@ -56,17 +57,18 @@ x:'<path d="M6 6l12 12M18 6 6 18"/>',paid:'<circle cx="12" cy="12" r="9"/><path 
 function e(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return"&#"+c.charCodeAt(0)+";"})}
 function rub(v){return String(Math.round(v)).replace(/\\B(?=(\\d{3})+(?!\\d))/g," ")+" ₽"}
 function ic(k){return'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+I[k]+'</svg>'}
-function lg(k){var l=L[k];return'<svg class="lg" viewBox="0 0 30 30"><rect width="30" height="30" rx="9" fill="'+l[0]+'"/><text x="15" y="18.5" font-size="'+l[2]+'" font-weight="900" letter-spacing=".2" fill="#fff" text-anchor="middle" font-family="system-ui,sans-serif">'+l[1]+'</text></svg>'}
+function lg(k){if(D.lg)return'<img class="lg" src="'+D.lg+'">';var l=L[k];return'<svg class="lg" viewBox="0 0 30 30"><rect width="30" height="30" rx="9" fill="'+l[0]+'"/><text x="15" y="18.5" font-size="'+l[2]+'" font-weight="900" letter-spacing=".2" fill="#fff" text-anchor="middle" font-family="system-ui,sans-serif">'+l[1]+'</text></svg>'}
 function bx(k,a,b){return'<div class="bx"><div class="row">'+k+'<div><div class="b">'+a+'</div>'+(b?'<div class="mu">'+b+'</div>':"")+'</div></div></div>'}
 function t(k,w){return'<div class="ic ti'+(w?" w":"")+'">'+ic(k)+'</div>'}
 function b(id,f){var x=document.getElementById(id);x&&x.addEventListener("click",f)}
-function r(){var s={};try{s=JSON.parse(W&&W.chatData||"{}")}catch(_){}
+var D={};
+function r(){var s={};try{s=JSON.parse(W&&W.chatData||"{}")}catch(_){}D=s;
 var c=s.c||0,k=s.x?"x":s.w?"w":"",
 ik=s.x?"x":s.w?"card":c>=10?"ok":c>=6?"plane":c>=2?"box":"paid",
 tt=s.x?"Заказ отменён":s.w?WT[c]:s.a?"Собираем посылку":T[c],
 sb=s.x?"Если это ошибка, напишите менеджеру":[s.d,c>=4&&c<10&&s.e?"ожидаем "+s.e:""].filter(Boolean).join(" · "),
 o='<div class="hd"><div class="ic '+k+'">'+ic(ik)+'</div><div><div class="br">LH POIZON · '+e(s.n)+'</div><div class="tt">'+e(tt)+'</div>'+(sb?'<div class="sb">'+e(sb)+'</div>':"")+'</div></div>';
-if(s.x){a(o);return}
+if(s.x){a(o+'<div class="bt"><button class="g" id="mg">Написать менеджеру</button></div>');b("mg",function(){W.openTelegramLink("https://t.me/lh_poizonmanager")});return}
 var cur=0;while(cur<4&&c>=G[cur][1])cur++;if(s.w)cur=c==1?0:c==4?2:3;
 o+='<div class="st'+(s.w?" w":"")+'">';G.forEach(function(g,i){o+='<div class="sg '+(i<cur||c>=10?"d":i==cur?"c2":"")+'"><div class="dt"></div>'+g[0]+'</div>'});o+='</div>';
 var tk=s.tr&&L[s.tr.c]&&c<10?'<div class="bx"><div class="row">'+lg(s.tr.c)+'<div><div class="mu">Трек-номер</div><div class="tn">'+e(s.tr.n)+'</div></div></div><div class="bt"><button class="g" id="cp">Скопировать</button><button id="tg">Отследить</button></div></div>':"";
@@ -82,7 +84,10 @@ else if(c<6)o+=tk||bx(t("plane"),"Скоро отправим в Россию",s
 else if(c<10){var j=Math.min(c-6,3);o+='<div class="bx"><div class="row">'+t("truck")+'<div class="b">'+["Летит в Россию","Проходит таможню","На складе в России","Едет к вам"][j]+'</div></div><div class="ss">';
 SS.forEach(function(n,i){o+='<div class="'+(i<=j?"d":"")+'"><i></i>'+n+'</div>'});o+='</div></div>'+tk}
 else o+=bx(t("ok"),"Спасибо, что выбрали нас!","Будем рады отзыву — напишите менеджеру");
+var pay=s.w&&c==1;o+='<div class="bt">'+(s.id?'<button id="op"'+(pay?"":' class="g"')+'>'+(pay?"Оплатить заказ":"Открыть заказ")+'</button>':"")+'<button class="g" id="mg">Менеджер</button></div>';
 a(o);
+b("op",function(){W.openTelegramLink("https://t.me/lh_poizonbot?startapp=o_"+s.id)});
+b("mg",function(){W.openTelegramLink("https://t.me/lh_poizonmanager")});
 b("pay",function(){W.openLink(s.p.u)});
 b("cp",function(){W.copyText(s.tr.n);W.HapticFeedback&&W.HapticFeedback.notificationOccurred("success");var x=document.getElementById("cp");x.textContent="Скопировано";setTimeout(function(){x.textContent="Скопировать"},1500)});
 b("tg",function(){W.openLink(TU[s.tr.c]+encodeURIComponent(s.tr.n))})}

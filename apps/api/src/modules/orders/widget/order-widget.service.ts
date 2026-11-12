@@ -6,9 +6,9 @@ import { OrderStatus, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { RaketaTrackingService } from '../services/raketa-tracking.service';
+import { BRAND_LOGOS } from './brand-logos';
 import { ORDER_CARD_HTML } from './order-card.html';
 
-const MANAGER_TELEGRAM_URL = 'https://t.me/lh_poizonmanager';
 const MAX_DATA = 1024;
 /** A card opened again within this time isn't refreshed from the tracker. */
 const QUERY_REFRESH_MS = 60_000;
@@ -39,6 +39,8 @@ interface CardState {
   d?: string;
   a?: 1;
   e?: string;
+  id?: string;
+  lg?: string;
   p?: { a: number; l: Array<[string, number]>; u?: string };
   tr?: { c: string; n: string };
 }
@@ -147,7 +149,8 @@ export class OrderWidgetService {
 
     const tracking = await this.tracking(order.userId as string, order.id);
     const state = this.buildState(order, tracking);
-    const keyboard = this.keyboard(order);
+    // The card has its own buttons; an inline keyboard would only add space under it.
+    const keyboard = null;
     const data = JSON.stringify(state);
     const fingerprint = JSON.stringify({ data, keyboard });
 
@@ -158,7 +161,6 @@ export class OrderWidgetService {
           html: ORDER_CARD_HTML,
           chat_data: data,
           allow_queries: true,
-          reply_markup: keyboard,
         })) as { message_id: number };
         await this.prisma.order.update({
           where: { id: order.id },
@@ -175,8 +177,9 @@ export class OrderWidgetService {
       const previous = safeParse(order.widgetState);
       const target = { chat_id: chatId, message_id: order.widgetMessageId };
       if (previous?.data !== data) await this.edit('editMessageWidgetData', { ...target, chat_data: data });
-      if (JSON.stringify(previous?.keyboard) !== JSON.stringify(keyboard)) {
-        await this.edit('editMessageReplyMarkup', { ...target, reply_markup: keyboard });
+      // Cards sent with a keyboard (first version) lose it.
+      if (previous?.keyboard) {
+        await this.edit('editMessageReplyMarkup', { ...target, reply_markup: { inline_keyboard: [] } });
       }
       await this.prisma.order.update({
         where: { id: order.id },
@@ -250,7 +253,7 @@ export class OrderWidgetService {
         (next === 5 && order.status === OrderStatus.DUTY_PAYMENT_PENDING));
     const current = waiting ? next : lastDone;
 
-    const state: CardState = { n: order.orderNumber, c: current };
+    const state: CardState = { n: order.orderNumber, c: current, id: order.id };
     if (waiting) state.w = 1;
     if (hadDuty) state.h = 1;
     if (cancelled) state.x = 1;
@@ -283,30 +286,21 @@ export class OrderWidgetService {
       state.tr = { c: order.deliveryCarrier ?? 'cdek', n: track };
     }
 
+    // The one brand logo the card shows: the carrier next to the track, Poizon while buying.
+    const logo =
+      state.tr && !state.p && current < 10
+        ? BRAND_LOGOS[state.tr.c as 'cdek' | 'pochta']
+        : !state.p && !cancelled && current < 2
+          ? BRAND_LOGOS.poizon
+          : undefined;
+    if (logo && Buffer.byteLength(JSON.stringify({ ...state, lg: logo })) <= MAX_DATA) state.lg = logo;
+
     // A very long bill can't overflow chat_data: drop its extras.
     if (Buffer.byteLength(JSON.stringify(state)) > MAX_DATA && state.p) {
       state.p.l = [];
       if (Buffer.byteLength(JSON.stringify(state)) > MAX_DATA) delete state.p.u;
     }
     return state;
-  }
-
-  private keyboard(order: { id: string; status: OrderStatus; raketaTopupUrl: string | null }) {
-    const miniAppUrl = (this.config.get<string>('telegram.miniAppUrl') || 'https://leanhustle.ru').replace(/\/$/, '');
-    const rows: Array<Array<Record<string, unknown>>> = [];
-    if (order.status === OrderStatus.DELIVERY_PAYMENT_PENDING && order.raketaTopupUrl) {
-      rows.push([{ text: 'Оплатить доставку', url: order.raketaTopupUrl, style: 'success' }]);
-    }
-    const unpaid = order.status === OrderStatus.CREATED || order.status === OrderStatus.PAYMENT_PENDING;
-    rows.push([
-      {
-        text: unpaid ? 'Оплатить' : 'Открыть заказ',
-        web_app: { url: `${miniAppUrl}/profile/orders/${order.id}` },
-        style: 'primary',
-      },
-      { text: 'Менеджер', url: MANAGER_TELEGRAM_URL },
-    ]);
-    return { inline_keyboard: rows };
   }
 
   /** Edit that tolerates «not modified» (the state is already there). */

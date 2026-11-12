@@ -6,6 +6,7 @@ import Script from 'next/script';
 
 import { AppShell } from '../components/layout/app-shell';
 import { AuthProvider } from '../components/providers/auth-provider';
+import { StartParamHandler } from '../components/providers/start-param-handler';
 import { TelegramLinkHandler } from '../components/providers/telegram-link-handler';
 
 // Brand fonts from the main site leanhustle.net: Unbounded for headings and
@@ -62,6 +63,7 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
         <TelegramLinkHandler />
+        <StartParamHandler />
         <AuthProvider>
           <AppShell>{children}</AppShell>
         </AuthProvider>
