@@ -395,6 +395,23 @@ export class ApiService {
     return response.data;
   }
 
+  /** Poizon links from a client — the api starts / extends the «Расчёт» card. */
+  async chatLinks(payload: {
+    telegramId: string;
+    chatId: string;
+    text: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    languageCode?: string;
+  }): Promise<{ handled: boolean }> {
+    const response = await this.http.post<{ handled: boolean }>('/chat-calc-internal/links', payload, {
+      headers: { 'x-internal-bot-token': botEnv.internalApiToken },
+      timeout: 30000,
+    });
+    return response.data;
+  }
+
   /** A query from a live order card — the api refreshes the card and answers it. */
   async widgetQuery(payload: {
     id: string;

@@ -701,3 +701,26 @@ model ProfitWithdrawal {
 
   @@map("profit_withdrawals")
 }
+
+/// Multi-link price calculation in the client's chat with the bot: one widget
+/// card per calculation (status open → cart | ordered | closed). `lines` holds
+/// the products (resolved sizes/prices, chosen size and quantity).
+model ChatCalc {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  chatId      String   @map("chat_id") @db.VarChar(32)
+  messageId   Int?     @map("message_id")
+  status      String   @default("open") @db.VarChar(12)
+  lines       Json     @default("[]")
+  page        Int      @default(0)
+  expanded    Int?
+  notice      String?  @db.VarChar(200)
+  orderId     String?  @map("order_id") @db.Uuid
+  widgetState String?  @map("widget_state") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([chatId, status], map: "chat_calcs_chat_status_idx")
+  @@index([chatId, messageId], map: "chat_calcs_message_idx")
+  @@map("chat_calcs")
+}

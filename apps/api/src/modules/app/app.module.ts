@@ -17,6 +17,7 @@ import { CryptoPaymentsModule } from '../crypto-payments/crypto-payments.module'
 import { DeliveryAddressesModule } from '../delivery-addresses/delivery-addresses.module';
 import { HealthModule } from '../health/health.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
+import { ChatCalcModule } from '../chat-calc/chat-calc.module';
 import { OrdersModule } from '../orders/orders.module';
 import { PartnersModule } from '../partners/partners.module';
 import { PricingModule } from '../pricing/pricing.module';
@@ -58,6 +59,7 @@ import { UsersModule } from '../users/users.module';
     CatalogModule,
     DeliveryAddressesModule,
     OrdersModule,
+    ChatCalcModule,
     CryptoPaymentsModule,
     PartnersModule,
     PricingModule,

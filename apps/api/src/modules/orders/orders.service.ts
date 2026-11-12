@@ -21,6 +21,7 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
+  type CartItem,
   OrderStatus,
   PaymentSource,
   Prisma,
@@ -39,6 +40,27 @@ import { UsersService } from '../users/users.service';
 import { pickupPointColumns } from '../delivery-addresses/delivery-addresses.service';
 import { pointDeliveryColumns } from './delivery-method';
 import type { CheckoutDto } from './dto/checkout.dto';
+
+/** An order line not coming from the cart (same fields checkout reads from a cart item). */
+export type CheckoutLine = Pick<
+  CartItem,
+  | 'id'
+  | 'dewuLink'
+  | 'dwSpuId'
+  | 'dwSkuId'
+  | 'productTitle'
+  | 'productImage'
+  | 'categoryL1'
+  | 'categoryL2'
+  | 'categoryL3'
+  | 'sizeLabel'
+  | 'versionLabel'
+  | 'quantity'
+  | 'priceYuan'
+  | 'categoryGroup'
+  | 'deliveryCategory'
+  | 'estimatedWeightKg'
+>;
 import {
   mapOrderToDetailsDto,
   mapOrderToListItemDto,
@@ -116,7 +138,12 @@ export class OrdersService {
     this.loyaltyService = loyaltyService;
   }
 
-  async checkout(user: User, dto: CheckoutDto): Promise<CheckoutOrderResponse> {
+  /**
+   * Creates an order from the cart, or — when `lines` are given (the
+   * multi-link calculation in the chat, «Оформить сразу») — from those
+   * lines, leaving the cart untouched.
+   */
+  async checkout(user: User, dto: CheckoutDto, lines?: CheckoutLine[]): Promise<CheckoutOrderResponse> {
     const insurance = Boolean(dto.insurance);
     const deliveryAddress = await this.prisma.deliveryAddress.findFirst({
       where: { id: dto.deliveryAddressId, userId: user.id },
@@ -158,7 +185,7 @@ export class OrdersService {
 
     const createdOrderId = await this.prisma.$transaction(
       async (tx) => {
-        const cart = await tx.cart.findUnique({
+        const cart = lines ? null : await tx.cart.findUnique({
           where: { userId: user.id },
           include: {
             items: {
@@ -169,7 +196,8 @@ export class OrdersService {
           },
         });
 
-        if (!cart || cart.items.length === 0) {
+        const sourceItems = lines ?? cart?.items ?? [];
+        if (sourceItems.length === 0) {
           throw new BadRequestException(
             'Корзина пуста. Добавьте товары перед оформлением заявки.',
           );
@@ -190,7 +218,7 @@ export class OrdersService {
         );
 
         // Recalculate prices server-side to prevent client-side price manipulation
-        const recalculatedItems = cart.items.map((item) => {
+        const recalculatedItems = sourceItems.map((item) => {
           const result = this.pricingService.recalculateFromYuan(
             item.priceYuan,
             item.deliveryCategory ?? 'OTHER',
@@ -309,15 +337,17 @@ export class OrdersService {
             orderId: order.id,
             fromStatus: null,
             toStatus: OrderStatus.CREATED,
-            comment: 'Заявка создана из корзины пользователя.',
+            comment: lines ? 'Заявка создана из расчёта в чате с ботом.' : 'Заявка создана из корзины пользователя.',
           },
         });
 
-        await tx.cartItem.deleteMany({
-          where: {
-            cartId: cart.id,
-          },
-        });
+        if (cart) {
+          await tx.cartItem.deleteMany({
+            where: {
+              cartId: cart.id,
+            },
+          });
+        }
 
         return order.id;
       },
