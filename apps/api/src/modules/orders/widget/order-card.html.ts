@@ -1,83 +1,93 @@
 /**
  * Live order card — a Telegram chat widget (Bot API 10.4). Fixed code; the
- * bot only changes `chat_data` (OrderCardState as JSON) and the card redraws.
+ * bot only changes `chat_data` (CardState as JSON) and the card redraws.
  * Limits: 32 KB of HTML and 4096 bytes after zlib, no network, no form
- * controls, no scrolling (height ≤ 600 px). Colors come from the chat theme.
+ * controls, no web fonts (system ones only), no scrolling (height ≤ 600 px).
+ * Styled like the mini app: dark surface, teal accent #29C3C5.
  *
- * State keys (kept short — chat_data is at most 1024 bytes):
- *   n  order number          c  current step index    w  1 = waiting for the client
- *   h  1 = duty step shown   d  date / note of the current step
- *   x  1 = cancelled         it [[title, size], …]   m  more items count
- *   t  goods total («$41.80»)   dm delivery method   dd days («≈ 19–20 дн.»)
+ * State keys (chat_data ≤ 1024 bytes):
+ *   n  order number      c  step (0 оформлен … 10 доставлен, see STEPS in the service)
+ *   w  1 = the client has to pay this step     x  1 = cancelled
+ *   d  date of the current step («12 нояб»)    a  1 = parcel is being assembled
+ *   e  expected delivery («~5 дек») or days («19–20 дн.») before shipping
  *   p  delivery bill {a: rubles, l: [[name, rubles], …], u: pay url}
- *   tr track {c: carrier, n: number}
+ *   tr track {c: cdek | pochta, n: number}
  *
- * Steps (c): 0 оформлен, 1 оплачен, 2 выкуплен, 3 склад в Китае, 4 доставка
- * оплачена, 5 пошлина, 6 отправлен в РФ, 7 таможня, 8 склад РФ, 9 в пути по
- * РФ, 10 доставлен. The card shows them as 5 stages.
+ * The scale shows 5 stages; a stage is current while the parcel is in it:
+ * Оплата (c<1) · Выкуп (c<2) · Китай (c<6) · В пути (c<10) · Получен.
  */
 const RAW = `<style>
-*{box-sizing:border-box}body{font:14px/1.4 system-ui,sans-serif;color:var(--tg-theme-text-color)}
-.top{display:flex;align-items:center;gap:10px}
-.ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(64,167,227,.16);color:#40a7e3}
-.ic.w{background:rgba(245,166,35,.16);color:#f5a623}.ic.ok{background:rgba(52,199,89,.16);color:#34c759}.ic.x{background:rgba(229,72,77,.16);color:#e5484d}
-.ic svg{width:22px;height:22px}
-.no{font-size:12px;color:var(--tg-theme-hint-color)}.tt{font-size:16px;font-weight:600;line-height:1.25}
-.sub{font-size:12px;color:var(--tg-theme-hint-color)}
-.stg{display:flex;margin:12px 0 2px}.sg{flex:1;text-align:center;position:relative;font-size:11px;color:var(--tg-theme-hint-color)}
-.sg:before{content:"";position:absolute;top:5px;left:-50%;right:50%;height:2px;background:rgba(128,128,128,.3)}.sg:first-child:before{display:none}
-.sg.d:before,.sg.c:before{background:#40a7e3}
-.dot{width:12px;height:12px;border-radius:50%;margin:0 auto 3px;position:relative;background:var(--tg-theme-bg-color,#1c2733);border:2px solid rgba(128,128,128,.45)}
-.sg.d .dot{background:#40a7e3;border-color:#40a7e3}.sg.c .dot{border-color:#40a7e3;animation:p 1.6s ease-in-out infinite}
-.sg.c{color:var(--tg-theme-text-color);font-weight:600}.w .sg.c .dot{border-color:#f5a623}
-@keyframes p{50%{box-shadow:0 0 0 4px rgba(64,167,227,.2)}}
-.bx{margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(128,128,128,.12)}
-.r{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-top:3px}.r .k{color:var(--tg-theme-hint-color)}
-.big{font-size:18px;font-weight:600}
-button{border:0;font:inherit;width:100%;cursor:pointer;display:block;text-align:center;border-radius:10px;padding:8px;margin-top:8px;font-weight:600;font-size:13px;background:#40a7e3;color:#fff}
-button.g{background:rgba(128,128,128,.2);color:var(--tg-theme-text-color)}button.pay{background:#34c759}
-.tk{display:flex;gap:8px}
-.cb{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;background:#1ab248;color:#fff;margin-right:6px;vertical-align:1px}.cb.p{background:#0055a6}
-.tn{font:600 15px/1.3 ui-monospace,monospace;margin-top:4px}
-.it{margin-top:10px;font-size:13px}.it b{font-weight:600}.k{color:var(--tg-theme-hint-color)}
-.ft{display:flex;justify-content:space-between;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(128,128,128,.2);font-size:12px;color:var(--tg-theme-hint-color)}
-.ft b{color:var(--tg-theme-text-color);font-size:13px;font-weight:600}
-</style><div id="a"></div><script>
+*{box-sizing:border-box;margin:0}body{margin:0;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;color:#f2f4f5}
+.c{padding:14px;background:linear-gradient(150deg,#123c3d,#1e1f21 62%);border-radius:inherit}
+.hd{display:flex;align-items:center;gap:11px}
+.ic{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(41,195,197,.16);color:#29c3c5}
+.ic.w{background:rgba(255,176,32,.16);color:#ffb020}.ic.x{background:rgba(255,92,92,.16);color:#ff5c5c}.ic svg{width:23px;height:23px}
+.br{font-size:11px;font-weight:800;letter-spacing:.9px;color:#29c3c5;text-transform:uppercase}
+.tt{font-size:17px;font-weight:800;letter-spacing:-.2px;line-height:1.2}
+.sb{font-size:12px;color:#9a9da3;margin-top:1px}
+.st{display:flex;margin:15px 0 0}.sg{flex:1;text-align:center;position:relative;font-size:11px;color:#7d8087}
+.sg:before{content:"";position:absolute;top:5px;left:-50%;right:50%;height:2px;background:#3a3c40}.sg:first-child:before{display:none}
+.sg.d:before,.sg.c2:before{background:#29c3c5}
+.dt{width:12px;height:12px;border-radius:50%;margin:0 auto 4px;position:relative;background:#1e1f21;border:2px solid #4a4c51}
+.sg.d .dt{background:#29c3c5;border-color:#29c3c5}.sg.c2{color:#f2f4f5;font-weight:700}
+.sg.c2 .dt{border-color:#29c3c5;animation:p 1.6s ease-in-out infinite}.w .sg.c2 .dt{border-color:#ffb020}
+@keyframes p{50%{box-shadow:0 0 0 4px rgba(41,195,197,.22)}}
+.bx{margin-top:13px;padding:11px 12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.07)}
+.row{display:flex;align-items:center;gap:10px}.mu{color:#9a9da3;font-size:12px}.b{font-weight:700}
+.r{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-top:4px}
+.big{font:800 21px/1.2 ui-monospace,"JetBrains Mono",monospace;margin-top:2px}
+.tn{font:700 16px/1.2 ui-monospace,"JetBrains Mono",monospace;letter-spacing:.4px}
+button{border:0;font:inherit;width:100%;cursor:pointer;display:block;text-align:center;border-radius:12px;padding:9px;font-weight:700;font-size:14px;background:#29c3c5;color:#052a2b}
+button.g{background:rgba(255,255,255,.1);color:#f2f4f5}.bt{display:flex;gap:8px;margin-top:10px}
+.lg{width:32px;height:32px;border-radius:9px;flex-shrink:0;display:block}
+.ti{width:30px;height:30px;border-radius:9px}.ti svg{width:17px;height:17px}
+.ss{display:flex;gap:4px;margin-top:9px}.ss div{flex:1;font-size:10px;color:#7d8087}.ss i{display:block;height:4px;border-radius:2px;background:#3a3c40;margin-bottom:4px}.ss .d i{background:#29c3c5}.ss .d{color:#c9cbcf}
+</style><div class="c" id="a"></div><script>
 var W=window.TelegramWidget,
-S=["Заказ оформлен","Заказ оплачен","Выкуплен на Poizon","На складе в Китае","Доставка оплачена","Пошлина оплачена","Отправлен в Россию","На таможне","На складе в России","В пути по России","Доставлен"],
-G=[["Оплата",1],["Выкуп",2],["Склад",3],["В пути",6],["Получен",10]],
-WT={1:"Ждём оплату заказа",4:"Оплатите доставку",5:"Оплатите пошлину"},
-WD={1:"После оплаты сразу выкупим товар",4:"Посылка поедет в Россию сразу после оплаты",5:"Посылку выпустят после оплаты"},
-CN={cdek:"СДЭК",pochta:"Почта"},TU={cdek:"https://www.cdek.ru/ru/tracking?order_id=",pochta:"https://www.pochta.ru/tracking?barcode="},
-I={box:'<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5zM3.5 7.5 12 12l8.5-4.5M12 12v9"/>',truck:'<path d="M2 6h11v10H2zM13 9h4l4 4v3h-8"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/>',
-card:'<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h3"/>',ok:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',x:'<path d="M6 6l12 12M18 6 6 18"/>',bag:'<path d="M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0"/>'};
+T=["Заказ оформлен","Заказ оплачен","Выкуплен на Poizon","На складе в Китае","Доставка оплачена","Пошлина оплачена","Отправлен в Россию","На таможне","На складе в России","В пути по России","Получен"],
+G=[["Оплата",1],["Выкуп",2],["Китай",6],["В пути",10],["Получен",11]],
+WT={1:"Оплатите заказ",4:"Оплатите доставку",5:"Оплатите пошлину"},
+SS=["Отправлен","Таможня","Склад РФ","Доставка"],
+TU={cdek:"https://www.cdek.ru/ru/tracking?order_id=",pochta:"https://www.pochta.ru/tracking?barcode="},
+L={cdek:["#1ab248","СДЭК",8.5],pochta:["#0055a6","ПОЧТА",7],poizon:["#000","POIZON",6.2]},
+I={card:'<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h3"/>',box:'<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5zM3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
+truck:'<path d="M2 6h11v10H2zM13 9h4l4 4v3h-8"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/>',ok:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+x:'<path d="M6 6l12 12M18 6 6 18"/>',paid:'<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.6"/>',plane:'<path d="M3 13l18-7-5 15-4-6zM12 15l9-9"/>'};
 function e(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return"&#"+c.charCodeAt(0)+";"})}
 function rub(v){return String(Math.round(v)).replace(/\\B(?=(\\d{3})+(?!\\d))/g," ")+" ₽"}
-function svg(k){return'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+I[k]+'</svg>'}
-function pl(n){var a=n%10,h=n%100;return a==1&&h!=11?"вещь":a>=2&&a<=4&&(h<12||h>14)?"вещи":"вещей"}
+function ic(k){return'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+I[k]+'</svg>'}
+function lg(k){var l=L[k];return'<svg class="lg" viewBox="0 0 30 30"><rect width="30" height="30" rx="9" fill="'+l[0]+'"/><text x="15" y="18.5" font-size="'+l[2]+'" font-weight="900" letter-spacing=".2" fill="#fff" text-anchor="middle" font-family="system-ui,sans-serif">'+l[1]+'</text></svg>'}
+function bx(k,a,b){return'<div class="bx"><div class="row">'+k+'<div><div class="b">'+a+'</div>'+(b?'<div class="mu">'+b+'</div>':"")+'</div></div></div>'}
+function t(k,w){return'<div class="ic ti'+(w?" w":"")+'">'+ic(k)+'</div>'}
 function b(id,f){var x=document.getElementById(id);x&&x.addEventListener("click",f)}
 function r(){var s={};try{s=JSON.parse(W&&W.chatData||"{}")}catch(_){}
-var c=s.c||0,done=c>=10,k=s.x?"x":s.w?"w":done?"ok":"",
-ik=s.x?"x":s.w?"card":done?"ok":c>=6?"truck":c>=2?"box":"bag",
-tt=s.x?"Заказ отменён":s.w?WT[c]||S[c]:S[c],
-sb=s.x?"Если это ошибка, напишите менеджеру":s.w?WD[c]||"":[s.d,s.dd&&!done?s.dd:""].filter(Boolean).join(" · "),
-o='<div class="top"><div class="ic '+k+'">'+svg(ik)+'</div><div><div class="no">Заказ '+e(s.n)+'</div><div class="tt">'+e(tt)+'</div>'+(sb?'<div class="sub">'+e(sb)+'</div>':"")+'</div></div>';
-if(!s.x){var cur=-1;G.forEach(function(g,i){if(c>=g[1]&&!(s.w&&c==g[1]))cur=i});
-o+='<div class="stg'+(s.w?" w":"")+'">';G.forEach(function(g,i){var cl=i<=cur?"d":i==cur+1?"c":"";
-o+='<div class="sg '+cl+'"><div class="dot"></div>'+g[0]+'</div>'});o+='</div>'}
-if(s.p){o+='<div class="bx"><div class="k" style="font-size:12px">К оплате за доставку</div><div class="big">'+rub(s.p.a)+'</div>';
-(s.p.l||[]).forEach(function(l){o+='<div class="r"><span class="k">'+e(l[0])+'</span><span>'+rub(l[1])+'</span></div>'});
-if(s.p.u)o+='<button class="pay" id="pay">Оплатить '+rub(s.p.a)+'</button>';o+='</div>'}
-if(s.tr){o+='<div class="bx"><div class="k" style="font-size:12px"><span class="cb'+(s.tr.c=="pochta"?" p":"")+'">'+e(CN[s.tr.c]||"Трек")+'</span>трек-номер</div><div class="tn">'+e(s.tr.n)+'</div><div class="tk"><button class="g" id="cp">Скопировать</button>'+(TU[s.tr.c]?'<button id="tg">Отследить</button>':"")+'</div></div>'}
-var it=s.it||[],cnt=it.length+(s.m||0);
-if(cnt){o+='<div class="it"><b>'+e(it[0][0])+'</b> <span class="k">· '+e(it[0][1])+'</span>';
-if(cnt>1)o+='<div class="k">и ещё '+(cnt-1)+' '+pl(cnt-1)+'</div>';o+='</div>'}
-o+='<div class="ft"><span>'+e(s.dm||"")+'</span>'+(s.t?'<b>'+e(s.t)+'</b>':"")+'</div>';
-document.getElementById("a").innerHTML=o;
+var c=s.c||0,k=s.x?"x":s.w?"w":"",
+ik=s.x?"x":s.w?"card":c>=10?"ok":c>=6?"plane":c>=2?"box":"paid",
+tt=s.x?"Заказ отменён":s.w?WT[c]:s.a?"Собираем посылку":T[c],
+sb=s.x?"Если это ошибка, напишите менеджеру":[s.d,c>=4&&c<10&&s.e?"ожидаем "+s.e:""].filter(Boolean).join(" · "),
+o='<div class="hd"><div class="ic '+k+'">'+ic(ik)+'</div><div><div class="br">LH POIZON · '+e(s.n)+'</div><div class="tt">'+e(tt)+'</div>'+(sb?'<div class="sb">'+e(sb)+'</div>':"")+'</div></div>';
+if(s.x){a(o);return}
+var cur=0;while(cur<4&&c>=G[cur][1])cur++;if(s.w)cur=c==1?0:c==4?2:3;
+o+='<div class="st'+(s.w?" w":"")+'">';G.forEach(function(g,i){o+='<div class="sg '+(i<cur||c>=10?"d":i==cur?"c2":"")+'"><div class="dt"></div>'+g[0]+'</div>'});o+='</div>';
+var tk=s.tr&&L[s.tr.c]&&c<10?'<div class="bx"><div class="row">'+lg(s.tr.c)+'<div><div class="mu">Трек-номер</div><div class="tn">'+e(s.tr.n)+'</div></div></div><div class="bt"><button class="g" id="cp">Скопировать</button><button id="tg">Отследить</button></div></div>':"";
+if(s.p){o+='<div class="bx"><div class="mu">К оплате за доставку</div><div class="big">'+rub(s.p.a)+'</div>';
+(s.p.l||[]).forEach(function(l){o+='<div class="r"><span class="mu">'+e(l[0])+'</span><span>'+rub(l[1])+'</span></div>'});
+if(s.p.u)o+='<div class="bt"><button id="pay">Оплатить '+rub(s.p.a)+'</button></div>';o+='</div>'}
+else if(s.w&&c==1)o+=bx(lg("poizon"),"Выкупим сразу после оплаты","Оплатить можно в приложении");
+else if(s.w)o+=bx(t("card",1),"Посылку выпустят после оплаты","Сумму пришлём отдельным сообщением");
+else if(c<2)o+=bx(lg("poizon"),"Выкупаем на Poizon","Обычно 1–2 дня");
+else if(c<3)o+=bx(t("box"),"Едет на склад в Китае","Обычно 3–7 дней");
+else if(c<4)o+=bx(t("box"),s.a?"Упаковываем вещи вместе":"Ждём все вещи на складе",s.a?"Цену доставки пришлём через 4–6 часов":"Потом соберём их в одну посылку");
+else if(c<6)o+=tk||bx(t("plane"),"Скоро отправим в Россию",s.e?"В пути около "+e(s.e):"");
+else if(c<10){var j=Math.min(c-6,3);o+='<div class="bx"><div class="row">'+t("truck")+'<div class="b">'+["Летит в Россию","Проходит таможню","На складе в России","Едет к вам"][j]+'</div></div><div class="ss">';
+SS.forEach(function(n,i){o+='<div class="'+(i<=j?"d":"")+'"><i></i>'+n+'</div>'});o+='</div></div>'+tk}
+else o+=bx(t("ok"),"Спасибо, что выбрали нас!","Будем рады отзыву — напишите менеджеру");
+a(o);
 b("pay",function(){W.openLink(s.p.u)});
 b("cp",function(){W.copyText(s.tr.n);W.HapticFeedback&&W.HapticFeedback.notificationOccurred("success");var x=document.getElementById("cp");x.textContent="Скопировано";setTimeout(function(){x.textContent="Скопировать"},1500)});
 b("tg",function(){W.openLink(TU[s.tr.c]+encodeURIComponent(s.tr.n))})}
-r();if(W){W.onEvent("chatDataChanged",r);W.onEvent("themeChanged",r);W.request("r").catch(function(){})}
+function a(o){document.getElementById("a").innerHTML=o}
+r();if(W){W.onEvent("chatDataChanged",r);W.request("r").catch(function(){})}
 </script>`;
 
 /** Collapses the template's line breaks (the code itself is written compact). */

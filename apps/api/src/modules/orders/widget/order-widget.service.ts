@@ -1,5 +1,4 @@
-import type { DeliveryCarrier, DeliveryKind, OrderTrackingDto } from '@lean-poizon/shared';
-import { deliveryMethodTitle } from '@lean-poizon/shared';
+import type { OrderTrackingDto } from '@lean-poizon/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ModuleRef } from '@nestjs/core';
@@ -29,25 +28,6 @@ const RANK: Record<OrderStatus, number> = {
   CANCELLED: -1,
 };
 
-/** Step names — must match `S` in the widget code (the duty step, 5, only when there was duty). */
-const STEPS = [
-  'Заказ оформлен',
-  'Заказ оплачен',
-  'Выкуплен на Poizon',
-  'На складе в Китае',
-  'Доставка оплачена',
-  'Пошлина оплачена',
-  'Отправлен в Россию',
-  'На таможне',
-  'На складе в России',
-  'В пути по России',
-  'Доставлен',
-];
-const WAITING: Record<number, string> = {
-  1: 'Ожидает оплаты',
-  4: 'Ожидает оплаты доставки',
-  5: 'Ожидает оплаты пошлины',
-};
 
 /** chat_data of the card — see order-card.html.ts for the keys. */
 interface CardState {
@@ -57,11 +37,8 @@ interface CardState {
   h?: 1;
   x?: 1;
   d?: string;
-  it?: Array<[string, string]>;
-  m?: number;
-  t?: string;
-  dm?: string;
-  dd?: string;
+  a?: 1;
+  e?: string;
   p?: { a: number; l: Array<[string, number]>; u?: string };
   tr?: { c: string; n: string };
 }
@@ -77,16 +54,6 @@ const shortDate = (value: Date | string | null | undefined) => {
         .format(date)
         .replace('.', '');
 };
-const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-/** Title cut on a word boundary («Nike Dunk CNY Unisex Skate Shoes, Black» → «Nike Dunk CNY Unisex Skate Shoes»). */
-const shortTitle = (title: string, max = 40) => {
-  const clean = title.replace(/\s+/g, ' ').trim();
-  if (clean.length <= max) return clean;
-  const cut = clean.slice(0, max + 1);
-  const space = cut.lastIndexOf(' ');
-  return `${(space > 15 ? cut.slice(0, space) : clean.slice(0, max)).replace(/[,.;:–-]+$/, '')}…`;
-};
-const formatRub = (value: number) => `${new Intl.NumberFormat('ru-RU').format(Math.round(value))} ₽`;
 
 class TelegramError extends Error {
   constructor(
@@ -103,7 +70,8 @@ class TelegramError extends Error {
  * caption + keyboard) on every change, instead of a message per step. Only
  * events that need the client (pay delivery / duty, track, delivered,
  * cancelled) still come as separate messages — see OrderNotificationsService.
- * Apps without widgets show the caption, so it always carries the status.
+ * No caption: the card says everything (Sergey's call — apps without widgets
+ * show an «unsupported message» with the buttons).
  */
 @Injectable()
 export class OrderWidgetService {
@@ -179,10 +147,9 @@ export class OrderWidgetService {
 
     const tracking = await this.tracking(order.userId as string, order.id);
     const state = this.buildState(order, tracking);
-    const caption = this.caption(order, state);
     const keyboard = this.keyboard(order);
     const data = JSON.stringify(state);
-    const fingerprint = JSON.stringify({ data, caption, keyboard });
+    const fingerprint = JSON.stringify({ data, keyboard });
 
     try {
       if (!order.widgetMessageId) {
@@ -190,8 +157,6 @@ export class OrderWidgetService {
           chat_id: chatId,
           html: ORDER_CARD_HTML,
           chat_data: data,
-          caption,
-          parse_mode: 'HTML',
           allow_queries: true,
           reply_markup: keyboard,
         })) as { message_id: number };
@@ -210,8 +175,8 @@ export class OrderWidgetService {
       const previous = safeParse(order.widgetState);
       const target = { chat_id: chatId, message_id: order.widgetMessageId };
       if (previous?.data !== data) await this.edit('editMessageWidgetData', { ...target, chat_data: data });
-      if (previous?.caption !== caption || JSON.stringify(previous?.keyboard) !== JSON.stringify(keyboard)) {
-        await this.edit('editMessageCaption', { ...target, caption, parse_mode: 'HTML', reply_markup: keyboard });
+      if (JSON.stringify(previous?.keyboard) !== JSON.stringify(keyboard)) {
+        await this.edit('editMessageReplyMarkup', { ...target, reply_markup: keyboard });
       }
       await this.prisma.order.update({
         where: { id: order.id },
@@ -291,21 +256,16 @@ export class OrderWidgetService {
     if (cancelled) state.x = 1;
     const at = shortDate(waiting ? steps[lastDone]?.at : steps[current]?.at);
     if (at) state.d = at;
-    if (!waiting && current === 3 && order.raketaAssembledAt && !order.raketaPriceTotal) {
-      state.d = 'собираем посылку, цена через 4–6 ч';
-    }
+    if (!waiting && current === 3 && order.raketaAssembledAt && !order.raketaPriceTotal) state.a = 1;
 
-    state.t = `$${Number(order.totalUsd).toFixed(2)}`;
-    state.dm = deliveryMethodTitle(
-      (order.deliveryCarrier ?? 'cdek') as DeliveryCarrier,
-      (order.deliveryKind ?? 'pvz') as DeliveryKind,
-      order.deliveryTariff ?? 'STND',
-    );
-    if (order.deliveryDaysMin) {
-      state.dd =
-        order.deliveryDaysMin === order.deliveryDaysMax
-          ? `≈ ${order.deliveryDaysMin} дн.`
-          : `≈ ${order.deliveryDaysMin}–${order.deliveryDaysMax} дн.`;
+    // Expected delivery: from the day delivery was paid + the quoted days; before that just the days.
+    const paidAt = history.get(OrderStatus.DELIVERY_PAID);
+    if (order.deliveryDaysMax) {
+      state.e = paidAt
+        ? `~${shortDate(new Date(paidAt.getTime() + order.deliveryDaysMax * 86_400_000))}`
+        : order.deliveryDaysMin === order.deliveryDaysMax
+          ? `${order.deliveryDaysMax} дн.`
+          : `${order.deliveryDaysMin}–${order.deliveryDaysMax} дн.`;
     }
 
     if (order.status === OrderStatus.DELIVERY_PAYMENT_PENDING && order.raketaTopupAmount) {
@@ -323,29 +283,12 @@ export class OrderWidgetService {
       state.tr = { c: order.deliveryCarrier ?? 'cdek', n: track };
     }
 
-    // Items last: as many as fit into chat_data.
-    const items = order.items.map(
-      (item) => [shortTitle(item.productTitle), item.sizeLabel.slice(0, 10)] as [string, string],
-    );
-    for (let count = Math.min(items.length, 6); count >= 0; count--) {
-      const candidate: CardState = { ...state, it: items.slice(0, count) };
-      if (items.length > count) candidate.m = items.length - count;
-      if (Buffer.byteLength(JSON.stringify(candidate)) <= MAX_DATA) return candidate;
+    // A very long bill can't overflow chat_data: drop its extras.
+    if (Buffer.byteLength(JSON.stringify(state)) > MAX_DATA && state.p) {
+      state.p.l = [];
+      if (Buffer.byteLength(JSON.stringify(state)) > MAX_DATA) delete state.p.u;
     }
-    // Still too big (very long bill lines) — drop the extras.
-    delete state.p?.u;
-    if (state.p) state.p.l = [];
     return state;
-  }
-
-  /** Caption under the card — also the whole message in apps without widgets. */
-  private caption(order: { orderNumber: string; status: OrderStatus }, state: CardState): string {
-    const steps = STEPS.filter((_, i) => i !== 5 || state.h);
-    const index = state.h || state.c < 5 ? state.c : state.c - 1;
-    const label = state.x ? 'Отменён' : state.w ? WAITING[state.c] : steps[index];
-    const parts = [`<b>Заказ ${escapeHtml(order.orderNumber)}</b> · ${escapeHtml(label ?? '')}`];
-    if (state.p) parts.push(`Доставка: ${formatRub(state.p.a)}`);
-    return parts.join('\n');
   }
 
   private keyboard(order: { id: string; status: OrderStatus; raketaTopupUrl: string | null }) {
@@ -392,10 +335,10 @@ export class OrderWidgetService {
   }
 }
 
-function safeParse(value: string | null): { data?: string; caption?: string; keyboard?: unknown } | null {
+function safeParse(value: string | null): { data?: string; keyboard?: unknown } | null {
   if (!value) return null;
   try {
-    return JSON.parse(value) as { data?: string; caption?: string; keyboard?: unknown };
+    return JSON.parse(value) as { data?: string; keyboard?: unknown };
   } catch {
     return null;
   }
