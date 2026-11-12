@@ -299,9 +299,14 @@ export class TonPayService {
           select: { bybitDepositId: true },
         });
         const usedIds = new Set(used.map((u) => u.bybitDepositId));
-        const deposit = deposits.find(
-          (d) => !usedIds.has(d.id) && Math.abs(Number(d.amount) - ton) < 0.0000015 && Number(d.successAt) >= payment.createdAt.getTime() - 60_000,
-        );
+        // Bybit credits a hair less than was sent (≈0.00001 TON of network fees):
+        // take the closest unused deposit at most 0.0005 TON below the amount.
+        const deposit = deposits
+          .filter((d) => {
+            const gap = ton - Number(d.amount);
+            return !usedIds.has(d.id) && gap >= -0.0000015 && gap < 0.0005 && Number(d.successAt) >= payment.createdAt.getTime() - 60_000;
+          })
+          .sort((a, b) => Math.abs(ton - Number(a.amount)) - Math.abs(ton - Number(b.amount)))[0];
         if (!deposit) {
           // Bybit usually credits in minutes; after 2 hours tell the owner.
           if (payment.paidAt && Date.now() - payment.paidAt.getTime() > 2 * 60 * 60 * 1000) {
