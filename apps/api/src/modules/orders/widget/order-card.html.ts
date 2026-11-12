@@ -23,7 +23,7 @@ const RAW = `<style>
 .hd{display:flex;align-items:center;gap:11px}
 .ic{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(41,195,197,.16);color:#29c3c5}
 .ic.w{background:rgba(255,176,32,.16);color:#ffb020}.ic.x{background:rgba(255,92,92,.16);color:#ff5c5c}.ic svg{width:23px;height:23px}
-.br{font-size:11px;font-weight:800;letter-spacing:.9px;color:#29c3c5;text-transform:uppercase}
+.br{font-size:12px;font-weight:600;color:#9a9da3;line-height:1.3}.br b{color:#29c3c5;font-weight:700;letter-spacing:.2px}.br i{font:600 12px ui-monospace,"JetBrains Mono",monospace;font-style:normal;color:#c9cbcf}
 .tt{font-size:17px;font-weight:800;letter-spacing:-.2px;line-height:1.2}
 .sb{font-size:12px;color:#9a9da3;margin-top:1px}
 .st{display:flex;margin:15px 0 0}.sg{flex:1;text-align:center;position:relative;font-size:11px;color:#7d8087}
@@ -67,7 +67,7 @@ var c=s.c||0,k=s.x?"x":s.w?"w":"",
 ik=s.x?"x":s.w?"card":c>=10?"ok":c>=6?"plane":c>=2?"box":"paid",
 tt=s.x?"Заказ отменён":s.w?WT[c]:s.a?"Собираем посылку":T[c],
 sb=s.x?"Если это ошибка, напишите менеджеру":[s.d,c>=4&&c<10&&s.e?"ожидаем "+s.e:""].filter(Boolean).join(" · "),
-o='<div class="hd"><div class="ic '+k+'">'+ic(ik)+'</div><div><div class="br">LH POIZON · '+e(s.n)+'</div><div class="tt">'+e(tt)+'</div>'+(sb?'<div class="sb">'+e(sb)+'</div>':"")+'</div></div>';
+o='<div class="hd"><div class="ic '+k+'">'+ic(ik)+'</div><div><div class="br"><b>LH Poizon</b> · заказ <i>'+e(s.n)+'</i></div><div class="tt">'+e(tt)+'</div>'+(sb?'<div class="sb">'+e(sb)+'</div>':"")+'</div></div>';
 if(s.x){a(o+'<div class="bt"><button class="g" id="mg">Написать менеджеру</button></div>');b("mg",function(){W.openTelegramLink("https://t.me/lh_poizonmanager")});return}
 var cur=0;while(cur<4&&c>=G[cur][1])cur++;if(s.w)cur=c==1?0:c==4?2:3;
 o+='<div class="st'+(s.w?" w":"")+'">';G.forEach(function(g,i){o+='<div class="sg '+(i<cur||c>=10?"d":i==cur?"c2":"")+'"><div class="dt"></div>'+g[0]+'</div>'});o+='</div>';
