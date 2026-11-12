@@ -715,6 +715,9 @@ model ChatCalc {
   page        Int      @default(0)
   expanded    Int?
   notice      String?  @db.VarChar(200)
+  /// null = list; "address" = choosing where to deliver before «Оформить»
+  mode        String?  @db.VarChar(12)
+  addressId   String?  @map("address_id") @db.Uuid
   orderId     String?  @map("order_id") @db.Uuid
   widgetState String?  @map("widget_state") @db.Text
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)

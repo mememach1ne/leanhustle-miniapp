@@ -38,7 +38,7 @@ button.g{background:rgba(255,255,255,.1);color:#f2f4f5}button.on{background:#29c
 .rw{display:flex;gap:5px;margin-top:6px;align-items:center}.rw b{min-width:18px;text-align:center}.sq{width:34px;flex-shrink:0}
 .ft{margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.07)}
 .r{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;white-space:nowrap}.r .mu{overflow:hidden;text-overflow:ellipsis}.big{font:800 17px ui-monospace,"JetBrains Mono",monospace}
-.dis{opacity:.4}
+.dis{opacity:.4}.rd{width:18px;height:18px;border-radius:50%;border:2px solid #4a4c51;flex-shrink:0}.rd.on{border:5px solid #29c3c5}
 </style><div id="a"></div><script>
 var W=window.TelegramWidget,S={};
 var IC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7h7M8.5 11h.01M12 11h.01M15.5 11h.01M8.5 14.5h.01M12 14.5h.01M15.5 14.5h.01M8.5 18h7"/></svg>';
@@ -48,7 +48,9 @@ function bt(cls,d,t){return'<button class="'+cls+'" data-q="'+d+'">'+t+'</button
 function row(l,x){return'<div class="ln'+(x?" x":"")+'" data-q="e'+l[0]+'"><div class="nb">'+(l[0]+1)+'</div><div class="tl"><b>'+e(l[1])+'</b><span class="mu'+(l[5]==2||!l[2]&&!l[5]?" wn":"")+'">'+(l[5]==1?"считаю…":l[5]==2?e(l[4]):l[2]?"размер "+e(l[2])+(l[3]>1?" · ×"+l[3]:""):"выберите размер")+'</span></div><div class="pr">'+(l[5]?"":e(l[4]))+'</div>'+(l[5]==1?"":'<div class="dl" data-q="x'+l[0]+'">×</div>')+'</div>'}
 function r(){try{S=JSON.parse(W&&W.chatData||"{}")}catch(_){S={}}
 var s=S,n=s.n||0,X=s.X,o='<div class="hd"><div class="ic">'+IC+'</div><div><div class="br">LH POIZON · РАСЧЁТ</div><div class="tt">'+(s.s=="d"?"Заказ "+e(s.on)+" оформлен":s.s=="c"?"Добавлено в корзину":s.s=="x"?"Расчёт закрыт":n+" "+pl(n))+'</div>'+(s.m?'<div class="mu'+(s.ok?"":" wn")+'">'+e(s.m)+'</div>':"")+'</div></div>';
-if(s.s=="o"){var L=s.L||[];
+if(s.s=="o"&&s.A){s.A.forEach(function(z,k){o+='<div class="ln'+(k==s.k?" x":"")+'" data-q="A'+k+'"><div class="rd'+(k==s.k?" on":"")+'"></div><div class="tl"><b>'+e(z[0])+'</b><span class="mu">'+e(z[1])+'</span></div></div>'});
+var T=s.T;o+='<div class="ft">'+(T?'<div class="r"><span class="mu">Товары</span><span class="big">'+e(T.g)+'</span></div><div class="r"><span class="mu">Доставка · '+e(T.c)+'</span><span>≈ '+e(T.d)+'</span></div>':"")+'<div class="rw">'+bt("g","b","← Назад")+bt(s.k<0?"dis":"","O","Оформить заказ")+'</div></div>'}
+else if(s.s=="o"){var L=s.L||[];
 if(X){var l=L.filter(function(z){return z[0]==X.i})[0];if(l)o+=row(l,1);
 o+='<div class="pn"><div class="gr">';X.s.forEach(function(z,k){o+='<button class="'+(k==X.k?"on":"g")+'" data-q="s'+X.i+"."+k+'">'+e(z[0])+'<i>'+e(z[1])+'</i></button>'});
 o+='</div><div class="rw">'+bt("g sq","q"+X.i+"-","−")+'<b>'+(l?l[3]:1)+'</b>'+bt("g sq","q"+X.i+"+","+")+bt("g","a"+X.i,"+ размер")+(X.p?'<button class="g" data-o="p_'+X.p+'">Товар ↗</button>':"")+'</div><div class="rw">'+bt("g","e"+X.i,"← К списку")+'</div></div>'}

@@ -203,6 +203,29 @@ export class ChatCalcService {
       await this.toCart(calc, lines);
       return;
     } else if (data === 'o') {
+      // «Оформить» → choose where to deliver first.
+      if (lines.some((l) => l.st === 'wait' || (l.st === 'ok' && !l.sku)) || !lines.some((l) => l.st === 'ok')) return;
+      const addresses = await this.addressesOf(calc.userId);
+      if (addresses.length === 0) {
+        await this.prisma.chatCalc.update({
+          where: { id: calcId },
+          data: { notice: 'Сначала добавьте адрес доставки в приложении — или отправьте всё в корзину' },
+        });
+        await this.render(calcId);
+        return;
+      }
+      const keep = addresses.some((a) => a.id === calc.addressId) ? calc.addressId : addresses[0].id;
+      update.mode = 'address';
+      update.addressId = keep;
+      update.expanded = null;
+    } else if ((m = data.match(/^A(\d+)$/))) {
+      const address = (await this.addressesOf(calc.userId))[Number(m[1])];
+      if (!address || calc.mode !== 'address') return;
+      update.addressId = address.id;
+    } else if (data === 'b') {
+      update.mode = null;
+    } else if (data === 'O') {
+      if (calc.mode !== 'address') return;
       await this.orderNow(calc, lines);
       return;
     } else if (data === 'n') {
@@ -315,13 +338,24 @@ export class ChatCalcService {
     return { usd: Number(r.totalUsd), delivery: r.deliveryRub, duty: r.dutyRub, category };
   }
 
-  private async pricingFor(userId: string): Promise<Pricing> {
-    const settings = await this.settings.getCurrentSettings();
-    const discount = await this.loyalty.getDiscountPercentPoints({ id: userId }, settings);
-    const address = await this.prisma.deliveryAddress.findFirst({
+  /** The client's addresses for the card (default first; at most 6 fit). */
+  private addressesOf(userId: string) {
+    return this.prisma.deliveryAddress.findMany({
       where: { userId },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+      take: 6,
     });
+  }
+
+  private async pricingFor(userId: string, addressId?: string | null): Promise<Pricing> {
+    const settings = await this.settings.getCurrentSettings();
+    const discount = await this.loyalty.getDiscountPercentPoints({ id: userId }, settings);
+    const address =
+      (addressId ? await this.prisma.deliveryAddress.findFirst({ where: { id: addressId, userId } }) : null) ??
+      (await this.prisma.deliveryAddress.findFirst({
+        where: { userId },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+      }));
     const { hub, options } = await this.regional.optionsFor({
       cityId: address?.cityId,
       city: address?.city,
@@ -347,7 +381,7 @@ export class ChatCalcService {
     if (status === 'x') base.m = 'Пришлите новые ссылки — начну новый расчёт';
     if (status !== 'o') return base;
 
-    const p = await this.pricingFor(calc.userId);
+    const p = await this.pricingFor(calc.userId, calc.addressId);
     const pages = Math.max(1, Math.ceil(lines.length / PAGE));
     const page = Math.min(calc.page, pages - 1);
     let goods = 0;
@@ -396,6 +430,14 @@ export class ChatCalcService {
             : 'Всё готово — можно оформлять');
     if (goods > 0) state.T = { g: usd(goods), d: rub(delivery), c: p.city, ...(duty > 0 ? { u: rub(duty) } : {}) };
 
+    if (calc.mode === 'address') {
+      const addresses = await this.addressesOf(calc.userId);
+      state.A = addresses.map((a) => [a.fullName.slice(0, 40), a.cdekAddress.replace(/\s*\([A-Za-z0-9_-]+\)\s*$/, '').slice(0, 60)]);
+      state.k = addresses.findIndex((a) => a.id === calc.addressId);
+      state.m = 'Куда доставить?';
+      delete state.L;
+      return state;
+    }
     const expanded = calc.expanded !== null ? lines[calc.expanded] : undefined;
     if (expanded?.st === 'ok' && expanded.skus) {
       state.X = {
@@ -481,14 +523,18 @@ export class ChatCalcService {
     if (lines.some((l) => l.st === 'wait' || (l.st === 'ok' && !l.sku))) return;
     const ready = lines.filter((l) => l.st === 'ok' && l.sku);
     if (ready.length === 0) return;
-    const address = await this.prisma.deliveryAddress.findFirst({
-      where: { userId: calc.userId },
-      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
-    });
+    const address = calc.addressId
+      ? await this.prisma.deliveryAddress.findFirst({ where: { id: calc.addressId, userId: calc.userId } })
+      : null;
     if (!address || !address.cityId) {
       await this.prisma.chatCalc.update({
         where: { id: calc.id },
-        data: { notice: 'Сначала добавьте адрес доставки в приложении — или отправьте всё в корзину' },
+        data: {
+          mode: null,
+          notice: address
+            ? 'У этого адреса нет пункта выдачи из списка — выберите его в приложении'
+            : 'Сначала добавьте адрес доставки в приложении — или отправьте всё в корзину',
+        },
       });
       await this.render(calc.id);
       return;
@@ -521,7 +567,7 @@ export class ChatCalcService {
       const { order } = await this.orders.checkout(user, { deliveryAddressId: address.id }, items);
       await this.prisma.chatCalc.update({
         where: { id: calc.id },
-        data: { status: 'ordered', orderId: order.id, expanded: null },
+        data: { status: 'ordered', orderId: order.id, expanded: null, mode: null },
       });
     } catch (error) {
       await this.prisma.chatCalc.update({
