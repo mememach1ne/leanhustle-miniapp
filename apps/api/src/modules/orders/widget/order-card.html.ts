@@ -17,31 +17,31 @@
  * РФ, 10 доставлен. The card shows them as 5 stages.
  */
 const RAW = `<style>
-*{box-sizing:border-box}body{margin:0;font:14px/1.35 system-ui,sans-serif;color:var(--tg-theme-text-color)}
-.top{display:flex;align-items:center;gap:12px}
-.ic{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(64,167,227,.16);color:#40a7e3}
+*{box-sizing:border-box}body{font:14px/1.4 system-ui,sans-serif;color:var(--tg-theme-text-color)}
+.top{display:flex;align-items:center;gap:10px}
+.ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:rgba(64,167,227,.16);color:#40a7e3}
 .ic.w{background:rgba(245,166,35,.16);color:#f5a623}.ic.ok{background:rgba(52,199,89,.16);color:#34c759}.ic.x{background:rgba(229,72,77,.16);color:#e5484d}
-.ic svg{width:24px;height:24px}
-.no{font-size:12px;color:var(--tg-theme-hint-color)}.tt{font-size:17px;font-weight:700;line-height:1.2}
-.sub{font-size:12px;color:var(--tg-theme-hint-color);margin-top:2px}
-.stg{display:flex;margin:14px 0 4px}.sg{flex:1;text-align:center;position:relative;font-size:10px;color:var(--tg-theme-hint-color)}
-.sg:before{content:"";position:absolute;top:7px;left:-50%;right:50%;height:2px;background:rgba(128,128,128,.3)}.sg:first-child:before{display:none}
+.ic svg{width:22px;height:22px}
+.no{font-size:12px;color:var(--tg-theme-hint-color)}.tt{font-size:16px;font-weight:600;line-height:1.25}
+.sub{font-size:12px;color:var(--tg-theme-hint-color)}
+.stg{display:flex;margin:12px 0 2px}.sg{flex:1;text-align:center;position:relative;font-size:11px;color:var(--tg-theme-hint-color)}
+.sg:before{content:"";position:absolute;top:5px;left:-50%;right:50%;height:2px;background:rgba(128,128,128,.3)}.sg:first-child:before{display:none}
 .sg.d:before,.sg.c:before{background:#40a7e3}
-.dot{width:16px;height:16px;border-radius:50%;margin:0 auto 4px;position:relative;background:var(--tg-theme-bg-color,#1c2733);border:2px solid rgba(128,128,128,.4)}
+.dot{width:12px;height:12px;border-radius:50%;margin:0 auto 3px;position:relative;background:var(--tg-theme-bg-color,#1c2733);border:2px solid rgba(128,128,128,.45)}
 .sg.d .dot{background:#40a7e3;border-color:#40a7e3}.sg.c .dot{border-color:#40a7e3;animation:p 1.6s ease-in-out infinite}
 .sg.c{color:var(--tg-theme-text-color);font-weight:600}.w .sg.c .dot{border-color:#f5a623}
-@keyframes p{50%{box-shadow:0 0 0 5px rgba(64,167,227,.18)}}
-.bx{margin-top:12px;padding:12px;border-radius:14px;background:rgba(128,128,128,.12)}
-.r{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-top:4px}.r .k{color:var(--tg-theme-hint-color)}
-.big{font-size:20px;font-weight:700}
-button{border:0;font:inherit;width:100%;cursor:pointer;display:block;text-align:center;border-radius:12px;padding:10px;margin-top:10px;font-weight:600;font-size:14px;background:#40a7e3;color:#fff}
+@keyframes p{50%{box-shadow:0 0 0 4px rgba(64,167,227,.2)}}
+.bx{margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(128,128,128,.12)}
+.r{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-top:3px}.r .k{color:var(--tg-theme-hint-color)}
+.big{font-size:18px;font-weight:600}
+button{border:0;font:inherit;width:100%;cursor:pointer;display:block;text-align:center;border-radius:10px;padding:8px;margin-top:8px;font-weight:600;font-size:13px;background:#40a7e3;color:#fff}
 button.g{background:rgba(128,128,128,.2);color:var(--tg-theme-text-color)}button.pay{background:#34c759}
 .tk{display:flex;gap:8px}
-.cb{display:inline-block;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:#1ab248;color:#fff;margin-right:6px}.cb.p{background:#0055a6}
-.tn{font:600 16px/1.2 ui-monospace,monospace;letter-spacing:.5px;margin-top:6px}
-.it{margin-top:12px;font-size:13px}.it b{font-weight:600}.k{color:var(--tg-theme-hint-color)}
-.ft{display:flex;justify-content:space-between;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(128,128,128,.2);font-size:12px;color:var(--tg-theme-hint-color)}
-.ft b{color:var(--tg-theme-text-color);font-size:13px}
+.cb{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;background:#1ab248;color:#fff;margin-right:6px;vertical-align:1px}.cb.p{background:#0055a6}
+.tn{font:600 15px/1.3 ui-monospace,monospace;margin-top:4px}
+.it{margin-top:10px;font-size:13px}.it b{font-weight:600}.k{color:var(--tg-theme-hint-color)}
+.ft{display:flex;justify-content:space-between;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(128,128,128,.2);font-size:12px;color:var(--tg-theme-hint-color)}
+.ft b{color:var(--tg-theme-text-color);font-size:13px;font-weight:600}
 </style><div id="a"></div><script>
 var W=window.TelegramWidget,
 S=["Заказ оформлен","Заказ оплачен","Выкуплен на Poizon","На складе в Китае","Доставка оплачена","Пошлина оплачена","Отправлен в Россию","На таможне","На складе в России","В пути по России","Доставлен"],

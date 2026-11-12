@@ -80,11 +80,11 @@ const shortDate = (value: Date | string | null | undefined) => {
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 /** Title cut on a word boundary («Nike Dunk CNY Unisex Skate Shoes, Black» → «Nike Dunk CNY Unisex Skate Shoes»). */
 const shortTitle = (title: string, max = 40) => {
-  const clean = title.replace(/s+/g, ' ').trim();
+  const clean = title.replace(/\s+/g, ' ').trim();
   if (clean.length <= max) return clean;
   const cut = clean.slice(0, max + 1);
   const space = cut.lastIndexOf(' ');
-  return `${(space > 15 ? cut.slice(0, space) : clean.slice(0, max)).replace(/[,.;:-–]+$/, '')}…`;
+  return `${(space > 15 ? cut.slice(0, space) : clean.slice(0, max)).replace(/[,.;:–-]+$/, '')}…`;
 };
 const formatRub = (value: number) => `${new Intl.NumberFormat('ru-RU').format(Math.round(value))} ₽`;
 
