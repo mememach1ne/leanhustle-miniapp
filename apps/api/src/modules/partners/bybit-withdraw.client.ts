@@ -23,7 +23,11 @@ export class BybitWithdrawClient {
     return Boolean(this.apiKey && this.apiSecret);
   }
 
-  /** USDT from the Funding account; the network fee is taken from `amount`. Returns Bybit's withdrawal id. */
+  /**
+   * USDT from the Funding account, then the Unified account (deposits and
+   * TON sales land on Unified); the network fee is taken from `amount`.
+   * Returns Bybit's withdrawal id.
+   */
   async withdrawUsdt(input: { chain: string; address: string; amount: number; requestId: string }): Promise<string> {
     const body = JSON.stringify({
       coin: 'USDT',
@@ -32,7 +36,7 @@ export class BybitWithdrawClient {
       amount: input.amount.toFixed(2),
       timestamp: Date.now(),
       forceChain: 1,
-      accountType: 'FUND',
+      accountType: 'FUND,UTA',
       feeType: 1,
       requestId: input.requestId.replace(/-/g, '').slice(0, 32),
     });
