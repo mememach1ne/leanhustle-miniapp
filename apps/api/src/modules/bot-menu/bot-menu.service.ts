@@ -5,7 +5,12 @@ import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BRAND_LOGOS } from '../orders/widget/brand-logos';
 import { UsersService } from '../users/users.service';
+import { MARKET_LOGOS } from './marketplace-logos';
 import { MENU_CARD_HTML } from './menu-card.html';
+
+/** Two logos always in public_data (the rest go to chat_data on the marketplaces screen). */
+const PUBLIC_DATA = JSON.stringify({ k: [MARKET_LOGOS['1688'], MARKET_LOGOS.pinduoduo] });
+const MARKETS_DATA = JSON.stringify({ k: [MARKET_LOGOS.taobao, MARKET_LOGOS['95'], MARKET_LOGOS.goofish] });
 
 const MAX_ORDERS = 3;
 
@@ -66,6 +71,7 @@ export class BotMenuService {
         chat_id: input.chatId,
         html: MENU_CARD_HTML,
         chat_data: data,
+        public_data: PUBLIC_DATA,
         allow_queries: true,
       })) as { message_id: number };
       if (menuMessageId) {
@@ -83,14 +89,15 @@ export class BotMenuService {
   }
 
   /** Background query from an opened menu: refresh the orders. False = not a menu message. */
-  async handleQuery(query: { id: string; chatId?: string; messageId?: number }): Promise<boolean> {
+  async handleQuery(query: { id: string; data?: string; chatId?: string; messageId?: number }): Promise<boolean> {
     if (!query.chatId || !query.messageId) return false;
     const user = await this.prisma.user.findFirst({
       where: { telegramId: query.chatId, menuMessageId: query.messageId },
     });
     if (!user) return false;
     try {
-      const data = JSON.stringify(await this.state(user.id));
+      // «mk»: the marketplaces screen — its three logos replace the orders for a while (1 KB limit).
+      const data = query.data === 'mk' ? MARKETS_DATA : JSON.stringify(await this.state(user.id));
       if (data !== user.menuState) {
         await this.call('editMessageWidgetData', { chat_id: query.chatId, message_id: query.messageId, chat_data: data });
         await this.prisma.user.update({ where: { id: user.id }, data: { menuState: data } });
