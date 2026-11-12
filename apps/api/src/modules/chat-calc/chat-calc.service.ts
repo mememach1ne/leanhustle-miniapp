@@ -263,6 +263,14 @@ export class ChatCalcService {
           await sleep(13_000);
           continue;
         }
+        // The price engine is down / can't reach Poizon — wait and try again for a few minutes.
+        if (error instanceof HttpException && error.getStatus() === 503) {
+          if (attempt < 5) {
+            await sleep(60_000);
+            continue;
+          }
+          return { st: 'err', err: 'сервис цен временно недоступен' };
+        }
         return { st: 'err', err: /не распознана/i.test(message) ? 'ссылка не распознана' : 'не удалось посчитать' };
       }
     }
