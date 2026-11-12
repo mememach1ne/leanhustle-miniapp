@@ -1,7 +1,9 @@
 import { Body, Controller, HttpCode, Inject, Post, UseGuards } from '@nestjs/common';
-import { IsInt, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
+import { ConfigService } from '@nestjs/config';
+import { IsInt, IsObject, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 
 import { InternalBotTokenGuard } from '../auth/guards/internal-bot-token.guard';
+import { TonPayService } from '../crypto-payments/services/ton-pay.service';
 import { OrderWidgetService } from '../orders/widget/order-widget.service';
 import { ChatCalcService } from './chat-calc.service';
 
@@ -41,6 +43,11 @@ export class WidgetQueryDto {
   @IsOptional()
   @IsInt()
   messageId?: number;
+
+  /** Raw WidgetQueryType (wallet card / sent transaction). */
+  @IsOptional()
+  @IsObject()
+  type?: Record<string, unknown>;
 }
 
 /** Bot only: links sent by a client (multi-link calculation) and queries from widget cards. */
@@ -50,6 +57,8 @@ export class ChatCalcInternalController {
   constructor(
     @Inject(ChatCalcService) private readonly calc: ChatCalcService,
     @Inject(OrderWidgetService) private readonly orderCards: OrderWidgetService,
+    @Inject(TonPayService) private readonly tonPay: TonPayService,
+    @Inject(ConfigService) private readonly config: ConfigService,
   ) {}
 
   @Post('chat-calc-internal/links')
@@ -62,7 +71,23 @@ export class ChatCalcInternalController {
   @Post('widgets-internal/query')
   @HttpCode(200)
   async query(@Body() dto: WidgetQueryDto): Promise<{ ok: true }> {
+    // Paying from the Telegram wallet in the order card.
+    if (dto.data === 'tp' || dto.data.startsWith('tp:') || dto.type?.type === 'sent_transaction') {
+      const answer = await this.tonPay.handle(dto as never);
+      await this.answer(dto.id, answer);
+      return { ok: true };
+    }
     if (!(await this.calc.handleQuery(dto))) await this.orderCards.handleQuery(dto);
     return { ok: true };
+  }
+
+  private async answer(queryId: string, data: string): Promise<void> {
+    const token = this.config.get<string>('telegram.botToken');
+    await fetch(`https://api.telegram.org/bot${token}/answerWidgetQuery`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(10_000),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ widget_query_id: queryId, data }),
+    }).catch(() => undefined);
   }
 }

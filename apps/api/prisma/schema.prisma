@@ -28,6 +28,7 @@ enum PaymentSource {
   CRYPTO_AUTO
   CRYPTOBOT
   XROCKET
+  TON_WALLET
 }
 
 enum StaffRole {
@@ -435,6 +436,8 @@ model BusinessSettings {
   /// Fees of the Telegram wallet payments, added on top for the client.
   cryptoBotFeePercent   Decimal       @default(3) @map("cryptobot_fee_percent") @db.Decimal(5, 2)
   xRocketFeePercent     Decimal       @default(1.5) @map("xrocket_fee_percent") @db.Decimal(5, 2)
+  /// Hidden markup on the TON/GRAM rate for paying from the Telegram wallet (covers selling it for USDT).
+  tonMarkupPercent      Decimal       @default(0.5) @map("ton_markup_percent") @db.Decimal(5, 2)
   /// Referral program: share of our commission paid to the referrer.
   referralPercent       Decimal       @default(0) @map("referral_percent") @db.Decimal(5, 2)
   referralMinPayoutUsd  Decimal       @default(20) @map("referral_min_payout_usd") @db.Decimal(12, 2)
@@ -726,4 +729,33 @@ model ChatCalc {
   @@index([chatId, status], map: "chat_calcs_chat_status_idx")
   @@index([chatId, messageId], map: "chat_calcs_message_idx")
   @@map("chat_calcs")
+}
+
+/// Payment from the Telegram TON wallet in the order card: PENDING (transaction
+/// prepared) → SENT (wallet says sent) → PAID (verified on-chain) → sold for USDT
+/// on Bybit (sold_at); FAILED / EXPIRED otherwise.
+model TonPayment {
+  id            String    @id @default(uuid()) @db.Uuid
+  orderId       String    @map("order_id") @db.Uuid
+  status        String    @default("PENDING") @db.VarChar(12)
+  amountNano    BigInt    @map("amount_nano")
+  usdAmount     Decimal   @map("usd_amount") @db.Decimal(12, 2)
+  tonUsdRate    Decimal   @map("ton_usd_rate") @db.Decimal(14, 6)
+  markupPercent Decimal   @map("markup_percent") @db.Decimal(5, 2)
+  toAddress     String    @map("to_address") @db.VarChar(80)
+  validUntil    DateTime  @map("valid_until") @db.Timestamptz(6)
+  msgHash       String?   @unique(map: "ton_payments_msg_hash_key") @map("msg_hash") @db.VarChar(100)
+  fromAddress   String?   @map("from_address") @db.VarChar(80)
+  txHash        String?   @map("tx_hash") @db.VarChar(100)
+  paidAt        DateTime? @map("paid_at") @db.Timestamptz(6)
+  bybitDepositId String?  @map("bybit_deposit_id") @db.VarChar(64)
+  soldAt        DateTime? @map("sold_at") @db.Timestamptz(6)
+  soldUsdt      Decimal?  @map("sold_usdt") @db.Decimal(14, 6)
+  sellError     String?   @map("sell_error") @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([orderId], map: "ton_payments_order_idx")
+  @@index([status], map: "ton_payments_status_idx")
+  @@map("ton_payments")
 }

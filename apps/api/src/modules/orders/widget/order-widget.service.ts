@@ -1,4 +1,6 @@
 import type { OrderTrackingDto } from '@lean-poizon/shared';
+import { deflateSync } from 'zlib';
+
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ModuleRef } from '@nestjs/core';
@@ -41,6 +43,8 @@ interface CardState {
   e?: string;
   id?: string;
   lg?: string;
+  /** ≈ price in TON for «Оплатить в кошельке» (unpaid orders only). */
+  tp?: string;
   p?: { a: number; l: Array<[string, number]>; u?: string };
   tr?: { c: string; n: string };
 }
@@ -81,6 +85,7 @@ export class OrderWidgetService {
   private readonly locks = new Map<string, Promise<unknown>>();
   /** Turned off at runtime if Telegram rejects the widget methods. */
   private disabled: boolean;
+  private tonRate: { bid: number; at: number } | null = null;
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
@@ -88,6 +93,9 @@ export class OrderWidgetService {
     @Inject(ModuleRef) private readonly moduleRef: ModuleRef,
   ) {
     this.disabled = (process.env.ORDER_WIDGETS ?? '').toLowerCase() === 'off';
+    // Telegram refuses widgets over 4096 bytes after zlib — say so loudly at start.
+    const packed = deflateSync(Buffer.from(ORDER_CARD_HTML), { level: 9 }).length;
+    if (packed > 4096) this.logger.error(`Order card HTML is ${packed} bytes compressed — over Telegram's 4096 limit`);
   }
 
   get enabled(): boolean {
@@ -149,6 +157,10 @@ export class OrderWidgetService {
 
     const tracking = await this.tracking(order.userId as string, order.id);
     const state = this.buildState(order, tracking);
+    if (state.w && state.c === 1) {
+      const ton = await this.tonPrice(Number(order.totalUsd));
+      if (ton) state.tp = ton;
+    }
     // The card has its own buttons; an inline keyboard would only add space under it.
     const keyboard = null;
     const data = JSON.stringify(state);
@@ -200,6 +212,27 @@ export class OrderWidgetService {
         this.logger.warn(`${order.orderNumber}: order card failed: ${message}`);
       }
       return 'failed';
+    }
+  }
+
+  /** ≈ order price in TON (Bybit GRAMUSDT bid + the hidden markup); null when off / unavailable. */
+  private async tonPrice(usd: number): Promise<string | null> {
+    if ((process.env.TON_PAY ?? '').toLowerCase() === 'off') return null;
+    try {
+      if (!this.tonRate || Date.now() - this.tonRate.at > 60_000) {
+        const res = await fetch('https://api.bybit.com/v5/market/tickers?category=spot&symbol=GRAMUSDT', {
+          signal: AbortSignal.timeout(8_000),
+        });
+        const body = (await res.json()) as { result?: { list?: Array<{ bid1Price?: string }> } };
+        const bid = Number(body.result?.list?.[0]?.bid1Price);
+        if (!Number.isFinite(bid) || bid <= 0) return null;
+        this.tonRate = { bid, at: Date.now() };
+      }
+      const settings = await this.prisma.businessSettings.findUnique({ where: { scope: 'DEFAULT' }, select: { tonMarkupPercent: true } });
+      const markup = Number(settings?.tonMarkupPercent ?? 0.5);
+      return (Math.ceil(((usd * (1 + markup / 100)) / this.tonRate.bid) * 100) / 100).toFixed(2);
+    } catch {
+      return null;
     }
   }
 

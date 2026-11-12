@@ -104,7 +104,7 @@ export interface OrderItemPhotoReportDto {
 }
 
 /** How the goods payment was registered. */
-export type PaymentSource = 'MANUAL' | 'CRYPTO_AUTO' | 'CRYPTOBOT' | 'XROCKET';
+export type PaymentSource = 'MANUAL' | 'CRYPTO_AUTO' | 'CRYPTOBOT' | 'XROCKET' | 'TON_WALLET';
 
 /** Delivery priced by RAKETA, payable by the client via a top-up link. */
 export interface OrderDeliveryPaymentDto {

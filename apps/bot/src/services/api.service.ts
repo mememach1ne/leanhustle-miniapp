@@ -419,6 +419,7 @@ export class ApiService {
     data: string;
     chatId?: string;
     messageId?: number;
+    type?: Record<string, unknown>;
   }): Promise<void> {
     await this.http.post('/widgets-internal/query', payload, {
       headers: { 'x-internal-bot-token': botEnv.internalApiToken },

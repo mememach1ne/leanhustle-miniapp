@@ -276,7 +276,9 @@ export default function AdminOrderDetailPage() {
                   ? '⚡ Автооплата клиента (CryptoBot)'
                   : order.paidVia === 'XROCKET'
                     ? '⚡ Автооплата клиента (xRocket)'
-                    : '✍️ Оплату отметил менеджер'}
+                    : order.paidVia === 'TON_WALLET'
+                      ? '⚡ Автооплата клиента (TON-кошелёк)'
+                      : '✍️ Оплату отметил менеджер'}
             </span>
           </div>
         ) : null}

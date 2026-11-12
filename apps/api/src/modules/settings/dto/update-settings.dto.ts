@@ -68,6 +68,13 @@ export class UpdateSettingsDto {
   @Max(20)
   xRocketFeePercent?: number;
 
+  /** Hidden markup on the TON rate for paying from the Telegram wallet (%). */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(10)
+  tonMarkupPercent?: number;
+
   /** Share of our commission paid to the referrer (%). */
   @IsOptional()
   @IsNumber()

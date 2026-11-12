@@ -474,6 +474,7 @@ function SettingsPanel() {
         deliveryPricePerKgRub: String(s.deliveryPricePerKgRub),
         cryptoBotFeePercent: String(s.cryptoBotFeePercent),
         xRocketFeePercent: String(s.xRocketFeePercent),
+        tonMarkupPercent: String(s.tonMarkupPercent),
         referralPercent: String(s.referralPercent),
         referralMinPayoutUsd: String(s.referralMinPayoutUsd),
       });
@@ -581,6 +582,7 @@ function SettingsPanel() {
     deliveryPricePerKgRub: 'Доставка за кг (₽)',
     cryptoBotFeePercent: 'Комиссия CryptoBot (%)',
     xRocketFeePercent: 'Комиссия xRocket (%)',
+    tonMarkupPercent: 'Надбавка к курсу TON, скрытая (%)',
     referralPercent: 'Рефералу от комиссии (%)',
     referralMinPayoutUsd: 'Мин. вывод рефералу ($)',
   };

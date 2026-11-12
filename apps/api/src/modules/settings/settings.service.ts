@@ -32,6 +32,7 @@ const UPDATABLE_SETTING_KEYS = [
   'deliveryPricePerKgRub',
   'cryptoBotFeePercent',
   'xRocketFeePercent',
+  'tonMarkupPercent',
   'referralPercent',
   'referralMinPayoutUsd',
 ] as const;
@@ -290,6 +291,7 @@ export class SettingsService {
       dutyProcessingFeeRub: this.toNumber(settings.dutyProcessingFeeRub),
       cryptoBotFeePercent: this.toNumber(settings.cryptoBotFeePercent),
       xRocketFeePercent: this.toNumber(settings.xRocketFeePercent),
+      tonMarkupPercent: this.toNumber(settings.tonMarkupPercent),
       referralPercent: this.toNumber(settings.referralPercent),
       referralMinPayoutUsd: this.toNumber(settings.referralMinPayoutUsd),
       loyaltyEnabled: settings.loyaltyEnabled,

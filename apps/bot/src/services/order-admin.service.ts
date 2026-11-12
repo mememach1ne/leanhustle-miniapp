@@ -1912,7 +1912,9 @@ export class OrderAdminService {
                   ? '⚡ автооплата клиента (CryptoBot)'
                   : order.paidVia === 'XROCKET'
                     ? '⚡ автооплата клиента (xRocket)'
-                    : '✍️ отметил менеджер'
+                    : order.paidVia === 'TON_WALLET'
+                      ? '⚡ автооплата клиента (TON-кошелёк)'
+                      : '✍️ отметил менеджер'
             }`,
           ]
         : []),

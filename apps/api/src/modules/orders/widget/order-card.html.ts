@@ -41,7 +41,7 @@ const RAW = `<style>
 button{border:0;font:inherit;width:100%;cursor:pointer;display:block;text-align:center;border-radius:12px;padding:9px;font-weight:700;font-size:14px;background:#29c3c5;color:#052a2b}
 button.g{background:rgba(255,255,255,.1);color:#f2f4f5}.bt{display:flex;gap:8px;margin-top:10px}
 .lg{width:32px;height:32px;border-radius:9px;flex-shrink:0;display:block}
-.ti{width:30px;height:30px;border-radius:9px}.ti svg{width:17px;height:17px}
+.ti{width:30px;height:30px;border-radius:9px}.ti svg{width:17px}
 .ss{display:flex;gap:4px;margin-top:9px}.ss div{flex:1;font-size:10px;color:#7d8087}.ss i{display:block;height:4px;border-radius:2px;background:#3a3c40;margin-bottom:4px}.ss .d i{background:#29c3c5}.ss .d{color:#c9cbcf}
 </style><div class="c" id="a"></div><script>
 var W=window.TelegramWidget,
@@ -53,11 +53,11 @@ TU={cdek:"https://www.cdek.ru/ru/tracking?order_id=",pochta:"https://www.pochta.
 L={cdek:1,pochta:1},
 I={card:'<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h3"/>',box:'<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5zM3.5 7.5 12 12l8.5-4.5M12 12v9"/>',
 truck:'<path d="M2 6h11v10H2zM13 9h4l4 4v3h-8"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/>',ok:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
-x:'<path d="M6 6l12 12M18 6 6 18"/>',bag:'<path d="M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0"/>',paid:'<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.6"/>',plane:'<path d="M3 13l18-7-5 15-4-6zM12 15l9-9"/>'};
+x:'<path d="M6 6l12 12M18 6 6 18"/>',paid:'<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.7 2.7L16 9.6"/>',plane:'<path d="M3 13l18-7-5 15-4-6zM12 15l9-9"/>'};
 function e(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return"&#"+c.charCodeAt(0)+";"})}
 function rub(v){return String(Math.round(v)).replace(/\\B(?=(\\d{3})+(?!\\d))/g," ")+" ₽"}
 function ic(k){return'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+I[k]+'</svg>'}
-function lg(k){return D.lg?'<img class="lg" src="'+D.lg+'">':t(k=="poizon"?"bag":"truck")}
+function lg(k){return D.lg?'<img class="lg" src="'+D.lg+'">':t(k=="poizon"?"box":"truck")}
 function bx(k,a,b){return'<div class="bx"><div class="row">'+k+'<div><div class="b">'+a+'</div>'+(b?'<div class="mu">'+b+'</div>':"")+'</div></div></div>'}
 function t(k,w){return'<div class="ic ti'+(w?" w":"")+'">'+ic(k)+'</div>'}
 function b(id,f){var x=document.getElementById(id);x&&x.addEventListener("click",f)}
@@ -84,11 +84,12 @@ else if(c<6)o+=tk||bx(t("plane"),"Скоро отправим в Россию",s
 else if(c<10){var j=Math.min(c-6,3);o+='<div class="bx"><div class="row">'+t("truck")+'<div class="b">'+["Летит в Россию","Проходит таможню","На складе в России","Едет к вам"][j]+'</div></div><div class="ss">';
 SS.forEach(function(n,i){o+='<div class="'+(i<=j?"d":"")+'"><i></i>'+n+'</div>'});o+='</div></div>'+tk}
 else o+=bx(t("ok"),"Спасибо, что выбрали нас!","Будем рады отзыву — напишите менеджеру");
-var pay=s.w&&c==1;o+='<div class="bt">'+(s.id?'<button id="op"'+(pay?"":' class="g"')+'>'+(pay?"Оплатить заказ":"Открыть заказ")+'</button>':"")+'<button class="g" id="mg">Менеджер</button></div>';
+var pay=s.w&&c==1,tw=pay&&s.tp&&W&&W.wallet;if(tw)o+='<div class="bt"><button id="tw">Оплатить в кошельке · ≈ '+e(s.tp)+' TON</button></div>';o+='<div class="bt">'+(s.id?'<button id="op"'+(pay&&!tw?"":' class="g"')+'>'+(tw?"Другие способы":pay?"Оплатить заказ":"Открыть заказ")+'</button>':"")+'<button class="g" id="mg">Менеджер</button></div>';
 a(o);
 b("op",function(){W.openTelegramLink("https://t.me/lh_poizonbot?startapp=o_"+s.id)});
 b("mg",function(){W.openTelegramLink("https://t.me/lh_poizonmanager")});
 b("pay",function(){W.openLink(s.p.u)});
+b("tw",function(){var x=document.getElementById("tw"),m=function(t){x.textContent=t};m("Готовим платёж…");W.request("tp",{wallet:true}).then(function(a){var j=JSON.parse(a.result);if(j.e)return m(j.e);return W.wallet.sendTransaction(j.t,"tp:"+j.i).then(function(){m("Проверяем платёж…")})}).catch(function(r){m(r&&r.code=="REJECTED"?"Оплата отменена":"Не получилось, попробуйте ещё раз")})});
 b("cp",function(){W.copyText(s.tr.n);W.HapticFeedback&&W.HapticFeedback.notificationOccurred("success");var x=document.getElementById("cp");x.textContent="Скопировано";setTimeout(function(){x.textContent="Скопировать"},1500)});
 b("tg",function(){W.openLink(TU[s.tr.c]+encodeURIComponent(s.tr.n))})}
 function a(o){document.getElementById("a").innerHTML=o}

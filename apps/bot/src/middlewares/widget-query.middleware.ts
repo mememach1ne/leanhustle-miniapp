@@ -13,6 +13,8 @@ interface WidgetQueryUpdate {
     data: string;
     chat?: { id: number };
     message_id?: number;
+    /** WidgetQueryType: plain data, wallet card, sent transaction. */
+    type?: Record<string, unknown>;
   };
 }
 
@@ -35,6 +37,7 @@ export const widgetQueryMiddleware: MiddlewareFn<BotContext> = async (ctx, next)
       data: query.data,
       chatId: query.chat ? String(query.chat.id) : undefined,
       messageId: query.message_id,
+      type: query.type,
     });
   } catch (error) {
     logger.warn('Widget query forwarding failed', { error: error instanceof Error ? error.message : String(error) });

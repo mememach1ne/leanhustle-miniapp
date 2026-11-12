@@ -13,6 +13,8 @@ export interface BusinessSettingsDto {
   /** Fees of the Telegram wallet payments (%), paid by the client on top. */
   cryptoBotFeePercent: number;
   xRocketFeePercent: number;
+  /** Hidden markup on the TON rate when paying from the Telegram wallet. */
+  tonMarkupPercent: number;
   /** Referral program: share of our commission for the referrer (%) and the minimum payout (USD). */
   referralPercent: number;
   referralMinPayoutUsd: number;
@@ -29,6 +31,7 @@ export interface UpdateBusinessSettingsRequest {
   deliveryPricePerKgRub?: number;
   cryptoBotFeePercent?: number;
   xRocketFeePercent?: number;
+  tonMarkupPercent?: number;
   referralPercent?: number;
   referralMinPayoutUsd?: number;
   loyaltyEnabled?: boolean;
