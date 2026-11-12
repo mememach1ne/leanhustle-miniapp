@@ -37,7 +37,7 @@ button.g{background:rgba(255,255,255,.1);color:#f2f4f5}button.on{background:#29c
 .gr button{padding:5px 1px;font-size:12px;line-height:1.1}.gr i{display:block;font-style:normal;font-size:10px;font-weight:500;opacity:.75}
 .rw{display:flex;gap:5px;margin-top:6px;align-items:center}.rw b{min-width:18px;text-align:center}.sq{width:34px;flex-shrink:0}
 .ft{margin-top:8px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.07)}
-.r{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px}.big{font:800 17px ui-monospace,"JetBrains Mono",monospace}
+.r{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;white-space:nowrap}.r .mu{overflow:hidden;text-overflow:ellipsis}.big{font:800 17px ui-monospace,"JetBrains Mono",monospace}
 .dis{opacity:.4}
 </style><div id="a"></div><script>
 var W=window.TelegramWidget,S={};
