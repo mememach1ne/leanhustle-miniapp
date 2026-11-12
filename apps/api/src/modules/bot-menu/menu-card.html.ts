@@ -17,7 +17,7 @@ const RAW = `<style>
 .od{display:flex;align-items:center;gap:8px;padding:7px 0;cursor:pointer}.od+.od{border-top:1px solid rgba(255,255,255,.07)}
 .od b{font:700 13px ui-monospace,"JetBrains Mono",monospace}.od span{flex:1;font-size:13px}.od i{font-style:normal;color:#9a9da3}
 .w{color:#ffb020}
-.gr{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.gr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:8px}.gr.t button{flex-direction:column;justify-content:center;text-align:center;gap:6px;padding:12px 6px;min-height:72px}.gr.t button svg,.gr.t button img{width:24px;height:24px}
 button{border:0;font:inherit;cursor:pointer;border-radius:12px;padding:10px 8px;font-weight:700;font-size:13px;background:rgba(255,255,255,.08);color:#f2f4f5;width:100%;display:flex;align-items:center;gap:8px;text-align:left;line-height:1.2}
 button.p{background:#29c3c5;color:#052a2b;justify-content:center;font-size:14px}button.c{justify-content:center}
 button svg,button img{width:20px;height:20px;flex-shrink:0;border-radius:6px}button svg{color:#29c3c5}button.p svg{color:#052a2b}
@@ -40,7 +40,7 @@ var V={
 m:function(){var o=hd("home","Главное меню","Заказы с Poizon в Россию"),O=S.o||[];
 if(O.length){o+='<div class="bx"><div class="mu">Мои заказы</div>';O.forEach(function(z){o+='<div class="od" data-g="o_'+e(z[2])+'"><b>'+e(z[0])+'</b><span class="'+(z[3]?"w":"")+'">'+e(z[1])+'</span><i>›</i></div>'});o+='</div>'}
 o+='<div class="bx" data-g="cp" style="cursor:pointer"><div style="font-weight:700;font-size:13px">Пришлите ссылки Poizon — посчитаю сразу</div><div class="mu">Можно несколько в одном сообщении · Как скопировать ссылку ›</div></div>';
-o+='<div class="gr" style="grid-template-columns:1fr">'+B("p","app",ic("app"),"Открыть MiniApp")+'</div><div class="gr">'+B("","dw",lg(),"Скачать POIZON")+B("","gd",ic("book"),"Инструкция")+B("","rv",ic("star"),"Отзывы")+B("","mk",ic("cn"),"Другие маркетплейсы")+'</div><div class="gr" style="grid-template-columns:1fr">'+B("c","mg",ic("chat"),"Связаться с менеджером")+'</div>';return o},
+o+='<div class="gr" style="grid-template-columns:1fr">'+B("p","app",ic("app"),"Открыть MiniApp")+'</div><div class="gr t">'+B("","dw",lg(),"Скачать POIZON")+B("","gd",ic("book"),"Инструкция")+B("","rv",ic("star"),"Отзывы")+B("","mk",ic("cn"),"Маркетплейсы Китая")+'</div><div class="gr" style="grid-template-columns:1fr">'+B("c","mg",ic("chat"),"Связаться с менеджером")+'</div>';return o},
 dw:function(){return hd("dl","Приложение POIZON","Выберите свою платформу")+'<div class="gr">'+B("","L:https://apps.apple.com/app/id1012871328",lg(),"iOS")+B("","L:https://china.leanhustle.net/poizon.apk",lg(),"Android")+'</div><div class="gr" style="grid-template-columns:1fr">'+BK+'</div>'},
 gd:function(){return hd("book","Инструкция по заказу","Выберите формат")+'<div class="gr">'+B("","L:https://youtu.be/dwVmtQGWVa8",ic("play"),"Видео")+B("","L:https://telegra.ph/KAK-ZAKAZYVAT-s-POIZON-v-ROSSII-05-24",ic("doc"),"Текст")+'</div><div class="gr" style="grid-template-columns:1fr">'+BK+'</div>'},
 rv:function(){return hd("star","Отзывы и выкупы","Реальные отзывы клиентов и примеры выкупленных заказов")+'<div class="gr">'+B("","T:lh_poizonreviews",ic("star"),"Отзывы")+B("","T:lh_poizonpurchases",ic("bag"),"Выкупы")+'</div><div class="gr" style="grid-template-columns:1fr">'+BK+'</div>'},
