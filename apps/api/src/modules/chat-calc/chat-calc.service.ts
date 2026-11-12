@@ -15,7 +15,7 @@ import { UsersService } from '../users/users.service';
 import { CALC_CARD_HTML } from './calc-card.html';
 
 const MAX_LINES = 30;
-const PAGE = 8;
+const PAGE = 5;
 const MAX_DATA = 1024;
 /** An open calculation keeps taking links for this long after its last change. */
 const OPEN_FOR_MS = 2 * 60 * 60 * 1000;
