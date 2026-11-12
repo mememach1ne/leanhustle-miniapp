@@ -311,7 +311,10 @@ export class TonPayService {
         }
         await this.prisma.tonPayment.update({ where: { id: payment.id }, data: { bybitDepositId: deposit.id } });
         try {
-          await this.trade.toUnified(COIN, deposit.amount);
+          // Deposits usually land on Unified already; the transfer only matters if Bybit put it on Funding.
+          await this.trade.toUnified(COIN, deposit.amount).catch((error) => {
+            this.logger.log(`TON payment ${payment.id}: no Funding→Unified transfer (${errorText(error)})`);
+          });
           const qty = (Math.floor(Number(deposit.amount) * 100) / 100).toFixed(2);
           const bid = await this.trade.bid(SYMBOL);
           if (Number(qty) * bid < 5) {
