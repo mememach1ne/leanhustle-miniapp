@@ -1,8 +1,7 @@
 import type { MiddlewareFn } from 'telegraf';
 
 import { ApiService } from '../services/api.service';
-import { clientMessagesService } from '../services/client-messages.service';
-import { orderAdminService } from '../services/order-admin.service';
+import { sendClientMenu } from '../services/client-menu';
 import type { BotContext } from '../types/bot-context';
 
 const apiService = new ApiService();
@@ -101,11 +100,5 @@ export const accessMiddleware: MiddlewareFn<BotContext> = async (ctx, next) => {
     }
   }
 
-  const sent = await ctx.reply(orderAdminService.getClientWelcomeText(), {
-    parse_mode: 'HTML',
-    reply_markup: orderAdminService.buildClientWelcomeKeyboard(),
-  });
-  if (ctx.chat) {
-    clientMessagesService.track(ctx.chat.id, sent.message_id);
-  }
+  await sendClientMenu(ctx);
 };

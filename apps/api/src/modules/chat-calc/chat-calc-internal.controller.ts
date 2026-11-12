@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { IsInt, IsObject, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 
 import { InternalBotTokenGuard } from '../auth/guards/internal-bot-token.guard';
+import { BotMenuService } from '../bot-menu/bot-menu.service';
 import { TonPayService } from '../crypto-payments/services/ton-pay.service';
 import { OrderWidgetService } from '../orders/widget/order-widget.service';
 import { ChatCalcService } from './chat-calc.service';
@@ -17,6 +18,19 @@ export class ChatLinksDto {
   @IsString()
   @MaxLength(8000)
   text!: string;
+
+  @IsOptional() @IsString() @MaxLength(64) username?: string;
+  @IsOptional() @IsString() @MaxLength(128) firstName?: string;
+  @IsOptional() @IsString() @MaxLength(128) lastName?: string;
+  @IsOptional() @IsString() @MaxLength(16) languageCode?: string;
+}
+
+export class MenuDto {
+  @Matches(/^\d{1,20}$/)
+  telegramId!: string;
+
+  @Matches(/^-?\d{1,20}$/)
+  chatId!: string;
 
   @IsOptional() @IsString() @MaxLength(64) username?: string;
   @IsOptional() @IsString() @MaxLength(128) firstName?: string;
@@ -58,6 +72,7 @@ export class ChatCalcInternalController {
     @Inject(ChatCalcService) private readonly calc: ChatCalcService,
     @Inject(OrderWidgetService) private readonly orderCards: OrderWidgetService,
     @Inject(TonPayService) private readonly tonPay: TonPayService,
+    @Inject(BotMenuService) private readonly menu: BotMenuService,
     @Inject(ConfigService) private readonly config: ConfigService,
   ) {}
 
@@ -77,8 +92,16 @@ export class ChatCalcInternalController {
       await this.answer(dto.id, answer);
       return { ok: true };
     }
+    if (await this.menu.handleQuery(dto)) return { ok: true };
     if (!(await this.calc.handleQuery(dto))) await this.orderCards.handleQuery(dto);
     return { ok: true };
+  }
+
+  /** /start: the menu widget (false → the bot sends the old text menu). */
+  @Post('menu-internal/send')
+  @HttpCode(200)
+  sendMenu(@Body() dto: MenuDto): Promise<{ sent: boolean; messageId?: number }> {
+    return this.menu.send(dto);
   }
 
   private async answer(queryId: string, data: string): Promise<void> {

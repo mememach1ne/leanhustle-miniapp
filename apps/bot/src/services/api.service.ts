@@ -395,6 +395,22 @@ export class ApiService {
     return response.data;
   }
 
+  /** /start menu widget; sent=false → send the old text menu. */
+  async sendMenu(payload: {
+    telegramId: string;
+    chatId: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    languageCode?: string;
+  }): Promise<{ sent: boolean; messageId?: number }> {
+    const response = await this.http.post<{ sent: boolean; messageId?: number }>('/menu-internal/send', payload, {
+      headers: { 'x-internal-bot-token': botEnv.internalApiToken },
+      timeout: 20000,
+    });
+    return response.data;
+  }
+
   /** Poizon links from a client — the api starts / extends the «Расчёт» card. */
   async chatLinks(payload: {
     telegramId: string;

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
+import { BotMenuModule } from '../bot-menu/bot-menu.module';
 import { CartModule } from '../cart/cart.module';
 import { CryptoPaymentsModule } from '../crypto-payments/crypto-payments.module';
 import { LoyaltyModule } from '../loyalty/loyalty.module';
@@ -14,7 +15,7 @@ import { ChatCalcService } from './chat-calc.service';
 
 /** Multi-link price calculation in the chat with the bot (widget card). */
 @Module({
-  imports: [AuthModule, CartModule, CryptoPaymentsModule, LoyaltyModule, OrdersModule, PricingModule, ProductsModule, SettingsModule, UsersModule],
+  imports: [AuthModule, BotMenuModule, CartModule, CryptoPaymentsModule, LoyaltyModule, OrdersModule, PricingModule, ProductsModule, SettingsModule, UsersModule],
   controllers: [ChatCalcInternalController],
   providers: [ChatCalcService],
 })

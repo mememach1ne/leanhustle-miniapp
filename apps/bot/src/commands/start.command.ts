@@ -3,6 +3,7 @@ import type { Telegraf } from 'telegraf';
 import { ApiService } from '../services/api.service';
 import { clientMessagesService } from '../services/client-messages.service';
 import { NEWS_CHANNEL_USERNAME, orderAdminService } from '../services/order-admin.service';
+import { sendClientMenu } from '../services/client-menu';
 import type { BotContext } from '../types/bot-context';
 
 const SUBSCRIBED_STATUSES = new Set(['creator', 'administrator', 'member', 'restricted']);
@@ -99,15 +100,7 @@ const isUserSubscribed = async (
   }
 };
 
-const sendClientWelcome = async (ctx: BotContext) => {
-  const sent = await ctx.reply(orderAdminService.getClientWelcomeText(), {
-    parse_mode: 'HTML',
-    reply_markup: orderAdminService.buildClientWelcomeKeyboard(),
-  });
-  if (ctx.chat) {
-    clientMessagesService.track(ctx.chat.id, sent.message_id);
-  }
-};
+const sendClientWelcome = (ctx: BotContext) => sendClientMenu(ctx);
 
 const sendSubscriptionGate = async (ctx: BotContext) => {
   const sent = await ctx.reply(orderAdminService.getSubscriptionRequiredText(), {
