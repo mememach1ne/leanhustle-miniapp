@@ -426,8 +426,8 @@ export default function OrderDetailsPage() {
             {order.delivery.methodTitle ? <InfoRow label="Способ" value={order.delivery.methodTitle} /> : null}
             <InfoRow
               label={order.delivery.kind === 'courier' ? 'Адрес' : 'Пункт выдачи'}
-              value={order.delivery.cdekAddress}
-              stacked
+              // The point code «(VRN153)» means nothing to the client.
+              value={order.delivery.cdekAddress.replace(/\s*\([A-Za-z0-9_-]+\)\s*$/, '')}
             />
             <InfoRow label="Телефон" value={order.delivery.phone} />
             {order.delivery.daysMin ? (
