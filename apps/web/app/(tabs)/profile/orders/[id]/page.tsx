@@ -427,6 +427,7 @@ export default function OrderDetailsPage() {
             <InfoRow
               label={order.delivery.kind === 'courier' ? 'Адрес' : 'Пункт выдачи'}
               value={order.delivery.cdekAddress}
+              stacked
             />
             <InfoRow label="Телефон" value={order.delivery.phone} />
             {order.delivery.daysMin ? (
