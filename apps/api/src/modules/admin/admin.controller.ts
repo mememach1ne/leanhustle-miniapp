@@ -44,6 +44,7 @@ import {
   SetFulfillmentModeDto,
 } from '../orders/dto/raketa-fulfillment.dto';
 import { OrdersService } from '../orders/orders.service';
+import { OrderNotificationsService } from '../orders/services/order-notifications.service';
 import { RaketaFulfillmentService } from '../orders/services/raketa-fulfillment.service';
 import { ResolveProductDto } from '../products/dto/resolve-product.dto';
 import { ProductsService } from '../products/products.service';
@@ -60,6 +61,9 @@ import { ProfitReportQueryDto } from './dto/profit-report-query.dto';
 import { AnalyticsService } from './services/analytics.service';
 import { ExcelExportService } from './services/excel-export.service';
 import { ProfitReportService } from './services/profit-report.service';
+
+/** «Только RAKETA» with more items than this is created in the background. */
+const QUICK_ORDER_SYNC_ITEMS = 6;
 
 @Controller('admin')
 @UseGuards(JwtStaffAuthGuard)
@@ -85,6 +89,7 @@ export class AdminController {
     @Inject(ProfitReportService) profitReportService: ProfitReportService,
     @Inject(CatalogSyncService) catalogSyncService: CatalogSyncService,
     @Inject(RaketaFulfillmentService) raketaFulfillment: RaketaFulfillmentService,
+    @Inject(OrderNotificationsService) private readonly notifications: OrderNotificationsService,
   ) {
     this.raketaFulfillment = raketaFulfillment;
     this.profitReportService = profitReportService;
@@ -173,7 +178,31 @@ export class AdminController {
     if (!staff || staff.role !== StaffRole.ADMIN) {
       throw new ForbiddenException('Создавать заказы в RAKETA напрямую может только администратор.');
     }
-    return this.raketaFulfillment.createQuickOrders(dto);
+    // A few items fit into nginx's 60 s; more are created in the background and
+    // the result goes to the admin's Telegram (RAKETA takes a few seconds per item).
+    if (dto.items.length <= QUICK_ORDER_SYNC_ITEMS) return this.raketaFulfillment.createQuickOrders(dto);
+    const chatId = staff.telegramId;
+    const label = dto.title?.trim() || dto.label?.trim() || `${dto.items.length} шт`;
+    void this.raketaFulfillment
+      .createQuickOrders(dto)
+      .then((result) => {
+        const created = result.orders.map((o) => `${o.raketaTrackNumber ?? o.id}${o.existed ? ' (уже был)' : ''}`).join(', ');
+        return [
+          `RAKETA «${label}»: создано ${result.orders.length} — ${created}.`,
+          result.deliveryAssigned
+            ? result.consolidationId
+              ? 'Объединение создано, получатель и пункт выдачи указаны.'
+              : 'Получатель и пункт выдачи указаны.'
+            : '',
+          result.deliveryError ? `Получателя/пункт указать не удалось: ${result.deliveryError}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      })
+      .catch((error: unknown) => `RAKETA «${label}»: не удалось создать заказы — ${error instanceof Error ? error.message : String(error)}. Проверьте кабинет: часть заказов могла создаться, повторная отправка дублей не создаст.`)
+      .then((text) => (chatId ? this.notifications.notifyTelegramIds([chatId], text) : undefined))
+      .catch(() => undefined);
+    return { queued: true, items: dto.items.length };
   }
 
   @Post('orders/manual/resolve-product')

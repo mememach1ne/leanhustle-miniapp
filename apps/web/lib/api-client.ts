@@ -215,7 +215,14 @@ export const deliveryAddressesApi = {
   },
 };
 
+/** More than 6 items: created in the background, the result comes to the admin's Telegram. */
+export interface RaketaQuickOrderQueued {
+  queued: true;
+  items: number;
+}
+
 export interface RaketaQuickOrderResult {
+  queued?: undefined;
   orders: Array<{ id: string; raketaTrackNumber: string | null; title: string; existed: boolean }>;
   consolidationId: string | null;
   deliveryAssigned: boolean;
@@ -434,10 +441,10 @@ export const adminApi = {
       pointAddress: string;
       pickupPoint: DeliveryPickupPoint;
     };
-  }): Promise<RaketaQuickOrderResult> {
-    // One engine + RAKETA round-trip per item.
-    const response = await apiClient.post<RaketaQuickOrderResult>('/admin/raketa/quick-order', payload, {
-      timeout: 60000 + payload.items.length * 30000,
+  }): Promise<RaketaQuickOrderResult | RaketaQuickOrderQueued> {
+    // Up to 6 items answer within nginx's 60 s; more are queued on the server.
+    const response = await apiClient.post<RaketaQuickOrderResult | RaketaQuickOrderQueued>('/admin/raketa/quick-order', payload, {
+      timeout: 65000,
     });
     return response.data;
   },

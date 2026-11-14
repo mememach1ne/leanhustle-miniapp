@@ -459,6 +459,14 @@ export default function AdminCreateOrderPage() {
               }
             : undefined,
       });
+      if (result.queued) {
+        setSuccess(
+          `Принято: создаю ${result.items} заказов в RAKETA в фоне (несколько секунд на вещь). Результат — RA-номера и объединение — придёт вам в бот.`,
+        );
+        clearDraft();
+        setItems([emptyItem()]);
+        return;
+      }
       const created = result.orders
         .map((o) => `${o.raketaTrackNumber ?? o.id}${o.existed ? ' (уже был)' : ''}`)
         .join(', ');
