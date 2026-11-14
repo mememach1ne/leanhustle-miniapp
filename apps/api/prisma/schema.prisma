@@ -190,6 +190,8 @@ model Order {
   raketaTitle                   String?        @map("raketa_title") @db.VarChar(120)
   // Order created for a not-yet-known client: they claim it via a bot link.
   claimToken                    String?        @unique @map("claim_token") @db.VarChar(64)
+  /// «Доставку оплачу сам»: RAKETA delivery is paid from the cabinet balance (bonuses first), no link to the client.
+  ownerPaysDelivery             Boolean        @default(false) @map("owner_pays_delivery")
   fulfillmentManual             Boolean        @default(false) @map("fulfillment_manual")
   /// Hidden from the client (list, page, tracking) while staff fix the order.
   hiddenFromClient              Boolean        @default(false) @map("hidden_from_client")

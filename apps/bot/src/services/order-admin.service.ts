@@ -113,6 +113,8 @@ interface ManualOrderDraft {
     phone?: string;
     comment?: string;
   };
+  /** «Доставку оплачу сам»: paid from the RAKETA balance (bonuses first), no link to the client. */
+  ownerPaysDelivery?: boolean;
 }
 
 type PendingManagerIntent =
@@ -1029,9 +1031,15 @@ export class OrderAdminService {
     return { inline_keyboard: rows };
   }
 
-  buildManualConfirmKeyboard(): InlineKeyboardMarkup {
+  buildManualConfirmKeyboard(draft?: ManualOrderDraft): InlineKeyboardMarkup {
     return {
       inline_keyboard: [
+        [
+          {
+            text: `${draft?.ownerPaysDelivery ? '✅' : '⬜️'} Доставку оплачу сам (бонусы RAKETA)`,
+            callback_data: this.encodeManualOrderCallback('ownpay'),
+          },
+        ],
         [
           {
             text: '✅ Создать заказ',
@@ -1086,6 +1094,10 @@ export class OrderAdminService {
       `   Телефон: ${draft.delivery.phone ?? '—'}`,
       ...(draft.delivery.comment ? [`   Комментарий: ${draft.delivery.comment}`] : []),
       '',
+      draft.ownerPaysDelivery
+        ? 'Оплата доставки: вы сами, с баланса RAKETA (сначала бонусы). Клиенту ссылку на оплату доставки не пришлю.'
+        : 'Оплата доставки: клиент, по ссылке, когда RAKETA посчитает цену.',
+      '',
       'Нажмите «Создать заказ», чтобы сохранить и уведомить клиента.',
     ].join('\n');
   }
@@ -1107,6 +1119,7 @@ export class OrderAdminService {
         phone: draft.delivery.phone ?? '',
         comment: draft.delivery.comment ?? null,
       },
+      ownerPaysDelivery: Boolean(draft.ownerPaysDelivery),
     };
   }
 

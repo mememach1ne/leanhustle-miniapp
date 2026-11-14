@@ -76,6 +76,8 @@ interface OrderDraft {
   insurance: boolean;
   alreadyPaid: boolean;
   payByLink: boolean;
+  ownerPaysDelivery?: boolean;
+  express?: boolean;
 }
 
 const readDraft = (): OrderDraft | null => {
@@ -123,6 +125,9 @@ export default function AdminCreateOrderPage() {
   const [title, setTitle] = useState('');
   const [commission, setCommission] = useState('');
   const [insurance, setInsurance] = useState(false);
+  // «Доставку оплачу сам» (RAKETA balance, bonuses first) and Express speed.
+  const [ownerPaysDelivery, setOwnerPaysDelivery] = useState(false);
+  const [express, setExpress] = useState(false);
   const [alreadyPaid, setAlreadyPaid] = useState(false);
   // Without a client: own RAKETA purchase, or the client pays via a bot link.
   const [payByLink, setPayByLink] = useState(false);
@@ -157,6 +162,8 @@ export default function AdminCreateOrderPage() {
       setTitle(draft.title);
       setCommission(draft.commission);
       setInsurance(draft.insurance);
+      setOwnerPaysDelivery(Boolean(draft.ownerPaysDelivery));
+      setExpress(Boolean(draft.express));
       setAlreadyPaid(draft.alreadyPaid);
       setPayByLink(draft.payByLink);
       setDraftRestoredAt(draft.savedAt);
@@ -182,6 +189,8 @@ export default function AdminCreateOrderPage() {
         insurance,
         alreadyPaid,
         payByLink,
+        ownerPaysDelivery,
+        express,
       };
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -205,6 +214,8 @@ export default function AdminCreateOrderPage() {
     insurance,
     alreadyPaid,
     payByLink,
+    ownerPaysDelivery,
+    express,
   ]);
 
   const resetForm = () => {
@@ -409,9 +420,10 @@ export default function AdminCreateOrderPage() {
             categoryL3: item.categoryL3,
             chinaTrackNumber: item.chinaTrackNumber || undefined,
           })),
-          delivery,
+          delivery: { ...delivery, tariff: express ? 'EXPR' : 'STND' },
           commissionPercent: Number(commission),
           insurance,
+          ownerPaysDelivery,
           alreadyPaid: hasClient && alreadyPaid,
           raketaTitle: title.trim() || undefined,
         });
@@ -913,6 +925,46 @@ export default function AdminCreateOrderPage() {
               </span>
             </span>
           </label>
+
+          {ownOrder ? (
+            <>
+              <div className="flex gap-2 text-xs">
+                {[
+                  { value: false, label: 'Стандарт' },
+                  { value: true, label: 'Экспресс' },
+                ].map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => setExpress(option.value)}
+                    className={[
+                      'flex-1 rounded-xl border px-3 py-2 font-semibold transition',
+                      express === option.value
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/15 text-white'
+                        : 'border-white/10 bg-white/5 text-white/60',
+                    ].join(' ')}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <label className="flex items-start gap-2 text-xs text-white/80">
+                <input
+                  type="checkbox"
+                  checked={ownerPaysDelivery}
+                  onChange={(e) => setOwnerPaysDelivery(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+                />
+                <span>
+                  Доставку оплачу сам
+                  <span className="block text-white/50">
+                    Клиенту не придёт ссылка на оплату доставки: сервер оплатит её с баланса RAKETA, сначала
+                    спишутся бонусы (кэшбэк).
+                  </span>
+                </span>
+              </label>
+            </>
+          ) : null}
 
           {hasClient ? (
             <label className="flex items-start gap-2 text-xs text-white/80">

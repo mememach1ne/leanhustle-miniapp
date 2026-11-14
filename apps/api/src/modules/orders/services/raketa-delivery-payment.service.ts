@@ -400,6 +400,12 @@ export class RaketaDeliveryPaymentService {
       });
     }
 
+    // «Доставку оплачу сам»: no link to the client — pay from the RAKETA balance (bonuses go first).
+    if (order.ownerPaysDelivery) {
+      await this.payByOwner(order, target, total, lines);
+      return;
+    }
+
     if (!order.userId) {
       if (isNew) {
         await this.notifyOwner(
@@ -420,6 +426,55 @@ export class RaketaDeliveryPaymentService {
       if (!(await this.guard.ensureConsistent(order.id, 'отправка цены доставки клиенту'))) return;
       await this.requestClientPayment(order, lines);
     }
+  }
+
+  /**
+   * The owner pays the delivery himself (RAKETA cashback bonuses, then the main
+   * balance): mark it paid and pay RAKETA now. If the balance is short,
+   * payRaketa tells the owner and the cycle retries every 10 minutes.
+   */
+  private async payByOwner(
+    order: CycleOrder,
+    target: { kind: 'consolidation' | 'order'; id: string },
+    total: number,
+    lines: RaketaPriceLineView[],
+  ): Promise<void> {
+    if (!(await this.guard.ensureConsistent(order.id, 'оплата доставки владельцем'))) return;
+    const now = new Date();
+    const duty = Math.ceil(lines.filter((l) => l.id === RAKETA_DUTY_LINE_ID).reduce((sum, l) => sum + l.amountRub, 0));
+    const waiting = ASK_DELIVERY_STATUSES.includes(order.status) || order.status === OrderStatus.DELIVERY_PAYMENT_PENDING;
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          raketaPriceTotal: new Prisma.Decimal(total),
+          deliveryPaidAt: now,
+          actualDeliveryRub: new Prisma.Decimal(Math.ceil(total) - duty),
+          actualDeliverySetAt: now,
+          ...(duty > 0 ? { actualDutyRub: new Prisma.Decimal(duty), actualDutySetAt: now, dutyPaidAt: now } : {}),
+          ...(waiting ? { status: OrderStatus.DELIVERY_PAID, purchasedAt: order.purchasedAt ?? now } : {}),
+        },
+      });
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          fromStatus: order.status,
+          toStatus: waiting ? OrderStatus.DELIVERY_PAID : order.status,
+          comment: `RAKETA: доставку ${rub(total)} оплачивает владелец с баланса RAKETA (сначала бонусы), клиенту ссылка не отправлялась.`,
+        },
+      });
+    });
+    await this.notifyOwner(
+      [
+        `RAKETA: оплачиваю доставку по заказу ${order.orderNumber} с баланса — ${rub(total)} (сначала спишутся бонусы).`,
+        ...lines.map((line) => `${line.name}: ${rub(line.amountRub)}`),
+      ].join('\n'),
+      order.id,
+    );
+    await this.payRaketa(
+      { ...order, deliveryPaidAt: now, raketaPriceTotal: new Prisma.Decimal(total), status: waiting ? OrderStatus.DELIVERY_PAID : order.status },
+      target,
+    );
   }
 
   private paymentTarget(order: CycleOrder): { kind: 'consolidation' | 'order'; id: string } | null {

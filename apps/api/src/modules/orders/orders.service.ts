@@ -528,7 +528,10 @@ export class OrdersService {
       kind: picked?.kind,
       courierIndex: picked?.courier?.index,
     });
-    const pointColumns = pointDeliveryColumns(picked);
+    const pointColumns = pointDeliveryColumns(picked, dto.delivery?.tariff ?? null);
+    if (pointColumns.deliveryTariff === 'EXPR' && !pointOptions.some((o) => o.carrier === pointColumns.deliveryCarrier && o.tariff === 'EXPR')) {
+      throw new BadRequestException('Экспресс для этого пункта недоступен (или не быстрее Стандарта) — выберите Стандарт.');
+    }
     const regional = {
       adjust:
         (pointOptions.find(
@@ -650,6 +653,7 @@ export class OrdersService {
             ...(dto.alreadyPaid ? { paidVia: PaymentSource.MANUAL, paidAt: new Date() } : {}),
             insurance: Boolean(dto.insurance),
             insuranceRub,
+            ownerPaysDelivery: Boolean(dto.ownerPaysDelivery),
             raketaTitle: dto.raketaTitle?.trim() || null,
             itemsCount,
             originalTotalUsd: totalUsd,
@@ -670,7 +674,7 @@ export class OrdersService {
             deliveryRegion: pickedPoint?.region ?? existingAddress?.region ?? null,
             deliveryPvzCode: pickedPoint?.pvzCode ?? existingAddress?.pvzCode ?? null,
             deliveryPvzIndex: pickedPoint?.pvzIndex ?? existingAddress?.pvzIndex ?? null,
-            ...pointDeliveryColumns(pickedPoint ?? (existingAddress?.cityId ? existingAddress : null)),
+            ...pointDeliveryColumns(pickedPoint ?? (existingAddress?.cityId ? existingAddress : null), dto.delivery.tariff ?? null),
             customerComment: dto.delivery.comment ?? null,
           },
         });

@@ -1,6 +1,7 @@
 import { DeliveryCategory } from '@lean-poizon/shared';
 import { Type } from 'class-transformer';
 import {
+  IsIn,
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
@@ -114,6 +115,11 @@ export class CreateManualOrderDeliveryDto {
   @ValidateNested()
   @Type(() => PickupPointDto)
   pickupPoint?: PickupPointDto;
+
+  /** Delivery speed: STND (default) or EXPR. */
+  @IsOptional()
+  @IsIn(['STND', 'EXPR'])
+  tariff?: 'STND' | 'EXPR' | null;
 }
 
 export class CreateManualOrderDto {
@@ -126,6 +132,11 @@ export class CreateManualOrderDto {
   @IsOptional()
   @IsBoolean()
   claimByLink?: boolean;
+
+  /** «Доставку оплачу сам»: paid from the RAKETA balance (bonuses first), no link to the client. */
+  @IsOptional()
+  @IsBoolean()
+  ownerPaysDelivery?: boolean;
 
   @IsArray()
   @ArrayMinSize(1)

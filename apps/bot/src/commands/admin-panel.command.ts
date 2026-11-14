@@ -540,7 +540,7 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
           orderAdminService.updateManualOrderDraft(managerId, draft);
           await ctx.answerCbQuery();
           await ctx.reply(orderAdminService.buildManualOrderConfirmText(draft), {
-            reply_markup: orderAdminService.buildManualConfirmKeyboard(),
+            reply_markup: orderAdminService.buildManualConfirmKeyboard(draft),
           });
         } else {
           draft.step = 'delivery_name';
@@ -548,6 +548,20 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
           await ctx.answerCbQuery();
           await ctx.reply(orderAdminService.buildManualDeliveryNamePrompt());
         }
+        return;
+      }
+
+      if (action === 'ownpay') {
+        if (draft.step !== 'confirm') {
+          await ctx.answerCbQuery();
+          return;
+        }
+        draft.ownerPaysDelivery = !draft.ownerPaysDelivery;
+        orderAdminService.updateManualOrderDraft(managerId, draft);
+        await ctx.answerCbQuery(draft.ownerPaysDelivery ? 'Доставку оплатите вы' : 'Доставку оплатит клиент');
+        await ctx.editMessageText(orderAdminService.buildManualOrderConfirmText(draft), {
+          reply_markup: orderAdminService.buildManualConfirmKeyboard(draft),
+        });
         return;
       }
 
@@ -770,7 +784,7 @@ export const registerAdminPanelCommands = (bot: Telegraf<BotContext>) => {
         draft.step = 'confirm';
         orderAdminService.updateManualOrderDraft(managerId, draft);
         await ctx.reply(orderAdminService.buildManualOrderConfirmText(draft), {
-          reply_markup: orderAdminService.buildManualConfirmKeyboard(),
+          reply_markup: orderAdminService.buildManualConfirmKeyboard(draft),
         });
         return;
       }

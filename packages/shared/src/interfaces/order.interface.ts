@@ -240,6 +240,8 @@ export interface CreateManualOrderRequest {
   username?: string;
   /** No client yet — they claim the order via a bot link and pay in the app. */
   claimByLink?: boolean;
+  /** The owner pays the delivery from the RAKETA balance (bonuses first); no link to the client. */
+  ownerPaysDelivery?: boolean;
   items: CreateManualOrderItem[];
   delivery: {
     fullName: string;
@@ -247,6 +249,8 @@ export interface CreateManualOrderRequest {
     phone: string;
     comment?: string | null;
     pickupPoint?: DeliveryPickupPoint | null;
+    /** Delivery speed for the picked point: STND (default) or EXPR. */
+    tariff?: 'STND' | 'EXPR' | null;
   };
   /** Commission % for this order (overrides the default and loyalty). */
   commissionPercent?: number | null;
